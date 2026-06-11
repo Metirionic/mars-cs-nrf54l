@@ -5,10 +5,9 @@ list(APPEND BOARD_ROOT ${CMAKE_CURRENT_LIST_DIR}/..)
 
 include(FetchContent)
 FetchContent_Declare(
-    mars-bluetooth-hci
-    GIT_REPOSITORY https://github.com/Metirionic/mars-bluetooth-hci.git
-    GIT_TAG        mars-bluetooth-hci@0.7.1
-)
+  mars-bluetooth-hci
+  GIT_REPOSITORY https://github.com/Metirionic/mars-bluetooth-hci.git
+  GIT_TAG mars-bluetooth-hci@0.7.1)
 FetchContent_MakeAvailable(mars-bluetooth-hci)
 
 set(MARS_BT_HCI_RUST_DIR ${mars-bluetooth-hci_SOURCE_DIR}/mars-bluetooth-hci)
@@ -22,12 +21,12 @@ project(initiator)
 
 add_subdirectory(${CMAKE_CURRENT_LIST_DIR}/../common cs_common)
 
-target_sources(
-  app PRIVATE src/main.c src/serialize.c
-              ${CMAKE_CURRENT_LIST_DIR}/../common/rust_callbacks.c)
+target_sources(app PRIVATE src/main.c src/serialize.c
+                           ${CMAKE_CURRENT_LIST_DIR}/../common/rust_callbacks.c)
 target_include_directories(app PRIVATE src)
 target_link_libraries(app PRIVATE cs_common)
-target_include_directories(cs_common PUBLIC ${MARS_BT_HCI_RUST_INCLUDE_DIRECTORIES})
+target_include_directories(cs_common
+                           PUBLIC ${MARS_BT_HCI_RUST_INCLUDE_DIRECTORIES})
 
 add_dependencies(app build_mars_bt_hci_rust)
 target_link_libraries(app PRIVATE ${MARS_BT_HCI_RUST_LINK_LIBRARIES})
