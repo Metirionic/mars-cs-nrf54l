@@ -1,0 +1,45 @@
+name: Version bump
+
+on:
+  push:
+    branches: [main]
+
+jobs:
+  version-bump:
+    name: Version bump
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Install cocogitto
+        uses: cocogitto/cocogitto-action@main
+        with:
+          install-only: true
+
+      - name: Configure git
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+
+      - name: Check for version bump
+        id: check
+        run: |
+          if cog bump --auto --dry-run 2>/dev/null; then
+            echo "bump_needed=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "bump_needed=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Semver release
+        if: steps.check.outputs.bump_needed == 'true'
+        run: cog bump --auto
+
+      - name: Push version bump commit and tags
+        if: steps.check.outputs.bump_needed == 'true'
+        run: |
+          git push
+          git push --tags
