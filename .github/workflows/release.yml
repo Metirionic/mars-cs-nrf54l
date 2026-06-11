@@ -1,0 +1,43 @@
+name: Release
+
+on:
+  push:
+    tags: ['nrf54l/cs-samples@*']
+
+jobs:
+  release:
+    name: Build and release firmware
+    runs-on: ubuntu-24.04
+    container:
+      image: ghcr.io/nrfconnect/sdk-nrf-toolchain:v3.3.0
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Rust
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: thumbv8m.main-none-eabihf
+
+      - name: Init west workspace
+        run: |
+          west init -l . --mf west.yml
+          west update -o=--depth=1 -n
+
+      - name: Build all firmware
+        run: |
+          # Initiator presets
+          bash ci/build.sh --target initiator --preset nrf54l15dk_cent_a1_1,ublox_cent_a1_1,ezurio_bl54l15u_cent_a2_4,fanstel_bm15c_cent_a1_1 --release-dir release
+
+          # Reflector presets
+          bash ci/build.sh --target reflector --preset nrf54l15dk_peri_a1_4,ezurio_bl54l15u_peri_a2_4,fanstel_bm15c_peri_a1_4,ublox_peri_a1_4 --release-dir release
+
+      - name: Package firmware
+        run: zip -j cs-ranging-firmware.zip release/*.hex
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: cs-ranging-firmware.zip

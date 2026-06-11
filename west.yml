@@ -1,0 +1,47 @@
+# West manifest for mars-cs-nrf54l
+# Use with: west init -l . --mf west.yml && west update
+manifest:
+  version: "0.13"
+
+  remotes:
+    - name: ncs
+      url-base: https://github.com/nrfconnect
+
+  defaults:
+    remote: ncs
+
+  projects:
+    - name: zephyr
+      repo-path: sdk-zephyr
+      revision: ncs-v3.3.0
+      import:
+        name-allowlist:
+          - hal_nordic
+          - mcuboot
+          - mbedtls
+          - picolibc
+          - segger
+          - zcbor
+          - cmsis_6
+
+    - name: nrf
+      repo-path: sdk-nrf
+      revision: v3.3.0
+
+    - name: mcuboot
+      repo-path: sdk-mcuboot
+      revision: ncs-v3.3.0
+      path: bootloader/mcuboot
+
+    - name: mbedtls
+      repo-path: sdk-mbedtls
+      revision: ncs-v3.3.0
+      path: modules/crypto/mbedtls
+
+    - name: nrfxlib
+      repo-path: sdk-nrfxlib
+      revision: v3.3.0
+      path: nrfxlib
+
+  self:
+    path: mars-cs-nrf54l

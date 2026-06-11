@@ -1,0 +1,22 @@
+{
+	"version": "2.0.0",
+	"tasks": [
+		{
+			"type": "nrf-connect-build",
+			"config": "${workspaceFolder}/initiator/build",
+			"runCmake": false,
+			"clean": false,
+			"problemMatcher": [
+				"$gcc",
+				"$cmake",
+				"$kconfig",
+				"$kconfig_syntax",
+				"$kconfig_syntax_files",
+				"$dts",
+				"$dts_syntax"
+			],
+			"group": "build",
+			"label": "nRF Connect: Build: initiator (active)"
+		}
+	]
+}

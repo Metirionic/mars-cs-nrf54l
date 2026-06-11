@@ -1,0 +1,11 @@
+{
+    "nrf-connect.applications": [
+        "initiator",
+        "reflector",
+    ],
+    "C_Cpp.clang_format_style": "file:${workspaceFolder}/.clang-format",
+    "files.associations": {
+        "*.h": "c",
+        "*.c": "c"
+    }
+}

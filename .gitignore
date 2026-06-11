@@ -1,55 +1,32 @@
-# Prerequisites
-*.d
+# Zephyr build directories
+build_*/
+zephyr/
+modules/
+nrf/
+bootloader/
+nrfxlib/
 
-# Object files
-*.o
-*.ko
-*.obj
-*.elf
+# Rust/Cargo
+target/
 
-# Linker output
-*.ilk
-*.map
-*.exp
-
-# Precompiled Headers
-*.gch
-*.pch
-
-# Libraries
-*.lib
-*.a
-*.la
-*.lo
-
-# Shared objects (inc. Windows DLLs)
-*.dll
-*.so
-*.so.*
-*.dylib
-
-# Executables
-*.exe
-*.out
-*.app
-*.i*86
-*.x86_64
+# Firmware binaries
 *.hex
+!release/*.hex
 
-# Debug files
-*.dSYM/
-*.su
-*.idb
-*.pdb
+# IDE
+.idea/
+# Track shared VSCode config but ignore user-specific settings
+.vscode/*
+!.vscode/settings.json
+!.vscode/tasks.json
+!.vscode/launch.json
 
-# Kernel Module Compile Results
-*.mod*
-*.cmd
-.tmp_versions/
-modules.order
-Module.symvers
-Mkfile.old
-dkms.conf
+# OS
+.DS_Store
 
-# debug information files
-*.dwo
+# Python
+__pycache__/
+*.pyc
+
+# West
+.west/

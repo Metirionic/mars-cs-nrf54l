@@ -1,0 +1,38 @@
+# Configuration for https://github.com/crate-ci/typos
+
+[default]
+extend-ignore-re = [
+    # Hex literals
+    "0x[0-9a-fA-F]+",
+]
+
+[default.extend-identifiers]
+# Bluetooth spec terms
+"HCI" = "HCI"
+"subevent" = "subevent"
+"subevents" = "subevents"
+
+# Nordic / Zephyr terms
+"nrf54l15" = "nrf54l15"
+"nrfxlib" = "nrfxlib"
+"NCS" = "NCS"
+"nordicsemi" = "nordicsemi"
+
+# Protocol terms
+"COBS" = "COBS"
+"cobs" = "cobs"
+
+# Rust crate names
+"serde" = "serde"
+"postcard" = "postcard"
+"safer" = "safer"
+"defmt" = "defmt"
+"heapless" = "heapless"
+
+[default.extend-words]
+# Common abbreviations that are not typos in this context
+"ser" = "ser"
+"de" = "de"
+"Nd" = "Nd"
+"BA" = "BA"
+"OT" = "OT"

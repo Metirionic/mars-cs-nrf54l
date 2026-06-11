@@ -1,0 +1,7 @@
+settings_storage:
+  address: 0x15f000
+  size: 0x6000 # 24k
+  end_address: 0x165000
+  region: flash_primary
+  placement:
+    before: [end]
