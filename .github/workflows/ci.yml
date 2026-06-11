@@ -27,6 +27,9 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      - name: Install dependencies
+        run: apt-get update && apt-get install -y --no-install-recommends curl
+
       - name: Install Rust
         uses: dtolnay/rust-toolchain@stable
         with:
