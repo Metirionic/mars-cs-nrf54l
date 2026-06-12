@@ -2,11 +2,60 @@ name: Release
 
 on:
   push:
-    tags: ["v*"]
+    branches: [main]
 
 jobs:
+  version-bump:
+    name: Version bump
+    runs-on: ubuntu-latest
+    outputs:
+      bump_needed: ${{ steps.check.outputs.bump_needed }}
+      tag: ${{ steps.tag.outputs.tag }}
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Install cocogitto
+        uses: cocogitto/cocogitto-action@main
+        with:
+          install-only: true
+
+      - name: Configure git
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+
+      - name: Check for version bump
+        id: check
+        run: |
+          if cog bump --auto --dry-run 2>/dev/null; then
+            echo "bump_needed=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "bump_needed=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Semver release
+        if: steps.check.outputs.bump_needed == 'true'
+        run: cog bump --auto
+
+      - name: Push version bump commit and tags
+        if: steps.check.outputs.bump_needed == 'true'
+        run: |
+          git push
+          git push --tags
+
+      - name: Get new tag
+        if: steps.check.outputs.bump_needed == 'true'
+        id: tag
+        run: echo "tag=$(git describe --tags --abbrev=0)" >> "$GITHUB_OUTPUT"
+
   build:
     name: Build firmware
+    needs: version-bump
+    if: needs.version-bump.outputs.bump_needed == 'true'
     runs-on: ubuntu-24.04
     container:
       image: ghcr.io/nrfconnect/sdk-nrf-toolchain:v3.3.0
@@ -17,6 +66,8 @@ jobs:
         shell: bash
     steps:
       - uses: actions/checkout@v4
+        with:
+          ref: ${{ needs.version-bump.outputs.tag }}
 
       - name: Fix git safe directory
         run: git config --global --add safe.directory $GITHUB_WORKSPACE
@@ -55,43 +106,24 @@ jobs:
 
   release:
     name: Create GitHub Release
-    needs: build
+    needs: [version-bump, build]
+    if: needs.version-bump.outputs.bump_needed == 'true'
     runs-on: ubuntu-latest
     permissions:
       contents: write
     steps:
       - uses: actions/checkout@v4
+        with:
+          ref: ${{ needs.version-bump.outputs.tag }}
 
       - name: Download firmware artifact
         uses: actions/download-artifact@v4
         with:
           name: cs-ranging-firmware
 
-      - name: Generate release notes
-        id: release-notes
-        run: |
-          VERSION="${GITHUB_REF_NAME#v}"
-
-          CHANGELOG_SECTION=$(sed -n "/^## ${VERSION}(/,/^## /{/^## ${VERSION}(/p; /^## /!p; /^## /q}" CHANGELOG.md | head -n -1)
-
-          if [ -z "$CHANGELOG_SECTION" ]; then
-            CHANGELOG_SECTION=$(sed -n "/^## Unreleased/,/^## /{/^## Unreleased/p; /^## /!p; /^## /q}" CHANGELOG.md | head -n -1)
-          fi
-
-          {
-            echo "body<<EOFDELIMITER"
-            echo "$CHANGELOG_SECTION"
-            echo ""
-            echo "---"
-            echo ""
-            echo "### Build Information"
-            echo ""
-            echo "- **Commit:** \`${{ github.sha }}\`"
-            echo "EOFDELIMITER"
-          } >> "$GITHUB_OUTPUT"
-
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v2
         with:
+          tag_name: ${{ needs.version-bump.outputs.tag }}
           files: cs-ranging-firmware.zip
-          body: ${{ steps.release-notes.outputs.body }}
+          generate_release_notes: true

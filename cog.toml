@@ -2,6 +2,7 @@ from_latest_tag = true
 ignore_merge_commits = true
 ignore_fixup_commits = true
 tag_prefix = "v"
+branch_whitelist = ["main"]
 
 pre_bump_hooks = []
 post_bump_hooks = []
