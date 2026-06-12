@@ -2,7 +2,7 @@ name: Release
 
 on:
   push:
-    tags: ['nrf54l/cs-samples@*']
+    tags: ["nrf54l/cs-samples@*"]
 
 jobs:
   build:
@@ -87,10 +87,6 @@ jobs:
             echo "### Build Information"
             echo ""
             echo "- **Commit:** \`${{ github.sha }}\`"
-            echo "- **NCS version:** v3.3.0"
-            echo "- **Firmware variants:**"
-            echo "  - initiator: nrf54l15dk, ublox, ezurio_bl54l15u, fanstel_bm15c"
-            echo "  - reflector: nrf54l15dk, ublox, ezurio_bl54l15u, fanstel_bm15c"
             echo "EOFDELIMITER"
           } >> "$GITHUB_OUTPUT"
 
