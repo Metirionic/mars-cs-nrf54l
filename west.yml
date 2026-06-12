@@ -11,40 +11,10 @@ manifest:
     remote: ncs
 
   projects:
-    - name: zephyr
-      repo-path: sdk-zephyr
-      revision: ncs-v3.3.0
-      import:
-        name-allowlist:
-          - cmsis
-          - cmsis-dsp
-          - cmsis-nn
-          - cmsis_6
-          - hal_nordic
-          - mcuboot
-          - mbedtls
-          - picolibc
-          - segger
-          - zcbor
-
     - name: nrf
       repo-path: sdk-nrf
       revision: v3.3.0
-
-    - name: mcuboot
-      repo-path: sdk-mcuboot
-      revision: ncs-v3.3.0
-      path: bootloader/mcuboot
-
-    - name: mbedtls
-      repo-path: sdk-mbedtls
-      revision: ncs-v3.3.0
-      path: modules/crypto/mbedtls
-
-    - name: nrfxlib
-      repo-path: sdk-nrfxlib
-      revision: v3.3.0
-      path: nrfxlib
+      import: true
 
   self:
     path: mars-cs-nrf54l
