@@ -2,7 +2,7 @@ name: Release
 
 on:
   push:
-    tags: ["nrf54l/cs-samples@*"]
+    tags: ["v*"]
 
 jobs:
   build:
@@ -70,7 +70,7 @@ jobs:
       - name: Generate release notes
         id: release-notes
         run: |
-          VERSION="${GITHUB_REF_NAME##*@}"
+          VERSION="${GITHUB_REF_NAME#v}"
 
           CHANGELOG_SECTION=$(sed -n "/^## ${VERSION}(/,/^## /{/^## ${VERSION}(/p; /^## /!p; /^## /q}" CHANGELOG.md | head -n -1)
 
