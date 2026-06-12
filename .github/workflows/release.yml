@@ -10,6 +10,8 @@ jobs:
     runs-on: ubuntu-24.04
     container:
       image: ghcr.io/nrfconnect/sdk-nrf-toolchain:v3.3.0
+    env:
+      NCS_DIR: ${{ github.workspace }}
     defaults:
       run:
         shell: bash
