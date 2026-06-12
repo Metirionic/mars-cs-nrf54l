@@ -37,6 +37,27 @@ jobs:
           rm -f /opt/ncs/toolchains/*/usr/lib/x86_64-linux-gnu/libnghttp2.so.14
           apt-get update && apt-get install -y --no-install-recommends curl
 
+      - name: Cache west modules
+        uses: actions/cache@v4
+        with:
+          path: |
+            ../zephyr
+            ../nrf
+            ../bootloader
+            ../modules
+            ../nrfxlib
+            ../test
+            ../tools
+          key: ncs-v3.3.0-${{ hashFiles('west.yml') }}
+
+      - name: Cache Rust toolchain
+        uses: actions/cache@v4
+        with:
+          path: |
+            /root/.cargo
+            /root/.rustup
+          key: rust-stable-thumbv8m.main-none-eabihf
+
       - name: Install Rust
         uses: dtolnay/rust-toolchain@stable
         with:
@@ -44,7 +65,7 @@ jobs:
 
       - name: Init west workspace
         run: |
-          west init -l . --mf west.yml
+          west init -l . --mf west.yml 2>/dev/null || true
           west update -o=--depth=1 -n
 
       - name: Build initiator (nrf54l15dk central A1 1-path)
@@ -72,9 +93,30 @@ jobs:
           rm -f /opt/ncs/toolchains/*/usr/lib/x86_64-linux-gnu/libnghttp2.so.14
           apt-get update && apt-get install -y --no-install-recommends curl
 
+      - name: Cache west modules
+        uses: actions/cache@v4
+        with:
+          path: |
+            ../zephyr
+            ../nrf
+            ../bootloader
+            ../modules
+            ../nrfxlib
+            ../test
+            ../tools
+          key: ncs-v3.3.0-${{ hashFiles('west.yml') }}
+
+      - name: Cache Rust toolchain
+        uses: actions/cache@v4
+        with:
+          path: |
+            /root/.cargo
+            /root/.rustup
+          key: rust-stable-thumbv8m.main-none-eabihf
+
       - name: Init west workspace
         run: |
-          west init -l . --mf west.yml
+          west init -l . --mf west.yml 2>/dev/null || true
           west update -o=--depth=1 -n
 
       - name: Build reflector (nrf54l15dk peripheral A1 4-path)
