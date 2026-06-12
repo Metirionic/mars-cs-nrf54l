@@ -16,6 +16,9 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      - name: Fix git safe directory
+        run: git config --global --add safe.directory $GITHUB_WORKSPACE
+
       - name: Install dependencies
         run: |
           rm -f /opt/ncs/toolchains/*/usr/lib/x86_64-linux-gnu/libnghttp2.so.14
