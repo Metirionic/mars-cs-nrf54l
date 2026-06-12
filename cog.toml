@@ -1,15 +1,10 @@
 from_latest_tag = true
 ignore_merge_commits = true
 ignore_fixup_commits = true
-generate_mono_repository_global_tag = false
-generate_mono_repository_package_tags = true
-monorepo_version_separator = "@"
-branch_whitelist = ["main"]
+tag_prefix = "v"
 
 pre_bump_hooks = []
 post_bump_hooks = []
-pre_package_bump_hooks = []
-post_package_bump_hooks = []
 
 [git_hooks]
 
@@ -21,13 +16,9 @@ test = { omit_from_changelog = true }
 [changelog]
 path = "CHANGELOG.md"
 template = "remote"
-package_template = "package_remote"
 remote = "github.com"
 owner = "Metirionic"
 repository = "mars-cs-nrf54l"
 authors = []
 
 [bump_profiles]
-
-[monorepo.packages]
-"nrf54l/cs-samples" = { path = "." }
