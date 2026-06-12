@@ -125,7 +125,7 @@ int main(void)
 {
     int err;
 
-    LOG_INF("Starting Channel Sounding Initiator Sample");
+    LOG_INF("Starting Channel Sounding Initiator Sample v1.1.0");
 
     err = bt_enable(NULL);
     if (err)

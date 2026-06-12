@@ -67,7 +67,35 @@ jobs:
         with:
           name: cs-ranging-firmware
 
+      - name: Generate release notes
+        id: release-notes
+        run: |
+          VERSION="${GITHUB_REF_NAME##*@}"
+
+          CHANGELOG_SECTION=$(sed -n "/^## ${VERSION}(/,/^## /{/^## ${VERSION}(/p; /^## /!p; /^## /q}" CHANGELOG.md | head -n -1)
+
+          if [ -z "$CHANGELOG_SECTION" ]; then
+            CHANGELOG_SECTION=$(sed -n "/^## Unreleased/,/^## /{/^## Unreleased/p; /^## /!p; /^## /q}" CHANGELOG.md | head -n -1)
+          fi
+
+          {
+            echo "body<<EOFDELIMITER"
+            echo "$CHANGELOG_SECTION"
+            echo ""
+            echo "---"
+            echo ""
+            echo "### Build Information"
+            echo ""
+            echo "- **Commit:** \`${{ github.sha }}\`"
+            echo "- **NCS version:** v3.3.0"
+            echo "- **Firmware variants:**"
+            echo "  - initiator: nrf54l15dk, ublox, ezurio_bl54l15u, fanstel_bm15c"
+            echo "  - reflector: nrf54l15dk, ublox, ezurio_bl54l15u, fanstel_bm15c"
+            echo "EOFDELIMITER"
+          } >> "$GITHUB_OUTPUT"
+
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v2
         with:
           files: cs-ranging-firmware.zip
+          body: ${{ steps.release-notes.outputs.body }}
