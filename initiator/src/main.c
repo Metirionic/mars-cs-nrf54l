@@ -125,7 +125,7 @@ int main(void)
 {
     int err;
 
-    LOG_INF("Starting Channel Sounding Initiator Sample v1.1.0");
+    LOG_INF("Starting Mars Channel Sounding Initiator");
 
     err = bt_enable(NULL);
     if (err)

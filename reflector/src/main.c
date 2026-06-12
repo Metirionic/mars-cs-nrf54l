@@ -244,7 +244,7 @@ int main(void)
 {
     int err;
 
-    LOG_INF("Starting Channel Sounding Reflector Sample");
+    LOG_INF("Starting Mars Channel Sounding Reflector");
 
     dk_leds_init();
 
