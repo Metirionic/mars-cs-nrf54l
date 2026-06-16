@@ -2,6 +2,12 @@
 All notable changes to this project will be documented in this file. See [conventional commits](https://www.conventionalcommits.org/) for commit guidelines.
 
 - - -
+## [v1.2.0](https://github.com/Metirionic/mars-cs-nrf54l/compare/2a6264eadff58389d61d867a25a944a0eacdebc4..v1.2.0) - 2026-06-16
+#### Features
+- use latest mars-common - ([2a6264e](https://github.com/Metirionic/mars-cs-nrf54l/commit/2a6264eadff58389d61d867a25a944a0eacdebc4)) - Adrian Figueroa
+
+- - -
+
 ## [v1.1.0](https://github.com/Metirionic/mars-cs-nrf54l/compare/bf4386bf0ffd99f4231ddc49a124a37bcafbe55d..v1.1.0) - 2026-06-12
 #### Features
 - add automated release notes with changelog and build info - ([bf4386b](https://github.com/Metirionic/mars-cs-nrf54l/commit/bf4386bf0ffd99f4231ddc49a124a37bcafbe55d)) - Adrian Figueroa
