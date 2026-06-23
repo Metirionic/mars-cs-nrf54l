@@ -11,53 +11,106 @@
 #include "antenna.h"
 
 /**
- * @brief Mapping of (num_antennas - 1, paths_per_antenna - 1) to tone antenna configuration.
+ * @brief Mapping of Dev A and Dev B antenna counts to tone antenna configuration.
  *
- * Indexed by [CONFIG_BT_CTLR_SDC_CS_NUM_ANTENNAS - 1]
- *           [CONFIG_BT_CTLR_SDC_CS_MAX_ANTENNA_PATHS / CONFIG_BT_CTLR_SDC_CS_NUM_ANTENNAS - 1].
- * Out-of-range entries are unreachable with valid Kconfig values.
+ * Indexed by [dev_a_antennas - 1][dev_b_antennas - 1].
  */
 static const uint8_t ANTENNA_MAPPING[4][4] = {
     {BT_LE_CS_TONE_ANTENNA_CONFIGURATION_A1_B1,
-     BT_LE_CS_TONE_ANTENNA_CONFIGURATION_A1_B2, BT_LE_CS_TONE_ANTENNA_CONFIGURATION_A1_B2,
-     BT_LE_CS_TONE_ANTENNA_CONFIGURATION_A1_B2},
+     BT_LE_CS_TONE_ANTENNA_CONFIGURATION_A1_B2, BT_LE_CS_TONE_ANTENNA_CONFIGURATION_A1_B3,
+     BT_LE_CS_TONE_ANTENNA_CONFIGURATION_A1_B4},
     {BT_LE_CS_TONE_ANTENNA_CONFIGURATION_A2_B1,
-     BT_LE_CS_TONE_ANTENNA_CONFIGURATION_A2_B2, BT_LE_CS_TONE_ANTENNA_CONFIGURATION_A2_B2,
-     BT_LE_CS_TONE_ANTENNA_CONFIGURATION_A2_B2},
+     BT_LE_CS_TONE_ANTENNA_CONFIGURATION_A2_B2, BT_LE_CS_TONE_ANTENNA_CONFIGURATION_A1_B1,
+     BT_LE_CS_TONE_ANTENNA_CONFIGURATION_A1_B1},
     {BT_LE_CS_TONE_ANTENNA_CONFIGURATION_A3_B1,
-     BT_LE_CS_TONE_ANTENNA_CONFIGURATION_A3_B1, BT_LE_CS_TONE_ANTENNA_CONFIGURATION_A3_B1,
-     BT_LE_CS_TONE_ANTENNA_CONFIGURATION_A3_B1},
+     BT_LE_CS_TONE_ANTENNA_CONFIGURATION_A1_B1, BT_LE_CS_TONE_ANTENNA_CONFIGURATION_A1_B1,
+     BT_LE_CS_TONE_ANTENNA_CONFIGURATION_A1_B1},
     {BT_LE_CS_TONE_ANTENNA_CONFIGURATION_A4_B1,
-     BT_LE_CS_TONE_ANTENNA_CONFIGURATION_A4_B1, BT_LE_CS_TONE_ANTENNA_CONFIGURATION_A4_B1,
-     BT_LE_CS_TONE_ANTENNA_CONFIGURATION_A4_B1}
+     BT_LE_CS_TONE_ANTENNA_CONFIGURATION_A1_B1, BT_LE_CS_TONE_ANTENNA_CONFIGURATION_A1_B1,
+     BT_LE_CS_TONE_ANTENNA_CONFIGURATION_A1_B1},
 };
 
 /**
- * @brief Mapping of (paths_per_antenna - 1) to preferred peer antenna bitmask.
+ * @brief Get the number of antennas expected on the peer device.
  *
- * Indexed by [CONFIG_BT_CTLR_SDC_CS_MAX_ANTENNA_PATHS / CONFIG_BT_CTLR_SDC_CS_NUM_ANTENNAS - 1].
+ * @return Peer antenna count derived from the configured antenna paths.
  */
-static const uint8_t PREFERRED_PEER_ANTENNA_MAPPING[4] = {
-    BT_LE_CS_PROCEDURE_PREFERRED_PEER_ANTENNA_1,
-    BT_LE_CS_PROCEDURE_PREFERRED_PEER_ANTENNA_1 | BT_LE_CS_PROCEDURE_PREFERRED_PEER_ANTENNA_2,
-    BT_LE_CS_PROCEDURE_PREFERRED_PEER_ANTENNA_1 | BT_LE_CS_PROCEDURE_PREFERRED_PEER_ANTENNA_2,
-    BT_LE_CS_PROCEDURE_PREFERRED_PEER_ANTENNA_1 | BT_LE_CS_PROCEDURE_PREFERRED_PEER_ANTENNA_2,
-};
-
-/**
- * @brief Returns the tone antenna configuration index based on Kconfig antenna/path counts.
- */
-uint8_t get_antenna_config(void)
+static uint8_t get_peer_antennas(void)
 {
-    return ANTENNA_MAPPING[CONFIG_BT_CTLR_SDC_CS_NUM_ANTENNAS - 1]
-                          [CONFIG_BT_CTLR_SDC_CS_MAX_ANTENNA_PATHS / CONFIG_BT_CTLR_SDC_CS_NUM_ANTENNAS - 1];
+    return CONFIG_BT_CTLR_SDC_CS_MAX_ANTENNA_PATHS / CONFIG_BT_CTLR_SDC_CS_NUM_ANTENNAS;
 }
 
 /**
- * @brief Returns the preferred peer antenna bitmask based on Kconfig path counts.
+ * @brief Convert an antenna count into a bit mask.
+ *
+ * @param antennas Number of antennas to include in the mask.
+ * @return Bit mask with the lowest @p antennas bits set.
+ */
+static uint8_t get_antenna_mask(uint8_t antennas)
+{
+    return BIT(antennas) - 1;
+}
+
+/**
+ * @brief Look up the tone antenna configuration for Dev A and Dev B counts.
+ *
+ * @param dev_a_antennas Number of antennas on CS device A.
+ * @param dev_b_antennas Number of antennas on CS device B.
+ * @return Bluetooth LE CS tone antenna configuration value.
+ */
+static uint8_t get_antenna_config_from_ab(uint8_t dev_a_antennas, uint8_t dev_b_antennas)
+{
+    return ANTENNA_MAPPING[dev_a_antennas - 1][dev_b_antennas - 1];
+}
+
+/**
+ * @brief Get the initiator tone antenna configuration.
+ *
+ * @return Bluetooth LE CS tone antenna configuration for initiator role.
+ */
+uint8_t get_antenna_config(void)
+{
+    return get_antenna_config_for_role(BT_CONN_LE_CS_ROLE_INITIATOR);
+}
+
+/**
+ * @brief Get the preferred peer antenna mask for initiator role.
+ *
+ * @return Peer antenna bit mask.
  */
 uint8_t get_preferred_peer_antenna(void)
 {
-    return PREFERRED_PEER_ANTENNA_MAPPING[CONFIG_BT_CTLR_SDC_CS_MAX_ANTENNA_PATHS / CONFIG_BT_CTLR_SDC_CS_NUM_ANTENNAS -
-                                          1];
+    return get_preferred_peer_antenna_for_role(BT_CONN_LE_CS_ROLE_INITIATOR);
+}
+
+/**
+ * @brief Get the tone antenna configuration for a CS role.
+ *
+ * @param role Local CS role used to determine Dev A/Dev B ordering.
+ * @return Bluetooth LE CS tone antenna configuration for the role.
+ */
+uint8_t get_antenna_config_for_role(enum bt_conn_le_cs_role role)
+{
+    const uint8_t local_antennas = CONFIG_BT_CTLR_SDC_CS_NUM_ANTENNAS;
+    const uint8_t peer_antennas  = get_peer_antennas();
+
+    if (role == BT_CONN_LE_CS_ROLE_REFLECTOR)
+    {
+        return get_antenna_config_from_ab(peer_antennas, local_antennas);
+    }
+
+    return get_antenna_config_from_ab(local_antennas, peer_antennas);
+}
+
+/**
+ * @brief Get the preferred peer antenna mask for a CS role.
+ *
+ * @param role Local CS role.
+ * @return Peer antenna bit mask.
+ */
+uint8_t get_preferred_peer_antenna_for_role(enum bt_conn_le_cs_role role)
+{
+    ARG_UNUSED(role);
+
+    return get_antenna_mask(get_peer_antennas());
 }

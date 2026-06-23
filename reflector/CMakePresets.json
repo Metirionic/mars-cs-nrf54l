@@ -18,6 +18,42 @@
             }
         },
         {
+            "name": "nrf54l15dk_peri_a2_2",
+            "displayName": "nRF54L15DK: peripheral A2 (2 paths)",
+            "generator": "Ninja",
+            "binaryDir": "${sourceDir}/build_nrf54l15dk_peri_a2_2",
+            "cacheVariables": {
+                "BOARD": "nrf54l15dk/nrf54l15/cpuapp",
+                "EXTRA_CONF_FILE": "../boards/2_path_2_local.conf",
+                "CONF_FILE": "prj.conf",
+                "DTC_OVERLAY_FILE": "../boards/nrf54l15dk_nrf54l15_cpuapp.overlay"
+            }
+        },
+        {
+            "name": "nrf54l15dk_peri_a2_4",
+            "displayName": "nRF54L15DK: peripheral A2 (4 paths)",
+            "generator": "Ninja",
+            "binaryDir": "${sourceDir}/build_nrf54l15dk_peri_a2_4",
+            "cacheVariables": {
+                "BOARD": "nrf54l15dk/nrf54l15/cpuapp",
+                "EXTRA_CONF_FILE": "../boards/4_path_2_local.conf",
+                "CONF_FILE": "prj.conf",
+                "DTC_OVERLAY_FILE": "../boards/nrf54l15dk_nrf54l15_cpuapp.overlay"
+            }
+        },
+        {
+            "name": "nrf54l15dk_peri_a4_4",
+            "displayName": "nRF54L15DK: peripheral A4 (4 paths)",
+            "generator": "Ninja",
+            "binaryDir": "${sourceDir}/build_nrf54l15dk_peri_a4_4",
+            "cacheVariables": {
+                "BOARD": "nrf54l15dk/nrf54l15/cpuapp",
+                "EXTRA_CONF_FILE": "../boards/4_path_4_local.conf",
+                "CONF_FILE": "prj.conf",
+                "DTC_OVERLAY_FILE": "../boards/nrf54l15dk_nrf54l15_cpuapp.overlay"
+            }
+        },
+        {
             "name": "ezurio_bl54l15u_peri_a2_4",
             "displayName": "Ezurio BL54L15u: peripheral A2 (4 paths)",
             "generator": "Ninja",
