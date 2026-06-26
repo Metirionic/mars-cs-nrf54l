@@ -35,7 +35,7 @@ static K_SEM_DEFINE(sem_connected, 0, 1);
 static K_SEM_DEFINE(sem_config, 0, 1);
 
 /** @brief Current BLE connection reference. */
-static struct bt_conn * connection;
+static struct bt_conn * gp_connection;
 
 /** @brief BLE advertising data — flags, device name, and (in RAS mode) Ranging Service UUID. */
 #if IS_ENABLED(CONFIG_MARS_CS_INLINE_PCT)
@@ -62,11 +62,11 @@ static void connected_cb(struct bt_conn * conn, uint8_t err)
     if (err)
     {
         bt_conn_unref(conn);
-        connection = NULL;
+        gp_connection = NULL;
     }
     else
     {
-        connection = bt_conn_ref(conn);
+        gp_connection = bt_conn_ref(conn);
 
         k_sem_give(&sem_connected);
 
@@ -80,7 +80,7 @@ static void disconnected_cb(struct bt_conn * conn, uint8_t reason)
     LOG_INF("Disconnected (reason 0x%02X)", reason);
 
     bt_conn_unref(conn);
-    connection = NULL;
+    gp_connection = NULL;
 
     dk_set_led_off(CON_STATUS_LED);
 
@@ -287,7 +287,7 @@ int main(void)
             .max_tx_power              = BT_HCI_OP_LE_CS_MAX_MAX_TX_POWER,
         };
 
-        err = bt_le_cs_set_default_settings(connection, &default_settings);
+        err = bt_le_cs_set_default_settings(gp_connection, &default_settings);
         if (err)
         {
             LOG_ERR("Failed to configure default CS settings (err %d)", err);
@@ -330,7 +330,7 @@ int main(void)
             .snr_control_reflector         = BT_LE_CS_SNR_CONTROL_NOT_USED,
         };
 
-        err = bt_le_cs_set_procedure_parameters(connection, &procedure_params);
+        err = bt_le_cs_set_procedure_parameters(gp_connection, &procedure_params);
         if (err)
         {
             LOG_ERR("Failed to set procedure parameters (err %d)", err);
