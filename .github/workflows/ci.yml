@@ -20,7 +20,7 @@ jobs:
     name: Build initiator
     runs-on: ubuntu-24.04
     container:
-      image: ghcr.io/nrfconnect/sdk-nrf-toolchain:v3.3.0
+      image: ghcr.io/nrfconnect/sdk-nrf-toolchain:v3.3.1
     env:
       NCS_DIR: ${{ github.workspace }}
     defaults:
@@ -49,13 +49,13 @@ jobs:
 
       - name: Build initiator (nrf54l15dk central A1 1-path)
         run: |
-          bash ci/build.sh --target initiator --preset nrf54l15dk_cent_a1_1
+          bash ci/build.sh --target initiator --preset nrf54l15dk_cent_a1_1,nrf54l15dk_cent_a1_1_ipt
 
   build-reflector:
     name: Build reflector
     runs-on: ubuntu-24.04
     container:
-      image: ghcr.io/nrfconnect/sdk-nrf-toolchain:v3.3.0
+      image: ghcr.io/nrfconnect/sdk-nrf-toolchain:v3.3.1
     env:
       NCS_DIR: ${{ github.workspace }}
     defaults:
@@ -79,4 +79,4 @@ jobs:
 
       - name: Build reflector (nrf54l15dk peripheral A1 4-path)
         run: |
-          bash ci/build.sh --target reflector --preset nrf54l15dk_peri_a1_4
+          bash ci/build.sh --target reflector --preset nrf54l15dk_peri_a1_4,nrf54l15dk_peri_a1_4_ipt
