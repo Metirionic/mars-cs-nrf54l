@@ -20,23 +20,23 @@
 
 LOG_MODULE_DECLARE(app_main, LOG_LEVEL_INF);
 
-static struct bt_conn * connection;
+static struct bt_conn * gp_connection;
 
-static struct k_sem * sem_connected_ptr;
-static struct k_sem * sem_security_ptr;
-static struct k_sem * sem_remote_capabilities_obtained_ptr;
-static struct k_sem * sem_config_created_ptr;
-static struct k_sem * sem_cs_security_enabled_ptr;
+static struct k_sem * gp_sem_connected;
+static struct k_sem * gp_sem_security;
+static struct k_sem * gp_sem_remote_capabilities_obtained;
+static struct k_sem * gp_sem_config_created;
+static struct k_sem * gp_sem_cs_security_enabled;
 
-static bt_le_cs_subevent_data_available_cb subevent_data_cb_ptr;
-static bt_le_cs_config_created_cb          config_created_cb_ptr;
+static bt_le_cs_subevent_data_available_cb gp_subevent_data_cb;
+static bt_le_cs_config_created_cb          gp_config_created_cb;
 
 /**
  * @brief Get the current BLE connection reference.
  */
 struct bt_conn * ble_callbacks_get_connection(void)
 {
-    return connection;
+    return gp_connection;
 }
 
 /**
@@ -54,11 +54,11 @@ void ble_callbacks_register(struct k_sem * p_sem_connected,
                             struct k_sem * p_sem_config_created,
                             struct k_sem * p_sem_cs_security_enabled)
 {
-    sem_connected_ptr                    = p_sem_connected;
-    sem_security_ptr                     = p_sem_security;
-    sem_remote_capabilities_obtained_ptr = p_sem_remote_capabilities_obtained;
-    sem_config_created_ptr               = p_sem_config_created;
-    sem_cs_security_enabled_ptr          = p_sem_cs_security_enabled;
+    p_sem_connected                     = p_sem_connected;
+    p_sem_security                      = p_sem_security;
+    gp_sem_remote_capabilities_obtained = p_sem_remote_capabilities_obtained;
+    gp_sem_config_created               = p_sem_config_created;
+    gp_sem_cs_security_enabled          = p_sem_cs_security_enabled;
 }
 
 /**
@@ -68,7 +68,7 @@ void ble_callbacks_register(struct k_sem * p_sem_connected,
  */
 void ble_callbacks_set_subevent_data_cb(bt_le_cs_subevent_data_available_cb p_cb)
 {
-    subevent_data_cb_ptr = p_cb;
+    gp_subevent_data_cb = p_cb;
 }
 
 /**
@@ -78,7 +78,7 @@ void ble_callbacks_set_subevent_data_cb(bt_le_cs_subevent_data_available_cb p_cb
  */
 void ble_callbacks_set_config_created_cb(bt_le_cs_config_created_cb p_cb)
 {
-    config_created_cb_ptr = p_cb;
+    gp_config_created_cb = p_cb;
 }
 
 /**
@@ -86,9 +86,9 @@ void ble_callbacks_set_config_created_cb(bt_le_cs_config_created_cb p_cb)
  */
 static void subevent_data_available_cb(struct bt_conn * p_conn, struct bt_conn_le_cs_subevent_result * p_result)
 {
-    if (subevent_data_cb_ptr)
+    if (gp_subevent_data_cb)
     {
-        subevent_data_cb_ptr(p_conn, p_result);
+        gp_subevent_data_cb(p_conn, p_result);
     }
 }
 
@@ -103,13 +103,13 @@ static void connected_cb(struct bt_conn * p_conn, uint8_t err)
     if (err)
     {
         bt_conn_unref(p_conn);
-        connection = NULL;
+        gp_connection = NULL;
     }
     else
     {
-        connection = bt_conn_ref(p_conn);
+        gp_connection = bt_conn_ref(p_conn);
 
-        k_sem_give(sem_connected_ptr);
+        k_sem_give(gp_sem_connected);
 
         dk_set_led_on(CON_STATUS_LED);
     }
@@ -121,7 +121,7 @@ static void disconnected_cb(struct bt_conn * p_conn, uint8_t reason)
     LOG_INF("Disconnected (reason 0x%02X)", reason);
 
     bt_conn_unref(p_conn);
-    connection = NULL;
+    gp_connection = NULL;
 
     dk_set_led_off(CON_STATUS_LED);
 
@@ -137,7 +137,7 @@ static void remote_capabilities_cb(struct bt_conn * p_conn, uint8_t status, stru
     if (status == BT_HCI_ERR_SUCCESS)
     {
         LOG_INF("CS capability exchange completed.");
-        k_sem_give(sem_remote_capabilities_obtained_ptr);
+        k_sem_give(gp_sem_remote_capabilities_obtained);
     }
     else
     {
@@ -214,12 +214,12 @@ static void config_create_cb(struct bt_conn * p_conn, uint8_t status, struct bt_
             sys_get_le32(&config->channel_map[2]),
             sys_get_le16(&config->channel_map[0]));
 
-        if (config_created_cb_ptr)
+        if (gp_config_created_cb)
         {
-            config_created_cb_ptr(config);
+            gp_config_created_cb(config);
         }
 
-        k_sem_give(sem_config_created_ptr);
+        k_sem_give(gp_sem_config_created);
     }
     else
     {
@@ -235,7 +235,7 @@ static void security_enable_cb(struct bt_conn * p_conn, uint8_t status)
     if (status == BT_HCI_ERR_SUCCESS)
     {
         LOG_INF("CS security enabled.");
-        k_sem_give(sem_cs_security_enabled_ptr);
+        k_sem_give(gp_sem_cs_security_enabled);
     }
     else
     {
@@ -308,7 +308,7 @@ static void security_changed(struct bt_conn * p_conn, bt_security_t level, enum 
     }
 
     LOG_INF("Security changed: %s level %u", addr, level);
-    k_sem_give(sem_security_ptr);
+    k_sem_give(gp_sem_security);
 }
 
 BT_CONN_CB_DEFINE(conn_cb) = {

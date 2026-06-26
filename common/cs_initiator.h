@@ -8,10 +8,9 @@
  *  @brief Shared Channel Sounding initiator connection and configuration flow
  */
 
-#ifndef CS_INITIATOR_H__
-#define CS_INITIATOR_H__
+#ifndef CS_INITIATOR_H
+#define CS_INITIATOR_H
 
-#include <bluetooth/services/ras.h>
 #include <stdint.h>
 #include <zephyr/bluetooth/conn.h>
 #include <zephyr/bluetooth/cs.h>
@@ -20,6 +19,10 @@
 
 #include "antenna.h"
 
+#if defined(CONFIG_BT_RAS_RREQ) || defined(CONFIG_BT_RAS_RRSP)
+#include <bluetooth/services/ras.h>
+#endif  // defined(CONFIG_BT_RAS_RREQ) || defined(CONFIG_BT_RAS_RRSP)
+
 /** @brief CS configuration identifier used for procedure setup. */
 #define CS_CONFIG_ID 0
 /** @brief Number of Mode-0 calibration steps per CS procedure. */
@@ -27,10 +30,22 @@
 /** @brief Sentinel value indicating no valid procedure counter. */
 #define PROCEDURE_COUNTER_NONE (-1)
 
-/** @brief Memory required for the local step data net buffer. */
+#if defined(CONFIG_BT_RAS_RREQ) || defined(CONFIG_BT_RAS_RRSP)
+/** @brief Memory required for the local step data net buffer (RAS sizing). */
 #define LOCAL_PROCEDURE_MEM                                                     \
     ((BT_RAS_MAX_STEPS_PER_PROCEDURE * sizeof(struct bt_le_cs_subevent_step)) + \
      (BT_RAS_MAX_STEPS_PER_PROCEDURE * BT_RAS_MAX_STEP_DATA_LEN))
+#else  // defined(CONFIG_BT_RAS_RREQ) || defined(CONFIG_BT_RAS_RRSP)
+/* IPT mode: no RAS sizing macros available; size for the worst-case local
+ * procedure (256 steps * (3-byte header + max mode-2 step data)). The local
+ * step buffer holds raw HCI subevent steps, not the RAS ranging-data record.
+ */
+#define MARS_CS_IPT_MAX_STEPS_PER_PROCEDURE 256
+#define MARS_CS_IPT_MAX_STEP_DATA_LEN       80
+#define LOCAL_PROCEDURE_MEM                                                          \
+    ((MARS_CS_IPT_MAX_STEPS_PER_PROCEDURE * sizeof(struct bt_le_cs_subevent_step)) + \
+     (MARS_CS_IPT_MAX_STEPS_PER_PROCEDURE * MARS_CS_IPT_MAX_STEP_DATA_LEN))
+#endif  // defined(CONFIG_BT_RAS_RREQ) || defined(CONFIG_BT_RAS_RRSP)
 
 /**
  * @brief Target-specific CS initiator configuration parameters.
@@ -76,9 +91,21 @@ typedef void (*cs_initiator_ranging_data_ready_cb)(struct bt_conn * p_conn, uint
  */
 typedef void (*cs_initiator_config_created_cb)(struct bt_conn_le_cs_config * p_config);
 
+/**
+ * @brief Callback type for inline-PCT (IPT) procedure completion.
+ *
+ * Invoked when a CS procedure completes in IPT mode and local step data is
+ * ready for serialization/distance estimation. Not used in RAS mode.
+ *
+ * @param p_conn  BLE connection reference.
+ * @param err     0 on success, non-zero if the procedure was aborted/dropped.
+ */
+typedef void (*cs_initiator_inline_result_cb)(struct bt_conn * p_conn, int err);
+
 void                                   cs_initiator_set_ranging_data_cb(cs_initiator_ranging_data_cb cb);
 void                                   cs_initiator_set_ranging_data_ready_cb(cs_initiator_ranging_data_ready_cb cb);
 void                                   cs_initiator_set_config_created_cb(cs_initiator_config_created_cb cb);
+void                                   cs_initiator_set_inline_result_cb(cs_initiator_inline_result_cb cb);
 int                                    cs_initiator_start(const struct cs_initiator_config * p_config);
 struct bt_conn *                       cs_initiator_get_connection(void);
 uint32_t                               cs_initiator_get_ras_feature_bits(void);
@@ -92,4 +119,4 @@ void                                   cs_initiator_give_sem_local_steps(void);
 void                                   cs_initiator_give_sem_data_ready(void);
 void                                   cs_initiator_take_sem_data_ready(void);
 
-#endif /* CS_INITIATOR_H__ */
+#endif  // CS_INITIATOR_H
