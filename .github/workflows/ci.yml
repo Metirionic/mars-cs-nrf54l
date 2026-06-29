@@ -80,3 +80,66 @@ jobs:
       - name: Build reflector (nrf54l15dk peripheral A1 4-path)
         run: |
           bash ci/build.sh --target reflector --preset nrf54l15dk_peri_a1_4
+
+  onboarding-verification:
+    name: Onboarding verification (clean OS, native toolchain)
+    runs-on: ubuntu-24.04
+    container: ubuntu:24.04
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - name: Install minimal pre-checkout packages
+        run: |
+          apt-get update
+          apt-get install -y --no-install-recommends git ca-certificates
+
+      - uses: actions/checkout@v4
+
+      - name: Fix git safe directory
+        run: git config --global --add safe.directory "$GITHUB_WORKSPACE"
+
+      - name: Configure workspace env
+        # Use the $GITHUB_WORKSPACE env var (the in-container path, e.g.
+        # /__w/<repo>/<repo>), NOT the ${{ github.workspace }} expression: in
+        # container jobs the expression resolves to the runner host path which
+        # is not valid inside the container, so NCS_DIR would point nowhere.
+        run: |
+          echo "WS_PARENT=$(dirname "$GITHUB_WORKSPACE")" >> "$GITHUB_ENV"
+          echo "NCS_DIR=$GITHUB_WORKSPACE" >> "$GITHUB_ENV"
+
+      - name: Cache Zephyr SDK (ARM-only, no host tools)
+        uses: actions/cache@v4
+        with:
+          path: ~/zephyr-sdk-*
+          key: zephyr-sdk-arm-no-hosttools-${{ hashFiles('west.yml') }}-${{ runner.os }}
+
+      - name: Cache west workspace
+        uses: actions/cache@v4
+        with:
+          path: |
+            ${{ env.WS_PARENT }}/.west
+            ${{ env.WS_PARENT }}/nrf
+            ${{ env.WS_PARENT }}/zephyr
+            ${{ env.WS_PARENT }}/nrfxlib
+            ${{ env.WS_PARENT }}/modules
+            ${{ env.WS_PARENT }}/bootloader
+            ${{ env.WS_PARENT }}/test
+            ${{ env.WS_PARENT }}/tools
+          key: ncs-ws-v3.3.0-v2-${{ hashFiles('west.yml') }}
+          restore-keys: ncs-ws-v3.3.0-
+
+      - name: Install native toolchain (documented path)
+        run: bash scripts/install-toolchain.sh
+
+      - name: Build reflector (nrf54l15dk peripheral A1 4-path)
+        run: |
+          source "$HOME/.ncs-venv/bin/activate"
+          bash ci/build.sh --target reflector --preset nrf54l15dk_peri_a1_4 --release-dir release
+
+      - name: Upload merged firmware
+        uses: actions/upload-artifact@v4
+        with:
+          name: reflector-onboarding-merged
+          path: release/*.hex
+          if-no-files-found: error

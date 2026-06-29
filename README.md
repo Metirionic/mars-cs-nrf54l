@@ -32,17 +32,38 @@ west init -l . --mf west.yml
 west update -o=--depth=1 -n
 ```
 
+### Native toolchain install
+
+The above assumes the nRF Connect SDK toolchain is already available. To install
+the full native toolchain (host packages, isolated Python venv, west workspace,
+and the Zephyr SDK 0.17.4 ARM-only toolchain) from a clean Ubuntu system, run the
+codifier script — it is idempotent and safe to re-run:
+
+```bash
+bash scripts/install-toolchain.sh             # reflector slice (no Rust)
+bash scripts/install-toolchain.sh --with-rust  # also add the initiator's Rust target
+```
+
+The `onboarding-verification` CI job runs this exact path from a clean
+`ubuntu:24.04` container on every pull request and builds the reflector, so the
+documented native install path cannot silently drift.
+
 Build the initiator:
 
 ```bash
-west build -b nrf54l15dk/nrf54l15/cpuapp initiator --preset nrf54l15dk_cent_a1_1
+NCS_DIR=$(pwd) bash ci/build.sh --target initiator --preset nrf54l15dk_cent_a1_1
 ```
 
 Build the reflector:
 
 ```bash
-west build -b nrf54l15dk/nrf54l15/cpuapp reflector --preset nrf54l15dk_peri_a1_4
+NCS_DIR=$(pwd) bash ci/build.sh --target reflector --preset nrf54l15dk_peri_a1_4
 ```
+
+`NCS_DIR=$(pwd)` points `ci/build.sh` at the west workspace created above (run from the repo
+root). Native-install users: run `source ~/.ncs-venv/bin/activate` first. Users of the
+nrfutil toolchain-manager NCS at `/opt/nordic/ncs/current` may drop the `NCS_DIR=$(pwd)`
+prefix — it is auto-found.
 
 ## Available presets
 
