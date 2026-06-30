@@ -27,8 +27,11 @@ in [.github/workflows/release.yml](../.github/workflows/release.yml). **Do not e
 pre-commit hooks for the same reason.
 
 There is **no** local `commit-msg` hook and **no** `cog check` step in CI, so a
-non-conforming message is not caught until review. Compliance is ultimately enforced
-by `cog bump --auto` succeeding on merge to `main` — a bad subject aborts the release.
+non-conforming message is not caught until review. `cog bump --auto` is **not** a
+backstop here: it silently ignores any subject that fails Conventional Commits
+parsing, so a bad subject alongside a conventional one still releases — only
+`cog check` validates subjects, and that is not in CI. Review is the sole
+enforcement.
 If you already have cocogitto installed you can validate a message locally with
 `cog check`, but cocogitto is **not** a local dev dependency: it runs only in the
 release workflow.
