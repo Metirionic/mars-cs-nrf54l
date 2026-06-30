@@ -2,6 +2,18 @@
 All notable changes to this project will be documented in this file. See [conventional commits](https://www.conventionalcommits.org/) for commit guidelines.
 
 - - -
+## [v1.3.1](https://github.com/Metirionic/mars-cs-nrf54l/compare/ce453f0b47c8111d96f25b8508f1b5d182e65e82..v1.3.1) - 2026-06-30
+#### Bug Fixes
+- add trailing newline to architecture.md - ([ef22678](https://github.com/Metirionic/mars-cs-nrf54l/commit/ef226788540af45b1407fd725ed2d3001edd1f70)) - AttilaRoemer, Claude
+#### Documentation
+- add architecture overview for the firmware - ([bfc2c3b](https://github.com/Metirionic/mars-cs-nrf54l/commit/bfc2c3bb1fc7f35bd888a486aeff94e33ff1d33e)) - AttilaRoemer, Claude
+- fix hardware-reference claims and make it the preset-table source - ([2503dd3](https://github.com/Metirionic/mars-cs-nrf54l/commit/2503dd36071f5a7cfd190e5c5b2604a125f2c8a6)) - AttilaRoemer, Claude
+- add hardware reference for boards, UARTs, and antenna/path presets - ([c04a208](https://github.com/Metirionic/mars-cs-nrf54l/commit/c04a20866f35506ea1f4b5c83f9beb4aea941378)) - AttilaRoemer, Claude
+- dedupe CS-procedure-running note in flash-quickstart - ([1f03061](https://github.com/Metirionic/mars-cs-nrf54l/commit/1f03061383cb151a5fc19df4763e9a0463628d69)) - AttilaRoemer, Claude
+- add flash-quickstart guide for prebuilt-firmware evaluators - ([45863ab](https://github.com/Metirionic/mars-cs-nrf54l/commit/45863abee389a2fbfb18b4745b7ddae94ee25e61)) - AttilaRoemer, Claude
+
+- - -
+
 ## [v1.3.0](https://github.com/Metirionic/mars-cs-nrf54l/compare/2e1113333b93866dd713c0fa62453cdb344cfed3..v1.3.0) - 2026-06-30
 #### Features
 - add install codifier + onboarding-verification CI - ([2e11133](https://github.com/Metirionic/mars-cs-nrf54l/commit/2e1113333b93866dd713c0fa62453cdb344cfed3)) - AttilaRoemer, Claude
