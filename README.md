@@ -89,6 +89,11 @@ west flash
 For the board overlays, UART assignments, and antenna/path preset mapping, see
 [docs/hardware.md](docs/hardware.md).
 
+## Architecture
+
+For the firmware module map, ranging-data flow, and initiator main loop, see
+[docs/architecture.md](docs/architecture.md).
+
 ## License
 
 MIT
