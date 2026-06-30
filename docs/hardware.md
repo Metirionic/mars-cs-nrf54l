@@ -22,15 +22,17 @@ carrier is selected by overlay.
 
 GPIOs use Zephyr devicetree port-pin notation (`&gpio1 9` → `P1.09`, port 1
 pin 9). All antenna-switch `ant-gpios` are `GPIO_ACTIVE_HIGH` and every antenna
-node sets `multiplexing-mode = <1>`. Board names match the `displayName` strings
-in `CMakePresets.json` and the [preset table in the README](../README.md#available-presets).
+node sets `multiplexing-mode = <1>`. Board names follow the `displayName` strings
+in `CMakePresets.json` — except U-Blox, whose `displayName` is just `U-Blox`
+(shown here as `U-Blox NINA-B40`).
 
 ### UART assignments
 
 - `cobs-uart` is the authoritative chosen node for the COBS ranging stream,
   consumed by `initiator/src/serialize.c` via `DEVICE_DT_GET(DT_CHOSEN(cobs_uart))`.
   The console UART also carries shell, mcumgr, bt-mon, and bt-c2h — all five
-  `zephyr,*-uart` chosen nodes point to it.
+  `zephyr,console` / `shell-uart` / `uart-mcumgr` / `bt-mon-uart` / `bt-c2h-uart`
+  chosen nodes point to it.
 - **U-Blox swaps** COBS and console versus the DK: COBS on `uart30`, console on
   `uart20`. Ezurio matches the DK assignment. Don't assume a fixed mapping.
 - **Physical TX/RX pins are not in the overlays** except Fanstel's COBS `uart20`
