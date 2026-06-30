@@ -2,6 +2,12 @@
 All notable changes to this project will be documented in this file. See [conventional commits](https://www.conventionalcommits.org/) for commit guidelines.
 
 - - -
+## [v1.3.0](https://github.com/Metirionic/mars-cs-nrf54l/compare/2e1113333b93866dd713c0fa62453cdb344cfed3..v1.3.0) - 2026-06-30
+#### Features
+- add install codifier + onboarding-verification CI - ([2e11133](https://github.com/Metirionic/mars-cs-nrf54l/commit/2e1113333b93866dd713c0fa62453cdb344cfed3)) - AttilaRoemer, Claude
+
+- - -
+
 ## [v1.2.0](https://github.com/Metirionic/mars-cs-nrf54l/compare/2a6264eadff58389d61d867a25a944a0eacdebc4..v1.2.0) - 2026-06-16
 #### Features
 - use latest mars-common - ([2a6264e](https://github.com/Metirionic/mars-cs-nrf54l/commit/2a6264eadff58389d61d867a25a944a0eacdebc4)) - Adrian Figueroa
