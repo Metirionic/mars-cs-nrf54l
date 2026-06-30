@@ -1,5 +1,6 @@
 # Zephyr build directories
-build*/
+build/
+build_*/
 zephyr/
 modules/
 nrf/
