@@ -96,6 +96,11 @@ To flash a build you produced locally:
 west flash
 ```
 
+## Hardware reference
+
+For the board overlays, UART assignments, and antenna/path preset mapping, see
+[docs/hardware.md](docs/hardware.md).
+
 ## License
 
 MIT

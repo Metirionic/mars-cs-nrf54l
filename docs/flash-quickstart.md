@@ -136,4 +136,6 @@ covered separately; this guide covers capture only.
 - Build from source: see the [README](../README.md).
 - All available presets (including third-party boards): see the
   [preset table](../README.md#available-presets).
+- Hardware reference (boards, UARTs, antenna-switch GPIOs, antenna/path preset
+  mapping): see [docs/hardware.md](hardware.md).
 - A host decoder for the COBS ranging stream is tracked as future work.
