@@ -94,6 +94,11 @@ For the board overlays, UART assignments, and antenna/path preset mapping, see
 For the firmware module map, ranging-data flow, and initiator main loop, see
 [docs/architecture.md](docs/architecture.md).
 
+## Contributing
+
+For the commit convention, pre-commit hooks, and pull-request flow, see
+[docs/contributing.md](docs/contributing.md).
+
 ## License
 
 MIT
