@@ -87,6 +87,11 @@ prefix — it is auto-found.
 
 ## Flashing
 
+Flashing prebuilt firmware (no build step)? See
+[docs/flash-quickstart.md](docs/flash-quickstart.md).
+
+To flash a build you produced locally:
+
 ```bash
 west flash
 ```
