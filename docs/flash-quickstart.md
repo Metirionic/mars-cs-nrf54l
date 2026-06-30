@@ -119,9 +119,8 @@ covered separately; this guide covers capture only.
 - **Serial Port 1 is silent (right port, nothing on it)** — only the
   **initiator** emits the COBS ranging stream; the reflector emits console
   logs (Serial Port 0) but never writes to the COBS UART. If the board you are
-  reading from is the reflector, flash the initiator hex to it. A correctly
-  flashed initiator is also silent on Serial Port 1 until a CS procedure is
-  running — see the last bullet.
+  reading from is the reflector, flash the initiator hex to it. If you are
+  already on the initiator, see *Two boards but no stream* below.
 - **Garbage / wrong bytes** — confirm the baud is 921600, 8N1, and that you
   opened Serial Port 1 (P1.04/P1.05), not Serial Port 0 (P0.00/P0.01, logs).
   If your terminal refuses 921600 or shows only garbage, update the DK's
