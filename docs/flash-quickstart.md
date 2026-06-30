@@ -30,8 +30,7 @@ nRF54L15 DK:
 Preset names follow the form `<board>_<cent|peri>_a<antennas>_<paths>`:
 `cent`/`peri` is the BLE role, `a1` is the antenna count, and the trailing
 number is the antenna-path count. Other presets for third-party boards ship
-in the same archive; see the [preset table in the
-README](../README.md#available-presets).
+in the same archive; see the [preset table](hardware.md#presets).
 
 ## Download the firmware
 
@@ -135,7 +134,7 @@ covered separately; this guide covers capture only.
 
 - Build from source: see the [README](../README.md).
 - All available presets (including third-party boards): see the
-  [preset table](../README.md#available-presets).
+  [preset table](hardware.md#presets).
 - Hardware reference (boards, UARTs, antenna-switch GPIOs, antenna/path preset
   mapping): see [docs/hardware.md](hardware.md).
 - A host decoder for the COBS ranging stream is tracked as future work.

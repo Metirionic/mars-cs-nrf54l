@@ -67,23 +67,11 @@ prefix — it is auto-found.
 
 ## Available presets
 
-### Initiator
-
-| Preset | Board | Antennas | Paths |
-|--------|-------|----------|-------|
-| `nrf54l15dk_cent_a1_1` | nRF54L15DK | 1 | 1 |
-| `ublox_cent_a1_1` | U-Blox NINA-B40 | 1 | 1 |
-| `ezurio_bl54l15u_cent_a2_4` | Ezurio BL54L15u | 2 | 4 |
-| `fanstel_bm15c_cent_a1_1` | Fanstel BM15C | 1 | 1 |
-
-### Reflector
-
-| Preset | Board | Antennas | Paths |
-|--------|-------|----------|-------|
-| `nrf54l15dk_peri_a1_4` | nRF54L15DK | 1 | 4 |
-| `ezurio_bl54l15u_peri_a2_4` | Ezurio BL54L15u | 2 | 4 |
-| `fanstel_bm15c_peri_a1_4` | Fanstel BM15C | 1 | 4 |
-| `ublox_peri_a1_4` | U-Blox NINA-B40 | 1 | 4 |
+The full preset table — preset name, role, board, overlay, conf fragment, and
+antennas/paths — is in [docs/hardware.md](docs/hardware.md#presets). The build
+examples above use `nrf54l15dk_cent_a1_1` (initiator) and
+`nrf54l15dk_peri_a1_4` (reflector) on the nRF54L15DK; see the hardware reference
+for the other boards and antenna/path configurations.
 
 ## Flashing
 
