@@ -2,6 +2,19 @@
 All notable changes to this project will be documented in this file. See [conventional commits](https://www.conventionalcommits.org/) for commit guidelines.
 
 - - -
+## [v1.3.2](https://github.com/Metirionic/mars-cs-nrf54l/compare/fefe36879d1f225f8081031547a9e45d99864539..v1.3.2) - 2026-07-01
+#### Bug Fixes
+- resolve measurement issue on initiator with combination of 1 antenna and 4 paths - ([df43fed](https://github.com/Metirionic/mars-cs-nrf54l/commit/df43fed03a8801c722a71b34e551b32fd72aefe3)) - Yan Wu
+#### Documentation
+- correct cog bump --auto enforcement claim in contributing guide - ([27ac3c5](https://github.com/Metirionic/mars-cs-nrf54l/commit/27ac3c503d01d514aa5415cf559655c044309804)) - AttilaRoemer, Claude
+- add contributing guide for commit and lint tooling - ([fefe368](https://github.com/Metirionic/mars-cs-nrf54l/commit/fefe36879d1f225f8081031547a9e45d99864539)) - AttilaRoemer, Claude
+#### Refactoring
+- add review comment - ([148968c](https://github.com/Metirionic/mars-cs-nrf54l/commit/148968c33b17f5cff2ab9b5eac1ab26ef853e23b)) - Yan Wu
+- add review comment - ([c6ed608](https://github.com/Metirionic/mars-cs-nrf54l/commit/c6ed608d76020be57f31aef97495e9135ffc5abb)) - Yan Wu
+- fix lint issues - ([74dd304](https://github.com/Metirionic/mars-cs-nrf54l/commit/74dd304a74b9e4367d5ea7d09255a1d88335f05c)) - Yan Wu
+
+- - -
+
 ## [v1.3.1](https://github.com/Metirionic/mars-cs-nrf54l/compare/ce453f0b47c8111d96f25b8508f1b5d182e65e82..v1.3.1) - 2026-06-30
 #### Bug Fixes
 - add trailing newline to architecture.md - ([ef22678](https://github.com/Metirionic/mars-cs-nrf54l/commit/ef226788540af45b1407fd725ed2d3001edd1f70)) - AttilaRoemer, Claude
