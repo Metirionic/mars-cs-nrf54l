@@ -43,24 +43,24 @@ static uint8_t antenna_get_peer_count(void)
 /**
  * @brief Convert an antenna count into a bit mask.
  *
- * @param antennas Number of antennas to include in the mask.
+ * @param antenna_count Number of antennas to include in the mask.
  * @return Bit mask with the lowest @p antennas bits set.
  */
-static uint8_t antenna_get_mask(uint8_t antennas)
+static uint8_t antenna_get_mask(size_t antenna_count)
 {
-    return BIT(antennas) - 1;
+    return BIT(antenna_count) - 1;
 }
 
 /**
  * @brief Look up the tone antenna configuration for Dev A and Dev B counts.
  *
- * @param dev_a_antennas Number of antennas on CS device A.
- * @param dev_b_antennas Number of antennas on CS device B.
+ * @param antenna_count_a Number of antennas on CS device A.
+ * @param antenna_count_b Number of antennas on CS device B.
  * @return Bluetooth LE CS tone antenna configuration value.
  */
-static uint8_t antenna_get_config_from_ab(uint8_t dev_a_antennas, uint8_t dev_b_antennas)
+static uint8_t antenna_get_config_from_ab(size_t antenna_count_a, size_t antenna_count_b)
 {
-    return ANTENNA_MAPPING[dev_a_antennas - 1][dev_b_antennas - 1];
+    return ANTENNA_MAPPING[antenna_count_a - 1][antenna_count_b - 1];
 }
 
 /**
