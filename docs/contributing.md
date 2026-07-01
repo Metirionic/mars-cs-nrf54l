@@ -99,6 +99,16 @@ all four must be green:
   the initiator (the latter exercising the Rust COBS-serializer bridge), guarding the
   documented native install path for both firmware variants.
 
+A fifth check — `Docs`
+([.github/workflows/docs.yml](../.github/workflows/docs.yml)) — also gates every
+`pull_request` and every push to `main`. It validates the internal Markdown
+links between the [README](../README.md) and the guides in `docs/` (this one
+included), so a renamed or moved guide is caught before a user hits a dead
+link, and it confirms the release-artifact name in
+[docs/flash-quickstart.md](flash-quickstart.md) matches the archive
+[release.yml](../.github/workflows/release.yml) produces. Run it locally with
+`bash scripts/check-docs.sh`.
+
 There is no `.github/pull_request_template.md`, no `CODEOWNERS`, and no in-repo
 branch-protection hint — a PR is simply a branch opened against `main` with all four
 jobs green. To avoid a red `lint` job, run `pre-commit run --all-files` before pushing;

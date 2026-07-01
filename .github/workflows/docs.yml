@@ -1,0 +1,20 @@
+name: Docs
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+jobs:
+  check-docs:
+    name: Docs link & reference check
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Check internal doc links and release-artifact name
+        # Validates every internal [text](href) link in README.md and docs/*.md
+        # resolves to a tracked file (and a real heading when an #anchor is
+        # present), and that the release-artifact name in flash-quickstart.md
+        # matches the archive produced/published by release.yml.
+        # Run locally with `bash scripts/check-docs.sh`.
+        run: bash scripts/check-docs.sh
