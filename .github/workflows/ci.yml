@@ -137,6 +137,16 @@ jobs:
           source "$HOME/.ncs-venv/bin/activate"
           bash ci/build.sh --target reflector --preset nrf54l15dk_peri_a1_4 --release-dir release
 
+      - name: Upload reflector merged firmware
+        # Upload each target's artifact immediately after its build, so a
+        # failure in the other build (e.g. the initiator's cargo path) cannot
+        # drop an artifact that was built successfully.
+        uses: actions/upload-artifact@v4
+        with:
+          name: reflector-onboarding-merged
+          path: release/reflector_*.hex
+          if-no-files-found: error
+
       - name: Build initiator (nrf54l15dk central A1 1-path)
         # The install script provisions rustup into ~/.cargo, but its
         # `source ~/.cargo/env` does not persist to this step (Actions runs
@@ -146,13 +156,6 @@ jobs:
           source "$HOME/.ncs-venv/bin/activate"
           source "$HOME/.cargo/env"
           bash ci/build.sh --target initiator --preset nrf54l15dk_cent_a1_1 --release-dir release
-
-      - name: Upload reflector merged firmware
-        uses: actions/upload-artifact@v4
-        with:
-          name: reflector-onboarding-merged
-          path: release/reflector_*.hex
-          if-no-files-found: error
 
       - name: Upload initiator merged firmware
         uses: actions/upload-artifact@v4
