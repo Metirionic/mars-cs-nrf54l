@@ -2,6 +2,12 @@
 All notable changes to this project will be documented in this file. See [conventional commits](https://www.conventionalcommits.org/) for commit guidelines.
 
 - - -
+## [v1.3.3](https://github.com/Metirionic/mars-cs-nrf54l/releases/tag/v1.3.3) - 2026-07-01
+#### Bug Fixes
+- use custom cocogitto changelog template to avoid duplicated commit SHAs in version headers - ([651e09d](https://github.com/Metirionic/mars-cs-nrf54l/commit/651e09d6b07441675c5db06ee66dde2b13b9ed8b)) - test, Claude
+
+- - -
+
 ## [v1.3.2](https://github.com/Metirionic/mars-cs-nrf54l/releases/tag/v1.3.2) - 2026-07-01
 #### Bug Fixes
 - resolve measurement issue on initiator with combination of 1 antenna and 4 paths - ([df43fed](https://github.com/Metirionic/mars-cs-nrf54l/commit/df43fed03a8801c722a71b34e551b32fd72aefe3)) - Yan Wu
