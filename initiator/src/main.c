@@ -198,19 +198,7 @@ int main(void)
     cs_initiator_set_config_created_cb(config_create_hook);
 
     const struct cs_initiator_config config = {
-#if IS_ENABLED(CONFIG_MARS_CS_INLINE_PCT)
-        /* IPT: 7.5 ms conn interval, fast procedure cadence (matches the
-         * Nordic ipt_initiator sample: procedure_interval=2, subevent=11000).
-         */
-        .cs_sync_phy            = BT_CONN_LE_CS_SYNC_1M_PHY,
-        .procedure_phy          = BT_LE_CS_PROCEDURE_PHY_2M,
-        .min_procedure_interval = 2,
-        .max_procedure_interval = 2,
-        .min_subevent_len       = 11000,
-        .max_subevent_len       = 11000,
-        .max_procedure_len      = 250,
-#else
-        /* RAS: 20 ms conn interval, slower cadence (matches the Nordic
+        /* 20 ms conn interval, slower cadence (matches the Nordic
          * ras_initiator sample: procedure_interval=10, subevent=16000,
          * max_procedure_len = acl_interval_units * (interval - 1) = 0x10 * 9 = 144).
          */
@@ -221,7 +209,6 @@ int main(void)
         .min_subevent_len       = 16000,
         .max_subevent_len       = 16000,
         .max_procedure_len      = 144,
-#endif
     };
 
     err = cs_initiator_start(&config);

@@ -73,18 +73,7 @@ int scan_init(void)
 {
     int err;
 
-    /* IPT uses the 7.5 ms minimum connection interval (matches the Nordic
-     * ipt_initiator sample, BT_LE_CONN_PARAM(12, 12, ...)). RAS keeps the
-     * 20 ms interval (BT_LE_CONN_PARAM(0x10, 0x10, ...)) used by the Nordic
-     * ras_initiator sample, since a faster cadence can alter GATT
-     * notification timing for RAS feature-reads/ranging-data on reflectors
-     * that reject the minimum interval.
-     */
-#if IS_ENABLED(CONFIG_MARS_CS_INLINE_PCT)
-    const struct bt_le_conn_param conn_param = BT_LE_CONN_PARAM_INIT(0x06, 0x06, 0, BT_GAP_MS_TO_CONN_TIMEOUT(4000));
-#else
     const struct bt_le_conn_param conn_param = BT_LE_CONN_PARAM_INIT(0x10, 0x10, 0, BT_GAP_MS_TO_CONN_TIMEOUT(4000));
-#endif
 
     struct bt_scan_init_param param = {.scan_param = NULL, .conn_param = &conn_param, .connect_if_match = 1};
 
