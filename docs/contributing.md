@@ -101,7 +101,7 @@ all four must be green:
 
 A fifth check — `Docs`
 ([.github/workflows/docs.yml](../.github/workflows/docs.yml)) — also gates every
-`pull_request` and every push to `main`. It validates the internal Markdown
+`pull_request` and every push to `main`. It validates the internal inline
 links between the [README](../README.md) and the guides in `docs/` (this one
 included), so a renamed or moved guide is caught before a user hits a dead
 link, and it confirms the release-artifact name in
@@ -110,8 +110,8 @@ link, and it confirms the release-artifact name in
 `bash scripts/check-docs.sh`.
 
 There is no `.github/pull_request_template.md`, no `CODEOWNERS`, and no in-repo
-branch-protection hint — a PR is simply a branch opened against `main` with all four
-jobs green. To avoid a red `lint` job, run `pre-commit run --all-files` before pushing;
+branch-protection hint — a PR is simply a branch opened against `main` with all five
+checks green. To avoid a red `lint` job, run `pre-commit run --all-files` before pushing;
 to pre-empt the build jobs, reproduce them locally with the two `ci/build.sh` commands
 above (see [docs/build-from-source.md](build-from-source.md) for toolchain setup).
 
