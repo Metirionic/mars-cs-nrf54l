@@ -44,9 +44,10 @@ bash scripts/install-toolchain.sh             # reflector slice (no Rust)
 bash scripts/install-toolchain.sh --with-rust  # also add the initiator's Rust target
 ```
 
-The `onboarding-verification` CI job runs this exact path from a clean
-`ubuntu:24.04` container on every pull request and builds the reflector, so the
-documented native install path cannot silently drift.
+The `onboarding-verification` CI job runs this exact path (with `--with-rust`)
+from a clean `ubuntu:24.04` container on every pull request and builds **both**
+the reflector and the initiator, so the documented native install path —
+including the initiator's Rust COBS-serializer build — cannot silently drift.
 
 Build the initiator:
 
