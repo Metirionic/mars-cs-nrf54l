@@ -31,20 +31,31 @@ jobs:
       - name: Check for version bump
         id: check
         run: |
-          if ! output="$(cog bump --auto --dry-run 2>&1)"; then
+          # `cog bump --auto --dry-run` exits 0 for BOTH the no-bump and the
+          # bump cases, so the exit code is uninformative. The bump path
+          # prints a bare semver tag to stdout (documented and test-asserted
+          # upstream); the no-bump path prints prose. Gate on the tag shape,
+          # scanned on stdout only, so neither a future reword of the no-bump
+          # prose nor any stderr noise can move the gate.
+          cog_err="$(mktemp)"
+          if ! cog_out="$(cog bump --auto --dry-run 2>"$cog_err")"; then
             echo "::group::cog bump --auto --dry-run output (failed)"
-            printf '%s\n' "$output"
+            printf '%s\n' "$cog_out"
+            cat "$cog_err"
             echo "::endgroup::"
             echo "::error::cog bump --auto --dry-run failed - see output above"
+            rm -f "$cog_err"
             exit 1
           fi
           echo "::group::cog bump --auto --dry-run output"
-          printf '%s\n' "$output"
+          printf '%s\n' "$cog_out"
+          cat "$cog_err"
           echo "::endgroup::"
-          if printf '%s' "$output" | grep -q "No conventional commits"; then
-            echo "bump_needed=false" >> "$GITHUB_OUTPUT"
-          else
+          rm -f "$cog_err"
+          if printf '%s' "$cog_out" | grep -Eq '^v?[0-9]+\.[0-9]+\.[0-9]+'; then
             echo "bump_needed=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "bump_needed=false" >> "$GITHUB_OUTPUT"
           fi
 
       - name: Semver release
