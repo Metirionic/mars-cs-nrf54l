@@ -350,7 +350,7 @@ counts themselves come from the `boards/*_local.conf` fragments and feed
 
 ## References
 
-- [README](../README.md) — build flow and the preset-table link.
+- [README](../README.md) — project overview, firmware variants, and the flash and build entry points.
 - [docs/hardware.md](hardware.md) — boards, UARTs, and antenna/path presets.
 - [docs/flash-quickstart.md](flash-quickstart.md) — flashing prebuilt firmware.
 - [Bluetooth Channel Sounding — technology overview](https://www.bluetooth.com/channel-sounding-tech-overview/)

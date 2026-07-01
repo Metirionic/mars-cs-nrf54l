@@ -119,7 +119,7 @@ above (see [docs/build-from-source.md](build-from-source.md) for toolchain setup
 
 ## References
 
-- [README](../README.md) — build flow and firmware variants.
+- [README](../README.md) — project overview, firmware variants, and the flash and build entry points.
 - [docs/architecture.md](architecture.md) — firmware module map and ranging-data flow.
 - [Conventional Commits](https://www.conventionalcommits.org/) — the commit message
   format.

@@ -181,6 +181,17 @@ clean `ubuntu:24.04` container), the Docker path by the `build-initiator` /
 `build-reflector` and `release` jobs. The Docker image is the secondary path;
 for day-to-day work and `west flash`, prefer the native install above.
 
+## Flash your build
+
+Once a build completes, flash it to a board over the onboard J-Link:
+
+```bash
+west flash
+```
+
+For flashing **prebuilt** firmware with no build step, see
+[docs/flash-quickstart.md](flash-quickstart.md).
+
 ## Out of scope
 
 - A generated documentation site (Sphinx/MkDocs) — docs stay plain Markdown.

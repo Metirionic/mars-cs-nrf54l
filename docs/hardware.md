@@ -114,7 +114,7 @@ parses `CMakePresets.json`, splits `EXTRA_CONF_FILE` on `;`, and resolves each
 part relative to the app directory; `ci/build.sh` passes them to
 `west build -b <BOARD>` as `-DDTC_OVERLAY_FILE`, `-DEXTRA_CONF_FILE`, and
 `-DCONF_FILE`. `BOARD` is always `nrf54l15dk/nrf54l15/cpuapp`; the overlay
-selects the carrier. See the [README](../README.md) for the full build flow.
+selects the carrier. See [docs/build-from-source.md](build-from-source.md) for the full build flow.
 
 ### Tone-antenna configuration (supplementary)
 
@@ -140,7 +140,7 @@ _Supplementary — from `common/antenna.c`, not from presets/fragments._
 
 ## References
 
-- [README](../README.md) — build instructions and the preset table.
+- [README](../README.md) — project overview, firmware variants, and the flash and build entry points.
 - [docs/flash-quickstart.md](flash-quickstart.md) — flashing prebuilt firmware;
   nRF54L15DK physical UART pins.
 - [mars-bluetooth-hci](https://github.com/Metirionic/mars-bluetooth-hci) — COBS
