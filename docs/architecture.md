@@ -2,9 +2,10 @@
 
 This is a code-derived contributor overview of the mars-cs-nrf54l firmware —
 the module layout, the ranging-data flow, the initiator main loop, and the
-configuration layer. To build, see the [README](../README.md); to flash prebuilt
-firmware, see [docs/flash-quickstart.md](flash-quickstart.md); for board
-overlays, UARTs, and antenna/path presets, see [docs/hardware.md](hardware.md).
+configuration layer. To build, see
+[docs/build-from-source.md](build-from-source.md); to flash prebuilt firmware,
+see [docs/flash-quickstart.md](flash-quickstart.md); for board overlays, UARTs,
+and antenna/path presets, see [docs/hardware.md](hardware.md).
 
 This document describes how the firmware is built and how ranging data moves
 through it. It does **not** introduce Channel Sounding technology itself — see

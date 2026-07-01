@@ -1,9 +1,9 @@
 # Contributing
 
 This guide covers the commit convention, the local pre-commit hooks, and the
-pull-request flow for this firmware. To build, see the
-[README](../README.md); for the firmware module map and ranging-data flow, see
-[docs/architecture.md](architecture.md).
+pull-request flow for this firmware. To build, see
+[docs/build-from-source.md](build-from-source.md); for the firmware module map
+and ranging-data flow, see [docs/architecture.md](architecture.md).
 
 ## Commit convention
 
@@ -103,7 +103,7 @@ There is no `.github/pull_request_template.md`, no `CODEOWNERS`, and no in-repo
 branch-protection hint — a PR is simply a branch opened against `main` with all four
 jobs green. To avoid a red `lint` job, run `pre-commit run --all-files` before pushing;
 to pre-empt the build jobs, reproduce them locally with the two `ci/build.sh` commands
-above (see the [README](../README.md) for toolchain setup).
+above (see [docs/build-from-source.md](build-from-source.md) for toolchain setup).
 
 ## Out of scope
 

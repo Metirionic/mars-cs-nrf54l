@@ -1,8 +1,9 @@
 # Hardware reference
 
 This is a reference for the board overlays and antenna/path presets used by
-this firmware. To build from source, see the [README](../README.md); to flash
-prebuilt firmware, see [docs/flash-quickstart.md](flash-quickstart.md).
+this firmware. To build from source, see
+[docs/build-from-source.md](build-from-source.md); to flash prebuilt firmware,
+see [docs/flash-quickstart.md](flash-quickstart.md).
 
 This document is a reference table only — it does not cover physical antenna
 wiring, RF placement, antenna tuning, the COBS wire format, or the
