@@ -2,6 +2,18 @@
 All notable changes to this project will be documented in this file. See [conventional commits](https://www.conventionalcommits.org/) for commit guidelines.
 
 - - -
+## [v1.3.4](https://github.com/Metirionic/mars-cs-nrf54l/releases/tag/v1.3.4) - 2026-07-01
+#### Bug Fixes
+- gate bump detection on semver tag shape, not cog prose - ([5a20402](https://github.com/Metirionic/mars-cs-nrf54l/commit/5a20402b9093cbdbc2d0df67ded1b4fa1fc88bf0)) - AttilaRoemer, Claude
+- detect no-bump from cog dry-run output, not exit code - ([d48d2ff](https://github.com/Metirionic/mars-cs-nrf54l/commit/d48d2ffa20954185d01a26702aa350991532edca)) - AttilaRoemer, Claude
+#### Documentation
+- point west flash at the preset build dir in build-from-source - ([8f1e23d](https://github.com/Metirionic/mars-cs-nrf54l/commit/8f1e23d22e18cff8ea160bb7fbd0c26a81eb3834)) - AttilaRoemer, Claude
+- scope flash-quickstart out-of-scope bullet to prebuilt flashing - ([547ccdb](https://github.com/Metirionic/mars-cs-nrf54l/commit/547ccdb63ff0b52b3fc180e7bdff15677477447c)) - AttilaRoemer, Claude
+- rework README into landing page with flash/build entry links - ([cc7ee36](https://github.com/Metirionic/mars-cs-nrf54l/commit/cc7ee36f84b245a1ff87cd949e0c125485e2f782)) - AttilaRoemer, Claude
+- add build-from-source guide - ([e05ce5d](https://github.com/Metirionic/mars-cs-nrf54l/commit/e05ce5d1276ac6a445c4a4d6557d6dc685bbe94f)) - AttilaRoemer, Claude
+
+- - -
+
 ## [v1.3.3](https://github.com/Metirionic/mars-cs-nrf54l/releases/tag/v1.3.3) - 2026-07-01
 #### Bug Fixes
 - use custom cocogitto changelog template to avoid duplicated commit SHAs in version headers - ([651e09d](https://github.com/Metirionic/mars-cs-nrf54l/commit/651e09d6b07441675c5db06ee66dde2b13b9ed8b)) - test, Claude
