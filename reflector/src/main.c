@@ -286,8 +286,8 @@ int main(void)
 
         k_sem_take(&sem_config, K_FOREVER);
 
-        const uint8_t ANTENNA_CONFIG         = get_antenna_config();
-        const uint8_t PREFERRED_PEER_ANTENNA = get_preferred_peer_antenna();
+        const uint8_t ANTENNA_CONFIG         = antenna_get_config_for_initiator();
+        const uint8_t PREFERRED_PEER_ANTENNA = antenna_get_mask_for_initiator();
 
         LOG_INF("Local antennas: %d, paths: %d, using config: %d",
                 CONFIG_BT_CTLR_SDC_CS_NUM_ANTENNAS,

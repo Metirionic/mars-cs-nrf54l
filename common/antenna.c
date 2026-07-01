@@ -35,7 +35,7 @@ static const uint8_t ANTENNA_MAPPING[4][4] = {
  *
  * @return Peer antenna count derived from the configured antenna paths.
  */
-static uint8_t get_peer_antennas(void)
+static uint8_t antenna_get_peer_count(void)
 {
     return CONFIG_BT_CTLR_SDC_CS_MAX_ANTENNA_PATHS / CONFIG_BT_CTLR_SDC_CS_NUM_ANTENNAS;
 }
@@ -46,7 +46,7 @@ static uint8_t get_peer_antennas(void)
  * @param antennas Number of antennas to include in the mask.
  * @return Bit mask with the lowest @p antennas bits set.
  */
-static uint8_t get_antenna_mask(uint8_t antennas)
+static uint8_t antenna_get_mask(uint8_t antennas)
 {
     return BIT(antennas) - 1;
 }
@@ -58,7 +58,7 @@ static uint8_t get_antenna_mask(uint8_t antennas)
  * @param dev_b_antennas Number of antennas on CS device B.
  * @return Bluetooth LE CS tone antenna configuration value.
  */
-static uint8_t get_antenna_config_from_ab(uint8_t dev_a_antennas, uint8_t dev_b_antennas)
+static uint8_t antenna_get_config_from_ab(uint8_t dev_a_antennas, uint8_t dev_b_antennas)
 {
     return ANTENNA_MAPPING[dev_a_antennas - 1][dev_b_antennas - 1];
 }
@@ -68,9 +68,9 @@ static uint8_t get_antenna_config_from_ab(uint8_t dev_a_antennas, uint8_t dev_b_
  *
  * @return Bluetooth LE CS tone antenna configuration for initiator role.
  */
-uint8_t get_antenna_config(void)
+uint8_t antenna_get_config_for_initiator(void)
 {
-    return get_antenna_config_for_role(BT_CONN_LE_CS_ROLE_INITIATOR);
+    return antenna_get_config_for_role(BT_CONN_LE_CS_ROLE_INITIATOR);
 }
 
 /**
@@ -78,9 +78,9 @@ uint8_t get_antenna_config(void)
  *
  * @return Peer antenna bit mask.
  */
-uint8_t get_preferred_peer_antenna(void)
+uint8_t antenna_get_mask_for_initiator(void)
 {
-    return get_preferred_peer_antenna_for_role(BT_CONN_LE_CS_ROLE_INITIATOR);
+    return antenna_get_mask_for_role();
 }
 
 /**
@@ -89,28 +89,25 @@ uint8_t get_preferred_peer_antenna(void)
  * @param role Local CS role used to determine Dev A/Dev B ordering.
  * @return Bluetooth LE CS tone antenna configuration for the role.
  */
-uint8_t get_antenna_config_for_role(enum bt_conn_le_cs_role role)
+uint8_t antenna_get_config_for_role(enum bt_conn_le_cs_role role)
 {
-    const uint8_t local_antennas = CONFIG_BT_CTLR_SDC_CS_NUM_ANTENNAS;
-    const uint8_t peer_antennas  = get_peer_antennas();
+    const uint8_t local_antenna_count = CONFIG_BT_CTLR_SDC_CS_NUM_ANTENNAS;
+    const uint8_t peer_antennas       = antenna_get_peer_count();
 
     if (role == BT_CONN_LE_CS_ROLE_REFLECTOR)
     {
-        return get_antenna_config_from_ab(peer_antennas, local_antennas);
+        return antenna_get_config_from_ab(peer_antennas, local_antenna_count);
     }
 
-    return get_antenna_config_from_ab(local_antennas, peer_antennas);
+    return antenna_get_config_from_ab(local_antenna_count, peer_antennas);
 }
 
 /**
  * @brief Get the preferred peer antenna mask for a CS role.
  *
- * @param role Local CS role.
  * @return Peer antenna bit mask.
  */
-uint8_t get_preferred_peer_antenna_for_role(enum bt_conn_le_cs_role role)
+uint8_t antenna_get_mask_for_role(void)
 {
-    ARG_UNUSED(role);
-
-    return get_antenna_mask(get_peer_antennas());
+    return antenna_get_mask(antenna_get_peer_count());
 }
