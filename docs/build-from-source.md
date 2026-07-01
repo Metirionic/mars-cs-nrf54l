@@ -196,7 +196,7 @@ For flashing **prebuilt** firmware with no build step, see
 
 - A generated documentation site (Sphinx/MkDocs) — docs stay plain Markdown.
 - The `nrfutil toolchain-manager` native path (broken on Python 3.12).
-- Flashing and reading the COBS UART — see
+- Prebuilt flashing and reading the COBS UART — see
   [docs/flash-quickstart.md](flash-quickstart.md).
 - The preset, board, and antenna/path reference — see
   [docs/hardware.md](hardware.md).
