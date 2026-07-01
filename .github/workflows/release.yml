@@ -90,10 +90,10 @@ jobs:
       - name: Build all firmware
         run: |
           # Initiator presets
-          bash ci/build.sh --target initiator --preset nrf54l15dk_cent_a1_1,ublox_cent_a1_1,ezurio_bl54l15u_cent_a2_4,fanstel_bm15c_cent_a1_1,nrf54l15dk_cent_a1_1_ipt,ublox_cent_a1_1_ipt,ezurio_bl54l15u_cent_a2_4_ipt,fanstel_bm15c_cent_a1_1_ipt --release-dir release
+          bash ci/build.sh --target initiator --preset nrf54l15dk_cent_a1_1,nrf54l15tag_cent_a2_4,ublox_cent_a1_1,ezurio_bl54l15u_cent_a2_4,fanstel_bm15c_cent_a1_1,nrf54l15dk_cent_a1_1_ipt,ublox_cent_a1_1_ipt,ezurio_bl54l15u_cent_a2_4_ipt,fanstel_bm15c_cent_a1_1_ipt --release-dir release
 
           # Reflector presets
-          bash ci/build.sh --target reflector --preset nrf54l15dk_peri_a1_4,ezurio_bl54l15u_peri_a2_4,fanstel_bm15c_peri_a1_4,ublox_peri_a1_4,nrf54l15dk_peri_a1_4_ipt,ezurio_bl54l15u_peri_a2_4_ipt,fanstel_bm15c_peri_a1_4_ipt,ublox_peri_a1_4_ipt --release-dir release
+          bash ci/build.sh --target reflector --preset nrf54l15dk_peri_a1_4,nrf54l15tag_peri_a2_4,ezurio_bl54l15u_peri_a2_4,fanstel_bm15c_peri_a1_4,ublox_peri_a1_4,nrf54l15dk_peri_a1_4_ipt,ezurio_bl54l15u_peri_a2_4_ipt,fanstel_bm15c_peri_a1_4_ipt,ublox_peri_a1_4_ipt --release-dir release
 
       - name: Package firmware
         run: zip -j cs-ranging-firmware.zip release/*.hex
