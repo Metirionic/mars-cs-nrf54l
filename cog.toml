@@ -16,7 +16,7 @@ test = { omit_from_changelog = true }
 
 [changelog]
 path = "CHANGELOG.md"
-template = "remote"
+template = "ci/changelog-remote.tera"
 remote = "github.com"
 owner = "Metirionic"
 repository = "mars-cs-nrf54l"

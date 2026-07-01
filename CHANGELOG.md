@@ -2,7 +2,7 @@
 All notable changes to this project will be documented in this file. See [conventional commits](https://www.conventionalcommits.org/) for commit guidelines.
 
 - - -
-## [v1.3.2](https://github.com/Metirionic/mars-cs-nrf54l/compare/fefe36879d1f225f8081031547a9e45d99864539..v1.3.2) - 2026-07-01
+## [v1.3.2](https://github.com/Metirionic/mars-cs-nrf54l/releases/tag/v1.3.2) - 2026-07-01
 #### Bug Fixes
 - resolve measurement issue on initiator with combination of 1 antenna and 4 paths - ([df43fed](https://github.com/Metirionic/mars-cs-nrf54l/commit/df43fed03a8801c722a71b34e551b32fd72aefe3)) - Yan Wu
 #### Documentation
@@ -15,7 +15,7 @@ All notable changes to this project will be documented in this file. See [conven
 
 - - -
 
-## [v1.3.1](https://github.com/Metirionic/mars-cs-nrf54l/compare/ce453f0b47c8111d96f25b8508f1b5d182e65e82..v1.3.1) - 2026-06-30
+## [v1.3.1](https://github.com/Metirionic/mars-cs-nrf54l/releases/tag/v1.3.1) - 2026-06-30
 #### Bug Fixes
 - add trailing newline to architecture.md - ([ef22678](https://github.com/Metirionic/mars-cs-nrf54l/commit/ef226788540af45b1407fd725ed2d3001edd1f70)) - AttilaRoemer, Claude
 #### Documentation
@@ -27,19 +27,19 @@ All notable changes to this project will be documented in this file. See [conven
 
 - - -
 
-## [v1.3.0](https://github.com/Metirionic/mars-cs-nrf54l/compare/2e1113333b93866dd713c0fa62453cdb344cfed3..v1.3.0) - 2026-06-30
+## [v1.3.0](https://github.com/Metirionic/mars-cs-nrf54l/releases/tag/v1.3.0) - 2026-06-30
 #### Features
 - add install codifier + onboarding-verification CI - ([2e11133](https://github.com/Metirionic/mars-cs-nrf54l/commit/2e1113333b93866dd713c0fa62453cdb344cfed3)) - AttilaRoemer, Claude
 
 - - -
 
-## [v1.2.0](https://github.com/Metirionic/mars-cs-nrf54l/compare/2a6264eadff58389d61d867a25a944a0eacdebc4..v1.2.0) - 2026-06-16
+## [v1.2.0](https://github.com/Metirionic/mars-cs-nrf54l/releases/tag/v1.2.0) - 2026-06-16
 #### Features
 - use latest mars-common - ([2a6264e](https://github.com/Metirionic/mars-cs-nrf54l/commit/2a6264eadff58389d61d867a25a944a0eacdebc4)) - Adrian Figueroa
 
 - - -
 
-## [v1.1.0](https://github.com/Metirionic/mars-cs-nrf54l/compare/bf4386bf0ffd99f4231ddc49a124a37bcafbe55d..v1.1.0) - 2026-06-12
+## [v1.1.0](https://github.com/Metirionic/mars-cs-nrf54l/releases/tag/v1.1.0) - 2026-06-12
 #### Features
 - add automated release notes with changelog and build info - ([bf4386b](https://github.com/Metirionic/mars-cs-nrf54l/commit/bf4386bf0ffd99f4231ddc49a124a37bcafbe55d)) - Adrian Figueroa
 #### Bug Fixes
