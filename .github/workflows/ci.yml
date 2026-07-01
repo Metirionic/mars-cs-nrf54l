@@ -130,16 +130,33 @@ jobs:
           restore-keys: ncs-ws-v3.3.0-
 
       - name: Install native toolchain (documented path)
-        run: bash scripts/install-toolchain.sh
+        run: bash scripts/install-toolchain.sh --with-rust
 
       - name: Build reflector (nrf54l15dk peripheral A1 4-path)
         run: |
           source "$HOME/.ncs-venv/bin/activate"
           bash ci/build.sh --target reflector --preset nrf54l15dk_peri_a1_4 --release-dir release
 
-      - name: Upload merged firmware
+      - name: Build initiator (nrf54l15dk central A1 1-path)
+        # The install script provisions rustup into ~/.cargo, but its
+        # `source ~/.cargo/env` does not persist to this step (Actions runs
+        # bash --noprofile --norc), so cargo must be put on PATH here for
+        # CMake -> find_package(mars-bluetooth-hci-rust) -> cargo build.
+        run: |
+          source "$HOME/.ncs-venv/bin/activate"
+          source "$HOME/.cargo/env"
+          bash ci/build.sh --target initiator --preset nrf54l15dk_cent_a1_1 --release-dir release
+
+      - name: Upload reflector merged firmware
         uses: actions/upload-artifact@v4
         with:
           name: reflector-onboarding-merged
-          path: release/*.hex
+          path: release/reflector_*.hex
+          if-no-files-found: error
+
+      - name: Upload initiator merged firmware
+        uses: actions/upload-artifact@v4
+        with:
+          name: initiator-onboarding-merged
+          path: release/initiator_*.hex
           if-no-files-found: error

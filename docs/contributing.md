@@ -95,8 +95,9 @@ all four must be green:
 - `build-reflector` (same container) —
   `ci/build.sh --target reflector --preset nrf54l15dk_peri_a1_4`.
 - `onboarding-verification` (clean `ubuntu:24.04`) — runs
-  `scripts/install-toolchain.sh` then builds the reflector, guarding the documented
-  native install path.
+  `scripts/install-toolchain.sh --with-rust` then builds **both** the reflector and
+  the initiator (the latter exercising the Rust COBS-serializer bridge), guarding the
+  documented native install path for both firmware variants.
 
 There is no `.github/pull_request_template.md`, no `CODEOWNERS`, and no in-repo
 branch-protection hint — a PR is simply a branch opened against `main` with all four

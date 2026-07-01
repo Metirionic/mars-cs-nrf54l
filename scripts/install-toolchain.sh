@@ -196,6 +196,13 @@ install_rust() {
     # shellcheck disable=SC1091
     source "${HOME}/.cargo/env"
   fi
+  # Idempotent fast path: `rustup target add` tolerates an already-added
+  # target, but guarding explicitly matches the script's per-stage idempotency
+  # contract and avoids re-touching the toolchain on every re-run.
+  if rustup target list --installed | grep -qx 'thumbv8m.main-none-eabihf'; then
+    log "Rust target thumbv8m.main-none-eabihf already installed, skipping"
+    return 0
+  fi
   rustup target add thumbv8m.main-none-eabihf
 }
 
