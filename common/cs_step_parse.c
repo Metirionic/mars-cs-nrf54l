@@ -108,7 +108,7 @@ static void pct_to_float(const uint8_t pct[3], float * p_i_value, float * p_q_va
  * @return true if iteration should continue, false if the step array is full
  *         (step_index >= 160) and the caller should stop walking steps.
  */
-static bool fill_mode2_step(struct cs_step_parse_context *   ctx,
+static bool fill_mode2_step(struct cs_step_parse_context *  ctx,
                             struct bt_le_cs_subevent_step * p_local_step,
                             struct bt_le_cs_subevent_step * p_peer_step)
 {
@@ -129,16 +129,15 @@ static bool fill_mode2_step(struct cs_step_parse_context *   ctx,
         return true;
     }
 
-    struct bt_hci_le_cs_step_data_mode_2 * local_step_data =
-        (struct bt_hci_le_cs_step_data_mode_2 *)p_local_step->data;
+    struct bt_hci_le_cs_step_data_mode_2 * local_step_data = (struct bt_hci_le_cs_step_data_mode_2 *)p_local_step->data;
     struct bt_hci_le_cs_step_data_mode_2 * peer_step_data =
         (p_peer_step != NULL) ? (struct bt_hci_le_cs_step_data_mode_2 *)p_peer_step->data : NULL;
 
     for (size_t event_index = 0; event_index < 2; event_index++)
     {
-        SubeventResultEvent_t * p_event     = (event_index == 0u) ? ctx->p_local_event : ctx->p_peer_event;
+        SubeventResultEvent_t * p_event      = (event_index == 0u) ? ctx->p_local_event : ctx->p_peer_event;
         const bool              is_initiator = (event_index == 0u);
-        Step_t *                p_step      = &p_event->steps.idx[ctx->step_index];
+        Step_t *                p_step       = &p_event->steps.idx[ctx->step_index];
 
         p_step->mode      = p_local_step->mode;
         p_step->channel   = p_local_step->channel;
@@ -315,7 +314,7 @@ void cs_step_parse_inline(SubeventResultEvent_t * p_local_event,
     uint8_t n_ap = p_local_event->antenna_path_count;
     if (n_ap == 0u)
     {
-        n_ap = inline_n_ap();
+        n_ap                              = inline_n_ap();
         p_local_event->antenna_path_count = n_ap;
         p_peer_event->antenna_path_count  = n_ap;
     }

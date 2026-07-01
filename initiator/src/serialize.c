@@ -184,7 +184,7 @@ void serialize_run(uint64_t                               local_mac,
 #endif
 
     fill_subevent_header(&g_local_event, ORIGIN_INITIATOR, local_mac, peer_mac, p_result, n_ap);
-    fill_subevent_header(&g_peer_event,  ORIGIN_REFLECTOR, peer_mac, local_mac, p_result, n_ap);
+    fill_subevent_header(&g_peer_event, ORIGIN_REFLECTOR, peer_mac, local_mac, p_result, n_ap);
 
 #if IS_ENABLED(CONFIG_MARS_CS_INLINE_PCT)
     cs_step_parse_inline(&g_local_event, &g_peer_event, p_local_steps, role);
