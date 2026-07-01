@@ -137,12 +137,49 @@ jobs:
         with:
           ref: ${{ needs.version-bump.outputs.tag }}
 
+      - name: Check for existing release
+        id: check_release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_REPO: ${{ github.repository }}
+        run: |
+          set -euo pipefail
+          # Issue #36: softprops/action-gh-release@v2 with
+          # generate_release_notes: true APPENDS a freshly generated
+          # "## What's Changed" block to an existing release body instead of
+          # replacing it, so a re-run of this job for an already-released tag
+          # accumulates duplicate blocks. Detect a pre-existing release for
+          # the target tag and gate the creation step on its absence (or on
+          # an empty body, to let a prior empty-body run recover).
+          TAG="${{ needs.version-bump.outputs.tag }}"
+          errfile="$(mktemp)"
+          if body="$(gh release view "$TAG" --json body --jq '.body // empty' 2>"$errfile")"; then
+            if [ -n "$(printf '%s' "$body" | tr -d '[:space:]')" ]; then
+              echo "exists=true" >> "$GITHUB_OUTPUT"
+              echo "Release for $TAG already exists with a non-empty body; skipping creation to avoid duplicate 'What's Changed' blocks."
+            else
+              echo "exists=false" >> "$GITHUB_OUTPUT"
+              echo "Release for $TAG exists but has an empty body; will populate it."
+            fi
+          elif grep -q 'release not found' "$errfile"; then
+            echo "exists=false" >> "$GITHUB_OUTPUT"
+            echo "No release for $TAG yet; will create it."
+          else
+            echo "::error::gh release view failed unexpectedly for $TAG:"
+            cat "$errfile"
+            rm -f "$errfile"
+            exit 1
+          fi
+          rm -f "$errfile"
+
       - name: Download firmware artifact
+        if: steps.check_release.outputs.exists != 'true'
         uses: actions/download-artifact@v4
         with:
           name: cs-ranging-firmware
 
       - name: Create GitHub Release
+        if: steps.check_release.outputs.exists != 'true'
         uses: softprops/action-gh-release@v2
         with:
           tag_name: ${{ needs.version-bump.outputs.tag }}
