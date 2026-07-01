@@ -29,7 +29,7 @@ static struct k_sem * sem_config_created_ptr;
 static struct k_sem * sem_cs_security_enabled_ptr;
 
 static bt_le_cs_subevent_data_available_cb subevent_data_cb_ptr;
-static bt_le_cs_config_created_cb          config_created_cb_ptr;
+static bt_le_cs_config_created_cb          gp_config_created_cb;
 
 /**
  * @brief Get the current BLE connection reference.
@@ -78,7 +78,7 @@ void ble_callbacks_set_subevent_data_cb(bt_le_cs_subevent_data_available_cb p_cb
  */
 void ble_callbacks_set_config_created_cb(bt_le_cs_config_created_cb p_cb)
 {
-    config_created_cb_ptr = p_cb;
+    gp_config_created_cb = p_cb;
 }
 
 /**
@@ -214,9 +214,9 @@ static void config_create_cb(struct bt_conn * p_conn, uint8_t status, struct bt_
             sys_get_le32(&config->channel_map[2]),
             sys_get_le16(&config->channel_map[0]));
 
-        if (config_created_cb_ptr)
+        if (gp_config_created_cb)
         {
-            config_created_cb_ptr(config);
+            gp_config_created_cb(config);
         }
 
         k_sem_give(sem_config_created_ptr);
