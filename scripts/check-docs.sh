@@ -65,7 +65,7 @@ emit_links() {
 # normalize_relpath <path> -> collapse ./ and ../ segments (pure bash, portable
 # fallback for environments whose realpath lacks -m / --relative-to, e.g. macOS).
 normalize_relpath() {
-  local p="$1" part
+  local p="$1" part idx
   local -a parts=() stack=()
   # local IFS scopes the '/' to this function (auto-restored on return): it
   # splits the read into parts and joins ${stack[*]} back with '/'.
@@ -75,11 +75,14 @@ normalize_relpath() {
     case "$part" in
       ''|'.') ;;
       '..')
-        # Pop a real component; but if the stack is empty or the top is itself a
-        # '..' (already above the base), keep the '..' so overflow matches GNU
-        # `realpath -m --relative-to` instead of being silently dropped.
-        if ((${#stack[@]})) && [[ "${stack[$((${#stack[@]}-1))]}" != '..' ]]; then
-          unset "stack[$((${#stack[@]}-1))]"
+        # Pop a real component; otherwise keep/push a '..' so '..' overflow
+        # isn't silently dropped. Matches GNU `realpath -m --relative-to` for
+        # every in-repo path (no symlinked dirs); GNU additionally collapses at
+        # the filesystem root, which no link here reaches. Compute the top index
+        # once so the pop test and the unset can't drift apart.
+        idx=$((${#stack[@]}-1))
+        if ((idx >= 0)) && [[ "${stack[idx]}" != '..' ]]; then
+          unset "stack[idx]"
         else
           stack+=('..')
         fi ;;
