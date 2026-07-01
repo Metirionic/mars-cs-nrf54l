@@ -183,10 +183,13 @@ for day-to-day work and `west flash`, prefer the native install above.
 
 ## Flash your build
 
-Once a build completes, flash it to a board over the onboard J-Link:
+Once a build completes, flash it to a board over the onboard J-Link. Each preset
+builds into its own directory (e.g. `initiator/build_nrf54l15dk_cent_a1_1`), so
+point `west flash` at the build directory you want to flash:
 
 ```bash
-west flash
+west flash -d initiator/build_nrf54l15dk_cent_a1_1      # initiator
+west flash -d reflector/build_nrf54l15dk_peri_a1_4      # reflector
 ```
 
 For flashing **prebuilt** firmware with no build step, see
