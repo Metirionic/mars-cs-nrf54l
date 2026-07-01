@@ -261,9 +261,9 @@ static void subevent_result_cb(struct bt_conn * p_conn, struct bt_conn_le_cs_sub
          * The callback takes ownership of latest_local_steps and is expected
          * to reset the buffer and give sem_local_steps when done.
          */
-        if (inline_result_cb_ptr)
+        if (gp_inline_result_cb)
         {
-            inline_result_cb_ptr(p_conn, 0);
+            gp_inline_result_cb(p_conn, 0);
         }
         else
         {
@@ -279,9 +279,9 @@ static void subevent_result_cb(struct bt_conn * p_conn, struct bt_conn_le_cs_sub
         k_sem_give(&sem_local_steps);
 
 #if IS_ENABLED(CONFIG_MARS_CS_INLINE_PCT)
-        if (inline_result_cb_ptr)
+        if (gp_inline_result_cb)
         {
-            inline_result_cb_ptr(p_conn, -EIO);
+            gp_inline_result_cb(p_conn, -EIO);
         }
 #endif  // IS_ENABLED(CONFIG_MARS_CS_INLINE_PCT)
     }
