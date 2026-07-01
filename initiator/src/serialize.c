@@ -99,6 +99,54 @@ static int serialize_append_event(SubeventResultEvent_t * p_event)
 }
 
 /**
+ * @brief Fill the common SubeventResultEvent header fields shared by both
+ *        events serialized in serialize_run() (RAS and IPT).
+ *
+ * The two events' headers are identical except for origin/MAC placement, which
+ * mirrors the event perspective (initiator vs reflector).
+ *
+ * @param p_event              Output event to populate.
+ * @param origin               ORIGIN_INITIATOR or ORIGIN_REFLECTOR.
+ * @param local_mac            MAC address of the event's "local" side.
+ * @param peer_mac             MAC address of the event's "peer" side.
+ * @param p_result             Local subevent result header.
+ * @param antenna_path_count   Initial antenna path count (RAS path passes 0 and
+ *                             derives it from the ranging header inside
+ *                             cs_step_parse; IPT passes
+ *                             p_result->header.num_antenna_paths so a procedure
+ *                             that negotiates fewer antenna paths than the
+ *                             controller's compile-time max does not cause
+ *                             cs_step_parse_inline to over-read tone_info past
+ *                             the step's real data_len).
+ */
+static void fill_subevent_header(SubeventResultEvent_t *                p_event,
+                                 Origin_t                               origin,
+                                 uint64_t                               local_mac,
+                                 uint64_t                               peer_mac,
+                                 struct bt_conn_le_cs_subevent_result * p_result,
+                                 uint8_t                                antenna_path_count)
+{
+    p_event->origin                                        = origin;
+    p_event->local_mac                                     = local_mac;
+    p_event->peer_mac                                      = peer_mac;
+    p_event->connection_handle                             = 0;
+    p_event->config_id                                     = p_result->header.config_id;
+    p_event->has_config_id                                 = true;
+    p_event->procedure_done_status                         = p_result->header.procedure_done_status;
+    p_event->procedure_abort_reason                        = p_result->header.procedure_abort_reason;
+    p_event->subevent_done_status                          = p_result->header.subevent_done_status;
+    p_event->subevent_abort_reason                         = p_result->header.subevent_abort_reason;
+    p_event->antenna_path_count                            = antenna_path_count;
+    p_event->step_count                                    = 0;
+    p_event->initial_meta.start_acl_conn_event_counter     = p_result->header.start_acl_conn_event;
+    p_event->initial_meta.has_start_acl_conn_event_counter = true;
+    p_event->initial_meta.procedure_counter                = p_result->header.procedure_counter;
+    p_event->initial_meta.frequency_compensation.value     = p_result->header.frequency_compensation;
+    p_event->initial_meta.reference_power_level.value      = p_result->header.reference_power_level;
+    p_event->has_initial_meta                              = true;
+}
+
+/**
  * @brief Serialize local and peer CS subevent data and transmit over UART.
  *
  * Parses both local and peer step data into SubeventResultEvent structures,
@@ -123,45 +171,26 @@ void serialize_run(uint64_t                               local_mac,
 
     LOG_INF("Run serialization for procedure %u", p_result->header.procedure_counter);
 
-    g_local_event.origin                                        = ORIGIN_INITIATOR;
-    g_local_event.local_mac                                     = local_mac;
-    g_local_event.peer_mac                                      = peer_mac;
-    g_local_event.connection_handle                             = 0;
-    g_local_event.config_id                                     = p_result->header.config_id;
-    g_local_event.has_config_id                                 = true;
-    g_local_event.procedure_done_status                         = p_result->header.procedure_done_status;
-    g_local_event.procedure_abort_reason                        = p_result->header.procedure_abort_reason;
-    g_local_event.subevent_done_status                          = p_result->header.subevent_done_status;
-    g_local_event.subevent_abort_reason                         = p_result->header.subevent_abort_reason;
-    g_local_event.antenna_path_count                            = 0;
-    g_local_event.step_count                                    = 0;
-    g_local_event.initial_meta.start_acl_conn_event_counter     = p_result->header.start_acl_conn_event;
-    g_local_event.initial_meta.has_start_acl_conn_event_counter = true;
-    g_local_event.initial_meta.procedure_counter                = p_result->header.procedure_counter;
-    g_local_event.initial_meta.frequency_compensation.value     = p_result->header.frequency_compensation;
-    g_local_event.initial_meta.reference_power_level.value      = p_result->header.reference_power_level;
-    g_local_event.has_initial_meta                              = true;
+#if IS_ENABLED(CONFIG_MARS_CS_INLINE_PCT)
+    /* IPT: antenna path count from the per-procedure negotiated header so a
+     * procedure that negotiates fewer antenna paths than the controller's
+     * compile-time max does not cause cs_step_parse_inline to over-read
+     * tone_info past the step's real data_len.
+     */
+    const uint8_t n_ap = p_result->header.num_antenna_paths;
+#else
+    /* RAS derives antenna_path_count from the ranging header inside cs_step_parse. */
+    const uint8_t n_ap = 0;
+#endif
 
-    g_peer_event.origin                                        = ORIGIN_REFLECTOR;
-    g_peer_event.local_mac                                     = peer_mac;
-    g_peer_event.peer_mac                                      = local_mac;
-    g_peer_event.connection_handle                             = 0;
-    g_peer_event.config_id                                     = p_result->header.config_id;
-    g_peer_event.has_config_id                                 = true;
-    g_peer_event.procedure_done_status                         = p_result->header.procedure_done_status;
-    g_peer_event.procedure_abort_reason                        = p_result->header.procedure_abort_reason;
-    g_peer_event.subevent_done_status                          = p_result->header.subevent_done_status;
-    g_peer_event.subevent_abort_reason                         = p_result->header.subevent_abort_reason;
-    g_peer_event.antenna_path_count                            = 0;
-    g_peer_event.step_count                                    = 0;
-    g_peer_event.initial_meta.start_acl_conn_event_counter     = p_result->header.start_acl_conn_event;
-    g_peer_event.initial_meta.has_start_acl_conn_event_counter = true;
-    g_peer_event.initial_meta.procedure_counter                = p_result->header.procedure_counter;
-    g_peer_event.initial_meta.frequency_compensation.value     = p_result->header.frequency_compensation;
-    g_peer_event.initial_meta.reference_power_level.value      = p_result->header.reference_power_level;
-    g_peer_event.has_initial_meta                              = true;
+    fill_subevent_header(&g_local_event, ORIGIN_INITIATOR, local_mac, peer_mac, p_result, n_ap);
+    fill_subevent_header(&g_peer_event, ORIGIN_REFLECTOR, peer_mac, local_mac, p_result, n_ap);
 
+#if IS_ENABLED(CONFIG_MARS_CS_INLINE_PCT)
+    cs_step_parse_inline(&g_local_event, &g_peer_event, p_local_steps, role);
+#else
     cs_step_parse(&g_local_event, &g_peer_event, p_peer_steps, p_local_steps, role);
+#endif
 
     int err;
 

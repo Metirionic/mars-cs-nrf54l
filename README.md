@@ -65,6 +65,34 @@ root). Native-install users: run `source ~/.ncs-venv/bin/activate` first. Users 
 nrfutil toolchain-manager NCS at `/opt/nordic/ncs/current` may drop the `NCS_DIR=$(pwd)`
 prefix — it is auto-found.
 
+## Inline PCT (IPT) mode
+
+In addition to the default RAS-based ranging flow, both samples support
+inline Phase Correction Term transfer (IPT). In this mode the reflector's
+PCT contribution is embedded in the received tones, so the Ranging Service
+(RAS) GATT path is not used and the initiator derives distance from local
+`le_cs_subevent_data_available` results only. IPT applies to PBR only
+(Main Mode 2), which is forced when the mode is enabled.
+
+IPT is selected via the `_ipt` presets, which pull in the
+`boards/inline_pct_initiator.conf` / `boards/inline_pct_reflector.conf`
+fragments and set `CONFIG_MARS_CS_INLINE_PCT=y`. This option is mutually
+exclusive with the RAS Requestor/Responder roles
+(`CONFIG_BT_RAS_RREQ` / `CONFIG_BT_RAS_RRSP`). In IPT mode the reflector
+is discovered by advertised name instead of the Ranging Service UUID.
+
+Build the initiator in IPT mode:
+
+```bash
+west build -b nrf54l15dk/nrf54l15/cpuapp initiator --preset nrf54l15dk_cent_a1_1_ipt
+```
+
+Build the reflector in IPT mode:
+
+```bash
+west build -b nrf54l15dk/nrf54l15/cpuapp reflector --preset nrf54l15dk_peri_a1_4_ipt
+```
+
 ## Available presets
 
 The full preset table — preset name, role, board, overlay, conf fragment, and
@@ -72,6 +100,32 @@ antennas/paths — is in [docs/hardware.md](docs/hardware.md#presets). The build
 examples above use `nrf54l15dk_cent_a1_1` (initiator) and
 `nrf54l15dk_peri_a1_4` (reflector) on the nRF54L15DK; see the hardware reference
 for the other boards and antenna/path configurations.
+
+### Initiator
+
+| Preset | Board | Antennas | Paths | IPT |
+|--------|-------|----------|-------|-----|
+| `nrf54l15dk_cent_a1_1` | nRF54L15DK | 1 | 1 | no |
+| `ublox_cent_a1_1` | U-Blox NINA-B40 | 1 | 1 | no |
+| `ezurio_bl54l15u_cent_a2_4` | Ezurio BL54L15u | 2 | 4 | no |
+| `fanstel_bm15c_cent_a1_1` | Fanstel BM15C | 1 | 1 | no |
+| `nrf54l15dk_cent_a1_1_ipt` | nRF54L15DK | 1 | 1 | yes |
+| `ublox_cent_a1_1_ipt` | U-Blox NINA-B40 | 1 | 1 | yes |
+| `ezurio_bl54l15u_cent_a2_4_ipt` | Ezurio BL54L15u | 2 | 4 | yes |
+| `fanstel_bm15c_cent_a1_1_ipt` | Fanstel BM15C | 1 | 1 | yes |
+
+### Reflector
+
+| Preset | Board | Antennas | Paths | IPT |
+|--------|-------|----------|-------|-----|
+| `nrf54l15dk_peri_a1_4` | nRF54L15DK | 1 | 4 | no |
+| `ezurio_bl54l15u_peri_a2_4` | Ezurio BL54L15u | 2 | 4 | no |
+| `fanstel_bm15c_peri_a1_4` | Fanstel BM15C | 1 | 4 | no |
+| `ublox_peri_a1_4` | U-Blox NINA-B40 | 1 | 4 | no |
+| `nrf54l15dk_peri_a1_4_ipt` | nRF54L15DK | 1 | 4 | yes |
+| `ezurio_bl54l15u_peri_a2_4_ipt` | Ezurio BL54L15u | 2 | 4 | yes |
+| `fanstel_bm15c_peri_a1_4_ipt` | Fanstel BM15C | 1 | 4 | yes |
+| `ublox_peri_a1_4_ipt` | U-Blox NINA-B40 | 1 | 4 | yes |
 
 ## Flashing
 

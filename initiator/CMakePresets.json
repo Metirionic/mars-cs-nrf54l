@@ -18,6 +18,18 @@
             }
         },
         {
+            "name": "nrf54l15tag_cent_a2_4",
+            "displayName": "nRF54L15TAG: central A2 (4 path)",
+            "generator": "Ninja",
+            "binaryDir": "${sourceDir}/build_nrf54l15tag_cent_a2_4",
+            "cacheVariables": {
+                "BOARD": "nrf54l15dk/nrf54l15/cpuapp",
+                "EXTRA_CONF_FILE": "central.overlay;../boards/4_path_2_local.conf",
+                "CONF_FILE": "prj.conf",
+                "DTC_OVERLAY_FILE": "../boards/nrf54l15tag_nrf54l15_cpuapp.overlay"
+            }
+        },
+        {
             "name": "ublox_cent_a1_1",
             "displayName": "U-Blox: central A1 (1 path)",
             "generator": "Ninja",
@@ -49,6 +61,54 @@
             "cacheVariables": {
                 "BOARD": "nrf54l15dk/nrf54l15/cpuapp",
                 "EXTRA_CONF_FILE": "central.overlay;../boards/1_path_1_local.conf",
+                "CONF_FILE": "prj.conf",
+                "DTC_OVERLAY_FILE": "../boards/fanstel_bm15c_nrf54l15_cpuapp.overlay"
+            }
+        },
+        {
+            "name": "nrf54l15dk_cent_a1_1_ipt",
+            "displayName": "nRF54L15DK: central A1 (1 path, inline PCT)",
+            "generator": "Ninja",
+            "binaryDir": "${sourceDir}/build_nrf54l15dk_cent_a1_1_ipt",
+            "cacheVariables": {
+                "BOARD": "nrf54l15dk/nrf54l15/cpuapp",
+                "EXTRA_CONF_FILE": "central.overlay;../boards/inline_pct_initiator.conf;../boards/1_path_1_local.conf",
+                "CONF_FILE": "prj.conf",
+                "DTC_OVERLAY_FILE": "../boards/nrf54l15dk_nrf54l15_cpuapp.overlay"
+            }
+        },
+        {
+            "name": "ublox_cent_a1_1_ipt",
+            "displayName": "U-Blox: central A1 (1 path, inline PCT)",
+            "generator": "Ninja",
+            "binaryDir": "${sourceDir}/build_ublox_cent_a1_1_ipt",
+            "cacheVariables": {
+                "BOARD": "nrf54l15dk/nrf54l15/cpuapp",
+                "EXTRA_CONF_FILE": "central.overlay;../boards/inline_pct_initiator.conf;../boards/1_path_1_local.conf",
+                "CONF_FILE": "prj.conf",
+                "DTC_OVERLAY_FILE": "../boards/ublox_nrf54l15_cpuapp.overlay"
+            }
+        },
+        {
+            "name": "ezurio_bl54l15u_cent_a2_4_ipt",
+            "displayName": "Ezurio BL54L15u: central A2 (4 paths, inline PCT)",
+            "generator": "Ninja",
+            "binaryDir": "${sourceDir}/build_ezurio_bl54l15u_cent_a2_4_ipt",
+            "cacheVariables": {
+                "BOARD": "nrf54l15dk/nrf54l15/cpuapp",
+                "EXTRA_CONF_FILE": "central.overlay;../boards/inline_pct_initiator.conf;../boards/4_path_2_local.conf",
+                "CONF_FILE": "prj.conf",
+                "DTC_OVERLAY_FILE": "../boards/ezurio_bl54l15u_nrf54l15_cpuapp.overlay"
+            }
+        },
+        {
+            "name": "fanstel_bm15c_cent_a1_1_ipt",
+            "displayName": "Fanstel BM15C: central A1 (1 path, inline PCT)",
+            "generator": "Ninja",
+            "binaryDir": "${sourceDir}/build_fanstel_cent_a1_1_ipt",
+            "cacheVariables": {
+                "BOARD": "nrf54l15dk/nrf54l15/cpuapp",
+                "EXTRA_CONF_FILE": "central.overlay;../boards/inline_pct_initiator.conf;../boards/1_path_1_local.conf",
                 "CONF_FILE": "prj.conf",
                 "DTC_OVERLAY_FILE": "../boards/fanstel_bm15c_nrf54l15_cpuapp.overlay"
             }

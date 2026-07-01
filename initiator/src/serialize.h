@@ -7,11 +7,14 @@
 #ifndef SERIALIZE_H__
 #define SERIALIZE_H__
 
-#include <bluetooth/services/ras.h>
 #include <stdint.h>
 #include <zephyr/bluetooth/conn.h>
 #include <zephyr/bluetooth/cs.h>
 #include <zephyr/net_buf.h>
+
+#if !defined(CONFIG_MARS_CS_INLINE_PCT)
+#include <bluetooth/services/ras.h>
+#endif
 
 void serialize_run(uint64_t                               local_mac,
                    uint64_t                               peer_mac,

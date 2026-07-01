@@ -10,9 +10,7 @@
 
 #include "cs_initiator.h"
 
-#include <bluetooth/gatt_dm.h>
 #include <bluetooth/scan.h>
-#include <bluetooth/services/ras.h>
 #include <zephyr/bluetooth/conn.h>
 #include <zephyr/bluetooth/cs.h>
 #include <zephyr/bluetooth/gatt.h>
@@ -22,6 +20,10 @@
 #include "addr_utils.h"
 #include "ble_callbacks.h"
 #include "ble_scanning.h"
+#if defined(CONFIG_BT_RAS_RREQ)
+#include <bluetooth/gatt_dm.h>
+#include <bluetooth/services/ras.h>
+#endif
 
 LOG_MODULE_DECLARE(app_main, LOG_LEVEL_INF);
 
@@ -31,26 +33,30 @@ static K_SEM_DEFINE(sem_remote_capabilities_obtained, 0, 1);
 static K_SEM_DEFINE(sem_config_created, 0, 1);
 static K_SEM_DEFINE(sem_cs_security_enabled, 0, 1);
 static K_SEM_DEFINE(sem_connected, 0, 1);
-static K_SEM_DEFINE(sem_discovery_done, 0, 1);
-static K_SEM_DEFINE(sem_mtu_exchange_done, 0, 1);
 static K_SEM_DEFINE(sem_security, 0, 1);
 static K_SEM_DEFINE(sem_local_steps, 1, 1);
+#if IS_ENABLED(CONFIG_BT_RAS_RREQ)
+static K_SEM_DEFINE(sem_discovery_done, 0, 1);
+static K_SEM_DEFINE(sem_mtu_exchange_done, 0, 1);
 static K_SEM_DEFINE(sem_ras_features, 0, 1);
-
-NET_BUF_SIMPLE_DEFINE_STATIC(latest_local_steps, LOCAL_PROCEDURE_MEM);
 NET_BUF_SIMPLE_DEFINE_STATIC(latest_peer_steps, BT_RAS_PROCEDURE_MEM);
-static int32_t  local_ranging_counter   = PROCEDURE_COUNTER_NONE;
-static int32_t  dropped_ranging_counter = PROCEDURE_COUNTER_NONE;
+#endif
+NET_BUF_SIMPLE_DEFINE_STATIC(latest_local_steps, LOCAL_PROCEDURE_MEM);
+static int32_t local_ranging_counter   = PROCEDURE_COUNTER_NONE;
+static int32_t dropped_ranging_counter = PROCEDURE_COUNTER_NONE;
+#if IS_ENABLED(CONFIG_BT_RAS_RREQ)
 static uint32_t ras_feature_bits;
+#endif
 
-static struct bt_conn_le_cs_subevent_result latest_subevent_header;
+static struct bt_conn_le_cs_subevent_result g_latest_subevent_header;
 
-static uint64_t local_mac;
-static uint64_t peer_mac;
+static uint64_t g_local_mac;
+static uint64_t g_peer_mac;
 
-static cs_initiator_ranging_data_cb       ranging_data_cb_ptr;
-static cs_initiator_ranging_data_ready_cb ranging_data_ready_cb_ptr;
-static cs_initiator_config_created_cb     config_created_cb_ptr;
+static cs_initiator_ranging_data_cb       gp_ranging_data_cb;
+static cs_initiator_ranging_data_ready_cb gp_ranging_data_ready_cb;
+static cs_initiator_config_created_cb     gp_config_created_cb;
+static cs_initiator_inline_result_cb      gp_inline_result_cb;
 
 /** @brief Get the current BLE connection reference. */
 struct bt_conn * cs_initiator_get_connection(void)
@@ -61,19 +67,23 @@ struct bt_conn * cs_initiator_get_connection(void)
 /** @brief Get the RAS feature bits read from the peer. */
 uint32_t cs_initiator_get_ras_feature_bits(void)
 {
+#if IS_ENABLED(CONFIG_BT_RAS_RREQ)
     return ras_feature_bits;
+#else
+    return 0;
+#endif
 }
 
 /** @brief Get the local MAC address as a 64-bit integer. */
 uint64_t cs_initiator_get_local_mac(void)
 {
-    return local_mac;
+    return g_local_mac;
 }
 
 /** @brief Get the peer MAC address as a 64-bit integer. */
 uint64_t cs_initiator_get_peer_mac(void)
 {
-    return peer_mac;
+    return g_peer_mac;
 }
 
 /** @brief Access the latest local step data buffer. */
@@ -82,11 +92,13 @@ struct net_buf_simple * cs_initiator_get_local_steps(void)
     return &latest_local_steps;
 }
 
+#if IS_ENABLED(CONFIG_BT_RAS_RREQ)
 /** @brief Access the latest peer step data buffer. */
 struct net_buf_simple * cs_initiator_get_peer_steps(void)
 {
     return &latest_peer_steps;
 }
+#endif
 
 /** @brief Get the latest local ranging counter value. */
 int32_t cs_initiator_get_local_ranging_counter(void)
@@ -97,7 +109,7 @@ int32_t cs_initiator_get_local_ranging_counter(void)
 /** @brief Access the latest subevent result header. */
 struct bt_conn_le_cs_subevent_result * cs_initiator_get_latest_subevent_header(void)
 {
-    return &latest_subevent_header;
+    return &g_latest_subevent_header;
 }
 
 /** @brief Give the sem_local_steps semaphore (signal that local data buffer is available). */
@@ -119,31 +131,38 @@ void cs_initiator_take_sem_data_ready(void)
 }
 
 /** @brief Register the ranging data callback for realtime or on-demand RD mode. */
-void cs_initiator_set_ranging_data_cb(cs_initiator_ranging_data_cb cb)
+void cs_initiator_set_ranging_data_cb(cs_initiator_ranging_data_cb p_cb)
 {
-    ranging_data_cb_ptr = cb;
+    gp_ranging_data_cb = p_cb;
 }
 
 /** @brief Register callback for RAS "data ready" notifications (on-demand RD mode). */
-void cs_initiator_set_ranging_data_ready_cb(cs_initiator_ranging_data_ready_cb cb)
+void cs_initiator_set_ranging_data_ready_cb(cs_initiator_ranging_data_ready_cb p_cb)
 {
-    ranging_data_ready_cb_ptr = cb;
+    gp_ranging_data_ready_cb = p_cb;
 }
 
 /** @brief Register callback invoked when CS config is created. */
-void cs_initiator_set_config_created_cb(cs_initiator_config_created_cb cb)
+void cs_initiator_set_config_created_cb(cs_initiator_config_created_cb p_cb)
 {
-    config_created_cb_ptr = cb;
+    gp_config_created_cb = p_cb;
 }
 
+/** @brief Register callback invoked when a CS procedure completes in IPT mode. */
+void cs_initiator_set_inline_result_cb(cs_initiator_inline_result_cb p_cb)
+{
+    gp_inline_result_cb = p_cb;
+}
+
+#if IS_ENABLED(CONFIG_BT_RAS_RREQ)
 /** @brief Internal forwarder for RAS "data ready" notifications (on-demand RD mode). */
 static void ranging_data_ready_cb(struct bt_conn * p_conn, uint16_t ranging_counter)
 {
     LOG_DBG("Ranging data ready %i", ranging_counter);
 
-    if (ranging_data_ready_cb_ptr)
+    if (gp_ranging_data_ready_cb)
     {
-        ranging_data_ready_cb_ptr(p_conn, ranging_counter);
+        gp_ranging_data_ready_cb(p_conn, ranging_counter);
     }
 }
 
@@ -168,6 +187,7 @@ static void ras_features_read_cb(struct bt_conn * p_conn, uint32_t feature_bits,
 
     k_sem_give(&sem_ras_features);
 }
+#endif  // CONFIG_BT_RAS_RREQ
 
 /** @brief Callback for local CS subevent results — accumulates step data into net buffers. */
 static void subevent_result_cb(struct bt_conn * p_conn, struct bt_conn_le_cs_subevent_result * result)
@@ -179,7 +199,12 @@ static void subevent_result_cb(struct bt_conn * p_conn, struct bt_conn_le_cs_sub
         return;
     }
 
+#if IS_ENABLED(CONFIG_MARS_CS_INLINE_PCT)
+    /* IPT mode: no RAS ranging-counter indirection; use the procedure counter directly. */
+    uint16_t procedure_ranging_counter = result->header.procedure_counter;
+#else   // IS_ENABLED(CONFIG_MARS_CS_INLINE_PCT)
     uint16_t procedure_ranging_counter = bt_ras_rreq_get_ranging_counter(result->header.procedure_counter);
+#endif  // IS_ENABLED(CONFIG_MARS_CS_INLINE_PCT)
     if (local_ranging_counter != procedure_ranging_counter)
     {
         local_ranging_counter = procedure_ranging_counter;
@@ -188,7 +213,9 @@ static void subevent_result_cb(struct bt_conn * p_conn, struct bt_conn_le_cs_sub
         if (sem_state < 0)
         {
             net_buf_simple_reset(&latest_local_steps);
+#if IS_ENABLED(CONFIG_BT_RAS_RREQ)
             net_buf_simple_reset(&latest_peer_steps);
+#endif  // IS_ENABLED(CONFIG_BT_RAS_RREQ)
 
             dropped_ranging_counter = result->header.procedure_counter;
             LOG_DBG("Dropped subevent results due to unfinished ranging data request.");
@@ -196,8 +223,8 @@ static void subevent_result_cb(struct bt_conn * p_conn, struct bt_conn_le_cs_sub
         }
     }
 
-    latest_subevent_header.header        = result->header;
-    latest_subevent_header.step_data_buf = NULL;
+    g_latest_subevent_header.header        = result->header;
+    g_latest_subevent_header.step_data_buf = NULL;
 
     if (result->header.subevent_done_status == BT_CONN_LE_CS_SUBEVENT_ABORTED)
     {
@@ -228,15 +255,39 @@ static void subevent_result_cb(struct bt_conn * p_conn, struct bt_conn_le_cs_sub
     if (result->header.procedure_done_status == BT_CONN_LE_CS_PROCEDURE_COMPLETE)
     {
         local_ranging_counter = procedure_ranging_counter;
+
+#if IS_ENABLED(CONFIG_MARS_CS_INLINE_PCT)
+        /* IPT: local steps are complete; hand off to the inline result path.
+         * The callback takes ownership of latest_local_steps and is expected
+         * to reset the buffer and give sem_local_steps when done.
+         */
+        if (gp_inline_result_cb)
+        {
+            gp_inline_result_cb(p_conn, 0);
+        }
+        else
+        {
+            net_buf_simple_reset(&latest_local_steps);
+            k_sem_give(&sem_local_steps);
+        }
+#endif  // IS_ENABLED(CONFIG_MARS_CS_INLINE_PCT)
     }
     else if (result->header.procedure_done_status == BT_CONN_LE_CS_PROCEDURE_ABORTED)
     {
         LOG_WRN("Procedure %u aborted", result->header.procedure_counter);
         net_buf_simple_reset(&latest_local_steps);
         k_sem_give(&sem_local_steps);
+
+#if IS_ENABLED(CONFIG_MARS_CS_INLINE_PCT)
+        if (gp_inline_result_cb)
+        {
+            gp_inline_result_cb(p_conn, -EIO);
+        }
+#endif  // IS_ENABLED(CONFIG_MARS_CS_INLINE_PCT)
     }
 }
 
+#if IS_ENABLED(CONFIG_BT_RAS_RREQ)
 /** @brief Callback for MTU exchange completion. */
 static void mtu_exchange_cb(struct bt_conn * p_conn, uint8_t err, struct bt_gatt_exchange_params * params)
 {
@@ -297,6 +348,7 @@ static struct bt_gatt_dm_cb discovery_cb = {
 };
 
 static struct bt_gatt_exchange_params mtu_exchange_params = {.func = mtu_exchange_cb};
+#endif  // IS_ENABLED(CONFIG_BT_RAS_RREQ)
 
 /**
  * @brief Execute the full CS initiator connection and configuration flow.
@@ -324,7 +376,7 @@ int cs_initiator_start(const struct cs_initiator_config * p_config)
                            &sem_config_created,
                            &sem_cs_security_enabled);
     ble_callbacks_set_subevent_data_cb(subevent_result_cb);
-    ble_callbacks_set_config_created_cb(config_created_cb_ptr);
+    ble_callbacks_set_config_created_cb(gp_config_created_cb);
 
     err = scan_init();
     if (err)
@@ -345,9 +397,9 @@ int cs_initiator_start(const struct cs_initiator_config * p_config)
     bt_addr_le_t local_addrs[1];
     size_t       local_count = 1;
     bt_id_get(local_addrs, &local_count);
-    local_mac = addr_to_u64(&local_addrs[0]);
+    g_local_mac = addr_to_u64(&local_addrs[0]);
 
-    peer_mac = addr_to_u64((bt_addr_le_t *)bt_conn_get_dst(ble_callbacks_get_connection()));
+    g_peer_mac = addr_to_u64((bt_addr_le_t *)bt_conn_get_dst(ble_callbacks_get_connection()));
 
     err = bt_conn_set_security(ble_callbacks_get_connection(), BT_SECURITY_L2);
     if (err)
@@ -358,6 +410,8 @@ int cs_initiator_start(const struct cs_initiator_config * p_config)
 
     k_sem_take(&sem_security, K_FOREVER);
 
+#if !IS_ENABLED(CONFIG_MARS_CS_INLINE_PCT)
+    /* RAS mode: exchange MTU and discover the Ranging Service before subscribing. */
     bt_gatt_exchange_mtu(ble_callbacks_get_connection(), &mtu_exchange_params);
 
     k_sem_take(&sem_mtu_exchange_done, K_FOREVER);
@@ -370,6 +424,7 @@ int cs_initiator_start(const struct cs_initiator_config * p_config)
     }
 
     k_sem_take(&sem_discovery_done, K_FOREVER);
+#endif  // !IS_ENABLED(CONFIG_MARS_CS_INLINE_PCT)
 
     const struct bt_le_cs_set_default_settings_param default_settings = {
         .enable_initiator_role     = true,
@@ -385,6 +440,8 @@ int cs_initiator_start(const struct cs_initiator_config * p_config)
         return err;
     }
 
+#if !IS_ENABLED(CONFIG_MARS_CS_INLINE_PCT)
+    /* RAS mode: negotiate RAS feature bits and subscribe to ranging data. */
     err = bt_ras_rreq_read_features(ble_callbacks_get_connection(), ras_features_read_cb);
     if (err)
     {
@@ -398,8 +455,7 @@ int cs_initiator_start(const struct cs_initiator_config * p_config)
 
     if (realtime_rd)
     {
-        err =
-            bt_ras_rreq_realtime_rd_subscribe(ble_callbacks_get_connection(), &latest_peer_steps, ranging_data_cb_ptr);
+        err = bt_ras_rreq_realtime_rd_subscribe(ble_callbacks_get_connection(), &latest_peer_steps, gp_ranging_data_cb);
         if (err)
         {
             LOG_ERR("RAS RREQ Real-time ranging data subscribe failed (err %d)", err);
@@ -436,6 +492,7 @@ int cs_initiator_start(const struct cs_initiator_config * p_config)
             return err;
         }
     }
+#endif  // !IS_ENABLED(CONFIG_MARS_CS_INLINE_PCT)
 
     err = bt_le_cs_read_remote_supported_capabilities(ble_callbacks_get_connection());
     if (err)
@@ -447,8 +504,13 @@ int cs_initiator_start(const struct cs_initiator_config * p_config)
     k_sem_take(&sem_remote_capabilities_obtained, K_FOREVER);
 
     struct bt_le_cs_create_config_params config_params = {
-        .id                     = CS_CONFIG_ID,
-        .mode                   = BT_CONN_LE_CS_MAIN_MODE_2_SUB_MODE_1,
+        .id = CS_CONFIG_ID,
+#if IS_ENABLED(CONFIG_MARS_CS_INLINE_PCT)
+        /* IPT only applies to PBR tones (Main Mode 2, no sub-mode). */
+        .mode = BT_CONN_LE_CS_MAIN_MODE_2_NO_SUB_MODE,
+#else   // IS_ENABLED(CONFIG_MARS_CS_INLINE_PCT)
+        .mode = BT_CONN_LE_CS_MAIN_MODE_2_SUB_MODE_1,
+#endif  // IS_ENABLED(CONFIG_MARS_CS_INLINE_PCT)
         .min_main_mode_steps    = 2,
         .max_main_mode_steps    = 5,
         .main_mode_repetition   = 0,
@@ -460,6 +522,10 @@ int cs_initiator_start(const struct cs_initiator_config * p_config)
         .channel_selection_type = BT_CONN_LE_CS_CHSEL_TYPE_3B,
         .ch3c_shape             = BT_CONN_LE_CS_CH3C_SHAPE_HAT,
         .ch3c_jump              = 2,
+#if IS_ENABLED(CONFIG_MARS_CS_INLINE_PCT)
+        /* Enable inline PCT transfer. */
+        .cs_enhancements_1 = 1,
+#endif  // IS_ENABLED(CONFIG_MARS_CS_INLINE_PCT)
     };
 
     bt_le_cs_set_valid_chmap_bits(config_params.channel_map);
