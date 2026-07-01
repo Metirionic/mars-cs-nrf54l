@@ -2,7 +2,7 @@
 
 This guide is for evaluators who want to run Channel Sounding by flashing
 prebuilt firmware and never build anything. To build from source instead,
-see the [README](../README.md).
+see [docs/build-from-source.md](build-from-source.md).
 
 ## What you need
 
@@ -132,7 +132,7 @@ covered separately; this guide covers capture only.
 
 ## Next steps
 
-- Build from source: see the [README](../README.md).
+- Build from source: see [docs/build-from-source.md](build-from-source.md).
 - All available presets (including third-party boards): see the
   [preset table](hardware.md#presets).
 - Hardware reference (boards, UARTs, antenna-switch GPIOs, antenna/path preset
