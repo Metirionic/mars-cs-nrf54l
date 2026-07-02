@@ -151,25 +151,52 @@ jobs:
           # accumulates duplicate blocks. Detect a pre-existing release for
           # the target tag and gate the creation step on its absence (or on
           # an empty body, to let a prior empty-body run recover).
+          #
+          # Branch on the HTTP status of `gh api .../releases/tags/<tag>`,
+          # not on `gh release view`'s stderr prose ("release not found"):
+          # the status code is a stable contract, whereas gh has no
+          # documented not-found exit code and has already diverged that
+          # wording in an adjacent path -- a reworded message would otherwise
+          # make every first-creation run fall through to the fail-closed
+          # branch and block all new releases.
           TAG="${{ needs.version-bump.outputs.tag }}"
           errfile="$(mktemp)"
-          if body="$(gh release view "$TAG" --json body --jq '.body // empty' 2>"$errfile")"; then
-            if [ -n "$(printf '%s' "$body" | tr -d '[:space:]')" ]; then
-              echo "exists=true" >> "$GITHUB_OUTPUT"
-              echo "Release for $TAG already exists with a non-empty body; skipping creation to avoid duplicate 'What's Changed' blocks."
-            else
+          # Capture the full HTTP response (status line + headers + body).
+          # `|| true` so a 404 (gh api exits 1) does not trip `set -e`.
+          resp="$(gh api "repos/$GH_REPO/releases/tags/$TAG" -i 2>&1)" || true
+          status_line="${resp%%$'\n'*}"
+          case "$status_line" in
+            HTTP/*) status="${status_line#HTTP/* }"; status="${status%% *}";;
+            *) status="";;
+          esac
+          case "$status" in
+            200)
+              if body="$(gh api "repos/$GH_REPO/releases/tags/$TAG" --jq '.body // empty' 2>"$errfile")"; then
+                if [ -n "$(printf '%s' "$body" | tr -d '[:space:]')" ]; then
+                  echo "exists=true" >> "$GITHUB_OUTPUT"
+                  echo "Release for $TAG already exists with a non-empty body; skipping creation to avoid duplicate 'What's Changed' blocks."
+                else
+                  echo "exists=false" >> "$GITHUB_OUTPUT"
+                  echo "Release for $TAG exists but has an empty body; will populate it."
+                fi
+              else
+                echo "::error::release for $TAG exists (HTTP 200) but body fetch failed:"
+                cat "$errfile"
+                rm -f "$errfile"
+                exit 1
+              fi
+              ;;
+            404)
               echo "exists=false" >> "$GITHUB_OUTPUT"
-              echo "Release for $TAG exists but has an empty body; will populate it."
-            fi
-          elif grep -q 'release not found' "$errfile"; then
-            echo "exists=false" >> "$GITHUB_OUTPUT"
-            echo "No release for $TAG yet; will create it."
-          else
-            echo "::error::gh release view failed unexpectedly for $TAG:"
-            cat "$errfile"
-            rm -f "$errfile"
-            exit 1
-          fi
+              echo "No release for $TAG yet; will create it."
+              ;;
+            *)
+              echo "::error::gh api returned no HTTP status (network/auth failure?) for $TAG:"
+              printf '%s\n' "$resp" | head -20
+              rm -f "$errfile"
+              exit 1
+              ;;
+          esac
           rm -f "$errfile"
 
       - name: Download firmware artifact
