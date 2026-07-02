@@ -2,6 +2,13 @@
 All notable changes to this project will be documented in this file. See [conventional commits](https://www.conventionalcommits.org/) for commit guidelines.
 
 - - -
+## [v1.3.5](https://github.com/Metirionic/mars-cs-nrf54l/releases/tag/v1.3.5) - 2026-07-02
+#### Bug Fixes
+- detect existing release by HTTP status, not gh stderr prose - ([6579644](https://github.com/Metirionic/mars-cs-nrf54l/commit/6579644940265b62883285008d9ac586d3c9ad82)) - AttilaRoemer, Claude
+- make release step idempotent so re-runs can't duplicate notes - ([00e8c37](https://github.com/Metirionic/mars-cs-nrf54l/commit/00e8c378b43f67510e6b97e0f76686e1fa3245c5)) - AttilaRoemer, Claude
+
+- - -
+
 ## [v1.3.4](https://github.com/Metirionic/mars-cs-nrf54l/releases/tag/v1.3.4) - 2026-07-01
 #### Bug Fixes
 - gate bump detection on semver tag shape, not cog prose - ([5a20402](https://github.com/Metirionic/mars-cs-nrf54l/commit/5a20402b9093cbdbc2d0df67ded1b4fa1fc88bf0)) - AttilaRoemer, Claude
