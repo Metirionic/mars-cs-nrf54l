@@ -57,15 +57,13 @@ static void scan_connecting(struct bt_scan_device_info * p_device_info, struct b
 
 BT_SCAN_CB_INIT(scan_cb, scan_filter_match, NULL, scan_connecting_error, scan_connecting);
 
-/** @brief Advertised name of the IPT reflector (matched by name scan filter in IPT mode). */
-#define IPT_REFLECTOR_NAME "Nordic CS IPT Reflector"
-
 /**
  * @brief Initialize BLE scanning.
  *
  * In RAS mode the initiator filters by Ranging Service UUID. In IPT mode the
  * reflector does not advertise that UUID, so the initiator filters by name
- * instead, matching `IPT_REFLECTOR_NAME`.
+ * instead, matching `CONFIG_BT_DEVICE_NAME` (the reflector's advertised name,
+ * shared with the reflector build via `boards/inline_pct_shared.conf`).
  *
  * @return 0 on success, negative errno on error.
  */
@@ -81,7 +79,7 @@ int scan_init(void)
     bt_scan_cb_register(&scan_cb);
 
 #if IS_ENABLED(CONFIG_MARS_CS_INLINE_PCT)
-    err = bt_scan_filter_add(BT_SCAN_FILTER_TYPE_NAME, IPT_REFLECTOR_NAME);
+    err = bt_scan_filter_add(BT_SCAN_FILTER_TYPE_NAME, CONFIG_BT_DEVICE_NAME);
     if (err)
     {
         LOG_ERR("Scanning filters cannot be set (err %d)", err);
