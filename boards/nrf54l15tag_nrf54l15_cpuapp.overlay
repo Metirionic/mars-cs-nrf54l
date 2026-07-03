@@ -7,26 +7,20 @@
 / {
     chosen {
         cobs-uart = &uart20;
-        zephyr,shell-uart = &uart30;
-        zephyr,console = &uart30;
-        zephyr,uart-mcumgr = &uart30;
-        zephyr,bt-mon-uart = &uart30;
-        zephyr,bt-c2h-uart = &uart30;
-
     };
 };
 
 /*
- * The nrf54l15tag base DTS ships no uart20/uart30 pinctrl (the tag board's
- * default console path is Segger RTT, not a fixed UART), so the pins the
- * application routes these uarts to must come from the overlay. Unlike the
- * nRF54L15 DK, the TAG has no onboard USB/UART bridge, so an external
- * UART-to-USB adapter (e.g. FT232R) must be wired to the COBS UART to read
- * the ranging stream. Pin assignment (from the tag board's exposed,
- * conflict-free pins — see boards/nordic/nrf54l15tag/doc/index.rst):
+ * The nrf54l15tag base DTS ships no uart20 pinctrl (the tag board's default
+ * console path is Segger RTT, not a fixed UART), so the pins the application
+ * routes the COBS UART to must come from the overlay. Unlike the nRF54L15 DK,
+ * the TAG has no onboard USB/UART bridge, so an external UART-to-USB adapter
+ * (e.g. FT232R) must be wired to the COBS UART to read the ranging stream. The
+ * TAG exposes only this one UART — there is no console/shell UART; console
+ * goes over Segger RTT via the debug probe (see boards/nrf54l15tag.conf and
+ * docs/hardware.md). Pin assignment (from the tag board's exposed, conflict-free
+ * pins — see boards/nordic/nrf54l15tag/doc/index.rst):
  *   uart20 (COBS ranging): TX P1.13 / RX P1.14  -> external FT232R
- *   uart30 (shell/console): TX P0.01 / RX P0.02
- * See docs/hardware.md for the full TAG wiring notes.
  */
 &pinctrl {
     /omit-if-no-ref/ uart20_default: uart20_default {
@@ -46,32 +40,6 @@
             low-power-enable;
         };
     };
-
-    /omit-if-no-ref/ uart30_default: uart30_default {
-        group1 {
-            psels = <NRF_PSEL(UART_TX, 0, 1)>;
-        };
-        group2 {
-            psels = <NRF_PSEL(UART_RX, 0, 2)>;
-            bias-pull-up;
-        };
-    };
-
-    /omit-if-no-ref/ uart30_sleep: uart30_sleep {
-        group1 {
-            psels = <NRF_PSEL(UART_TX, 0, 1)>,
-                    <NRF_PSEL(UART_RX, 0, 2)>;
-            low-power-enable;
-        };
-    };
-};
-
-&uart30 {
-    status = "okay";
-    current-speed = <921600>;
-    pinctrl-0 = <&uart30_default>;
-    pinctrl-1 = <&uart30_sleep>;
-    pinctrl-names = "default", "sleep";
 };
 
 &uart20 {
