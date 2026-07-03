@@ -1,0 +1,28 @@
+#
+# Copyright (c) 2024 Nordic Semiconductor ASA
+#
+# SPDX-License-Identifier: MIT
+#
+
+menu "Mars Channel Sounding options"
+
+config MARS_CS_INLINE_PCT
+	bool "Enable inline Phase Correction Term Transfer (IPT) mode"
+	depends on BT_CHANNEL_SOUNDING
+	select BT_CTLR_EXTENDED_FEAT_SET
+	help
+	  Enable inline PCT (Phase Correction Term) transfer mode, mirroring
+	  the Nordic ipt_* samples. The initiator uses only the local
+	  le_cs_subevent_data_available results for distance estimation,
+	  the reflector's PCT contribution is embedded in the received
+	  tones, so the Ranging Service (RAS) GATT path is not used.
+
+	  When enabled, this option is mutually exclusive with the RAS
+	  Requestor/Responder roles (CONFIG_BT_RAS_RREQ / CONFIG_BT_RAS_RRSP),
+	  which the application conf fragments set to n.
+
+	  Note: inline PCT only applies to PBR (Main Mode 2). The CS
+	  configuration is forced to BT_CONN_LE_CS_MAIN_MODE_2_NO_SUB_MODE
+	  in this mode.
+
+endmenu
