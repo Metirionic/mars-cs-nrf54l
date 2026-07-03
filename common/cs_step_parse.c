@@ -10,6 +10,8 @@
 
 #include "cs_step_parse.h"
 
+#include "cs_initiator.h"
+
 #include <string.h>
 #include <zephyr/logging/log.h>
 #include <zephyr/sys/util.h>
@@ -331,7 +333,7 @@ void cs_step_parse_inline(SubeventResultEvent_t * p_local_event,
      * one byte each, concatenated for all steps in the procedure. Walk it as the
      * Nordic ipt_initiator sample does (subevent_steps_parse).
      */
-    while (p_local_steps->len >= 3)
+    while (p_local_steps->len >= MARS_CS_IPT_STEP_FRAMING_LEN)
     {
         struct bt_le_cs_subevent_step local_step = {0};
         local_step.mode                          = net_buf_simple_pull_u8(p_local_steps);
