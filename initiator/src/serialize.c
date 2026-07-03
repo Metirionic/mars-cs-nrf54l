@@ -169,25 +169,23 @@ static void fill_subevent_header(SubeventResultEvent_t *                p_event,
  * hardware flow control on the COBS UART overlays and uart_tx() uses
  * SYS_FOREVER_MS), but is handled defensively so the gate never sticks.
  */
-static void cobs_uart_async_cb(const struct device * p_dev,
-                               struct uart_event *    p_evt,
-                               void *                 p_user_data)
+static void cobs_uart_async_cb(const struct device * p_dev, struct uart_event * p_evt, void * p_user_data)
 {
     ARG_UNUSED(p_dev);
     ARG_UNUSED(p_user_data);
 
     switch (p_evt->type)
     {
-        case UART_TX_DONE:
-            k_sem_give(&sem_tx_done);
-            break;
-        case UART_TX_ABORTED:
-            LOG_WRN("COBS UART TX aborted (%u bytes sent)", (unsigned)p_evt->data.tx.len);
-            k_sem_give(&sem_tx_done);
-            break;
-        default:
-            /* RX events unused (TX-only path). */
-            break;
+    case UART_TX_DONE:
+        k_sem_give(&sem_tx_done);
+        break;
+    case UART_TX_ABORTED:
+        LOG_WRN("COBS UART TX aborted (%u bytes sent)", (unsigned)p_evt->data.tx.len);
+        k_sem_give(&sem_tx_done);
+        break;
+    default:
+        /* RX events unused (TX-only path). */
+        break;
     }
 }
 
