@@ -29,6 +29,13 @@
 #define NUM_MODE_0_STEPS 3
 /** @brief Sentinel value indicating no valid procedure counter. */
 #define PROCEDURE_COUNTER_NONE (-1)
+/** @brief Per-step framing in the local IPT step buffer: mode | channel | data_len.
+ *
+ * Hoisted out of the RAS/IPT @c #if below so the walk loop in cs_step_parse.c
+ * (compiled unconditionally) can share this single source of truth with
+ * @ref LOCAL_PROCEDURE_MEM, instead of hardcoding the literal 3.
+ */
+#define MARS_CS_IPT_STEP_FRAMING_LEN  3
 
 #if defined(CONFIG_BT_RAS_RREQ) || defined(CONFIG_BT_RAS_RRSP)
 /** @brief Memory required for the local step data net buffer (RAS sizing). */
@@ -61,9 +68,6 @@
      (MARS_CS_IPT_MAX_ANTENNA_PATHS + 1) * sizeof(struct bt_hci_le_cs_step_data_tone_info))
 
 #define MARS_CS_IPT_MAX_STEP_DATA_LEN MAX(MARS_CS_IPT_MODE_0_MAX_LEN, MARS_CS_IPT_MODE_2_MAX_LEN)
-
-/* 3 bytes of per-step framing in the local buffer: mode | channel | data_len. */
-#define MARS_CS_IPT_STEP_FRAMING_LEN  3
 
 #define LOCAL_PROCEDURE_MEM \
     (MARS_CS_IPT_MAX_STEPS_PER_PROCEDURE * (MARS_CS_IPT_STEP_FRAMING_LEN + MARS_CS_IPT_MAX_STEP_DATA_LEN))
