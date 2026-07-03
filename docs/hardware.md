@@ -38,9 +38,10 @@ is shown here as `nRF54L15 TAG`.
 
 - `cobs-uart` is the authoritative chosen node for the COBS ranging stream,
   consumed by `initiator/src/serialize.c` via `DEVICE_DT_GET(DT_CHOSEN(cobs_uart))`.
-  The console UART also carries shell, mcumgr, bt-mon, and bt-c2h — all five
-  `zephyr,console` / `shell-uart` / `uart-mcumgr` / `bt-mon-uart` / `bt-c2h-uart`
-  chosen nodes point to it.
+  On boards with a console UART (all except the TAG), the console UART also
+  carries shell, mcumgr, bt-mon, and bt-c2h — all five `zephyr,console` /
+  `shell-uart` / `uart-mcumgr` / `bt-mon-uart` / `bt-c2h-uart` chosen nodes point
+  to it. The TAG has no console UART (see [TAG wiring notes](#nrf54l15-tag-wiring-notes)).
 - **U-Blox swaps** COBS and console versus the DK: COBS on `uart30`, console on
   `uart20`. Ezurio matches the DK assignment. Don't assume a fixed mapping.
 - **Physical TX/RX pins are not in the overlays** except Fanstel's and the TAG's
