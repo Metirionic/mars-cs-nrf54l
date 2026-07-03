@@ -18,14 +18,15 @@
 
 /*
  * The nrf54l15tag base DTS ships no uart20/uart30 pinctrl (the tag board's
- * console path is RTT/NUS, not a fixed UART), so the pins the application
- * routes these uarts to must come from the overlay. The assignment below is a
- * build-enabling default picked from the tag board's exposed, conflict-free
- * pins (see boards/nordic/nrf54l15tag/doc/index.rst). uart20 mirrors the
- * Fanstel BM15C overlay (P1.13/P1.14); verify against your tag wiring before
- * flashing.
- *   uart20 (COBS ranging): TX P1.13 / RX P1.14
+ * default console path is Segger RTT, not a fixed UART), so the pins the
+ * application routes these uarts to must come from the overlay. Unlike the
+ * nRF54L15 DK, the TAG has no onboard USB/UART bridge, so an external
+ * UART-to-USB adapter (e.g. FT232R) must be wired to the COBS UART to read
+ * the ranging stream. Pin assignment (from the tag board's exposed,
+ * conflict-free pins — see boards/nordic/nrf54l15tag/doc/index.rst):
+ *   uart20 (COBS ranging): TX P1.13 / RX P1.14  -> external FT232R
  *   uart30 (shell/console): TX P0.01 / RX P0.02
+ * See docs/hardware.md for the full TAG wiring notes.
  */
 &pinctrl {
     /omit-if-no-ref/ uart20_default: uart20_default {
