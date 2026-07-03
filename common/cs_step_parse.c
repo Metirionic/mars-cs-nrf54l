@@ -21,9 +21,17 @@
 #endif
 
 /**
- * @brief Maximum tone index (four paths + extension slot).
+ * @brief Guard the derived tone count against the external Mode2_t idx[] size.
+ *
+ * Mode2_t's quality_indicators/extension_slots/phase_correction_terms idx[]
+ * arrays are a literal [5] baked into the fetched mars-bluetooth-hci C bindings
+ * (not parameterised by any Kconfig). If CONFIG_BT_CTLR_SDC_CS_MAX_ANTENNA_PATHS
+ * ever widens past 4, MARS_CS_MAX_TONE_COUNT (n_ap + 1) would exceed that
+ * capacity — fail the build here rather than silently overflow / drop tones.
  */
-#define MAX_TONE_COUNT 5u
+BUILD_ASSERT(MARS_CS_MAX_TONE_COUNT * sizeof(((Mode2_t *)0)->quality_indicators.idx[0]) <=
+                 sizeof(((Mode2_t *)0)->quality_indicators.idx),
+             "MARS_CS_MAX_TONE_COUNT (n_ap + 1) exceeds Mode2_t idx[] capacity");
 
 LOG_MODULE_DECLARE(app_main, LOG_LEVEL_INF);
 
@@ -149,7 +157,7 @@ static bool fill_mode2_step(struct cs_step_parse_context *  ctx,
         memset(p_mode2, 0, sizeof(*p_mode2));
         p_mode2->antenna_permutation_index = 0u;
 
-        for (size_t tone_index = 0u; tone_index < n_ap && tone_index < MAX_TONE_COUNT; tone_index++)
+        for (size_t tone_index = 0u; tone_index < n_ap && tone_index < MARS_CS_MAX_TONE_COUNT; tone_index++)
         {
             struct bt_hci_le_cs_step_data_tone_info * local_tone = &local_step_data->tone_info[tone_index];
 
@@ -285,7 +293,7 @@ static inline uint8_t inline_n_ap(void)
     {
         n_ap = 1u;
     }
-    return MIN(n_ap, MAX_TONE_COUNT);
+    return MIN(n_ap, MARS_CS_MAX_TONE_COUNT);
 }
 
 /** @brief Fill one Mode-2 step into both events for the inline (IPT) path.
@@ -320,7 +328,7 @@ void cs_step_parse_inline(SubeventResultEvent_t * p_local_event,
         p_local_event->antenna_path_count = n_ap;
         p_peer_event->antenna_path_count  = n_ap;
     }
-    n_ap = MIN(MAX(n_ap, 1u), MAX_TONE_COUNT);
+    n_ap = MIN(MAX(n_ap, 1u), MARS_CS_MAX_TONE_COUNT);
 
     struct cs_step_parse_context ctx = {
         .p_local_event = p_local_event,
