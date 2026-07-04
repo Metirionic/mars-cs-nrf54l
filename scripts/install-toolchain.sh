@@ -217,7 +217,7 @@ main() {
 
   log "Done. To build, activate the venv and run:"
   log "  source ${VENV_DIR}/bin/activate"
-  log "  NCS_DIR=${REPO_ROOT} bash ci/build.sh --target reflector --preset nrf54l15dk_peri_a1_4"
+  log "  bash ci/build.sh --target reflector --preset nrf54l15dk_peri_a1_4"
 }
 
 main

@@ -84,16 +84,16 @@ same way CI does. The default starting presets are `nrf54l15dk_cent_a1_1`
 
 ```bash
 source ~/.ncs-venv/bin/activate
-NCS_DIR=$(pwd) bash ci/build.sh --target initiator --preset nrf54l15dk_cent_a1_1
-NCS_DIR=$(pwd) bash ci/build.sh --target reflector --preset nrf54l15dk_peri_a1_4
+bash ci/build.sh --target initiator --preset nrf54l15dk_cent_a1_1
+bash ci/build.sh --target reflector --preset nrf54l15dk_peri_a1_4
 ```
 
-`ci/build.sh` requires `NCS_DIR` to point at a west workspace. Setting
-`NCS_DIR=$(pwd)` from the repo root works because the repo is the manifest
-project *inside* the workspace — west walks up from the repo root to the
-parent's `.west/`. Users of the nrfutil toolchain-manager NCS at
-`/opt/nordic/ncs/current` may drop the `NCS_DIR=$(pwd)` prefix; it is
-auto-found by `ci/common.sh`.
+`ci/build.sh` finds the west workspace automatically: it checks `NCS_DIR` (if
+set), then `/opt/nordic/ncs/current` (the nrfutil toolchain-manager NCS), then
+falls back to `west topdir` — the current directory's workspace root. So no
+prefix is needed when run from inside a west workspace (e.g. the repo root,
+which is the manifest project *inside* the workspace — west walks up to the
+parent's `.west/`). An explicit `NCS_DIR` still overrides both fallbacks.
 
 Channel Sounding needs **both** an initiator and a reflector, so build and
 flash one of each. See
@@ -108,10 +108,10 @@ merged `.hex` into a flat output directory. This is exactly how the release
 workflow builds every shipped preset:
 
 ```bash
-NCS_DIR=$(pwd) bash ci/build.sh --target initiator \
+bash ci/build.sh --target initiator \
   --preset nrf54l15dk_cent_a1_1,ublox_cent_a1_1,ezurio_bl54l15u_cent_a2_4,fanstel_bm15c_cent_a1_1 \
   --release-dir release
-NCS_DIR=$(pwd) bash ci/build.sh --target reflector \
+bash ci/build.sh --target reflector \
   --preset nrf54l15dk_peri_a1_4,ezurio_bl54l15u_peri_a2_4,fanstel_bm15c_peri_a1_4,ublox_peri_a1_4 \
   --release-dir release
 ```
