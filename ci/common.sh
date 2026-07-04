@@ -23,12 +23,16 @@ find_ncs_dir() {
   fi
   if command -v west >/dev/null 2>&1; then
     local ws_root
-    if ws_root="$(west topdir 2>/dev/null)" && [[ -n "${ws_root}" ]] && [[ -d "${ws_root}" ]]; then
+    # Require an NCS workspace: nrf/ is NCS-specific (a plain Zephyr workspace
+    # lacks it), so a foreign workspace isn't silently selected as NCS_DIR.
+    # Let west's stderr through so a broken install surfaces its traceback
+    # instead of being swallowed by a redirect.
+    if ws_root="$(west topdir)" && [[ -d "${ws_root}/nrf" ]]; then
       echo "${ws_root}"
       return 0
     fi
   fi
-  echo "NCS_DIR not found. Set NCS_DIR, ensure /opt/nordic/ncs/current exists, or run from inside a west workspace (west topdir)." >&2
+  echo "NCS_DIR not found. Set NCS_DIR, ensure /opt/nordic/ncs/current exists, or run 'west topdir' from inside the NCS workspace." >&2
   return 1
 }
 
