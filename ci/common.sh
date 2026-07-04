@@ -21,7 +21,14 @@ find_ncs_dir() {
     echo "${candidate}"
     return 0
   fi
-  echo "NCS_DIR not found. Set NCS_DIR or ensure /opt/nordic/ncs/current exists." >&2
+  if command -v west >/dev/null 2>&1; then
+    local ws_root
+    if ws_root="$(west topdir 2>/dev/null)" && [[ -n "${ws_root}" ]] && [[ -d "${ws_root}" ]]; then
+      echo "${ws_root}"
+      return 0
+    fi
+  fi
+  echo "NCS_DIR not found. Set NCS_DIR, ensure /opt/nordic/ncs/current exists, or run from inside a west workspace (west topdir)." >&2
   return 1
 }
 
