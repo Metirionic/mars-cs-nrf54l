@@ -139,7 +139,12 @@ jobs:
             ${{ env.WS_PARENT }}/bootloader
             ${{ env.WS_PARENT }}/test
             ${{ env.WS_PARENT }}/tools
-          key: ncs-ws-${{ vars.NCS_VERSION }}-v2-${{ hashFiles('west.yml') }}
+          # Hash the install script too: any change to what it clones/installs
+          # (west init/update flags, SDK install, etc.) auto-invalidates the
+          # cache, so no manual version suffix is needed. restore-keys falls
+          # back to the closest prior workspace and install-toolchain.sh re-runs
+          # west update to bring it current (the script is idempotent/resumable).
+          key: ncs-ws-${{ vars.NCS_VERSION }}-${{ hashFiles('west.yml') }}-${{ hashFiles('scripts/install-toolchain.sh') }}
           restore-keys: ncs-ws-${{ vars.NCS_VERSION }}-
 
       - name: Cache NCS venv

@@ -43,7 +43,7 @@ expected="$(ncs_version_from_west)" || {
 
 # CI-only: the workflow injects vars.NCS_VERSION as NCS_VERSION. An empty value
 # here would expand container.image to a tagless image and cache keys to
-# 'ncs-ws--v2-…' — an opaque failure far from the cause. Fail loudly with the
+# 'ncs-ws--…' — an opaque failure far from the cause. Fail loudly with the
 # remediation instead. Locally (GITHUB_ACTIONS unset) this block is skipped and
 # west.yml is the reference.
 if [[ "${GITHUB_ACTIONS:-}" == "true" ]]; then
