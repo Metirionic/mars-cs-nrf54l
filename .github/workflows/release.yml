@@ -79,9 +79,10 @@ jobs:
     if: needs.version-bump.outputs.bump_needed == 'true'
     runs-on: ubuntu-24.04
     container:
-      image: ghcr.io/nrfconnect/sdk-nrf-toolchain:v3.3.0
+      image: ghcr.io/nrfconnect/sdk-nrf-toolchain:${{ vars.NCS_VERSION }}
     env:
       NCS_DIR: ${{ github.workspace }}
+      NCS_VERSION: ${{ vars.NCS_VERSION }}
     defaults:
       run:
         shell: bash
@@ -89,6 +90,9 @@ jobs:
       - uses: actions/checkout@v4
         with:
           ref: ${{ needs.version-bump.outputs.tag }}
+
+      - name: Verify NCS version
+        run: bash scripts/check-ncs-version.sh
 
       - name: Fix git safe directory
         run: git config --global --add safe.directory $GITHUB_WORKSPACE

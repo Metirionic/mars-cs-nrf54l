@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # SPDX-License-Identifier: MIT
 #
-# Install codifier for the native NCS v3.3.0 toolchain used by mars-cs-nrf54l.
+# Install codifier for the native NCS toolchain used by mars-cs-nrf54l.
 #
 # One invocation hides the entire native install behind a single command:
 #   host apt packages -> isolated Python venv -> west workspace ->
@@ -29,7 +29,7 @@ usage() {
   cat <<'EOF'
 Usage: install-toolchain.sh [--with-rust] [options]
 
-Installs the native NCS v3.3.0 toolchain (host packages, isolated venv, west
+Installs the native NCS toolchain (host packages, isolated venv, west
 workspace, Zephyr SDK ARM-only; version derived from SDK_VERSION) behind a
 single idempotent invocation.
 
