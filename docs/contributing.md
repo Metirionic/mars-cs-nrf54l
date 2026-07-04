@@ -84,10 +84,16 @@ The `end-of-file-fixer` hook is the reason every committed file — this guide i
 
 Pull requests target `main` (the only branch `cog bump --auto` runs on, per
 [cog.toml](../cog.toml); `ci.yml` triggers on every `pull_request` with no branch
-filter). Every PR runs all four jobs in
-[.github/workflows/ci.yml](../.github/workflows/ci.yml), none of which is gated, so
-all four must be green:
+filter). Every PR runs all five jobs in
+[.github/workflows/ci.yml](../.github/workflows/ci.yml). The three build jobs are
+gated by `verify-ncs-version` (a stale NCS version fails fast, before any build
+minutes are spent pulling a container image); `lint` and `verify-ncs-version`
+run independently. All five must be green:
 
+- `verify-ncs-version` (ubuntu-latest) — runs `scripts/check-ncs-version.sh` to
+  assert every NCS version literal agrees with `west.yml`'s `nrf` revision and
+  the `vars.NCS_VERSION` repo variable. See the NCS version management section
+  below.
 - `lint` (ubuntu-latest) — `pre-commit/action@v3.0.1` runs
   `pre-commit run --all-files`. This is the only place the hooks above are enforced.
 - `build-initiator` (NCS v3.3.0 container) —
@@ -99,7 +105,7 @@ all four must be green:
   the initiator (the latter exercising the Rust COBS-serializer bridge), guarding the
   documented native install path for both firmware variants.
 
-A fifth check — `Docs`
+A sixth check — `Docs`
 ([.github/workflows/docs.yml](../.github/workflows/docs.yml)) — also gates every
 `pull_request` and every push to `main`. It validates the internal inline
 links between the [README](../README.md) and the guides in `docs/` (this one
@@ -110,10 +116,43 @@ link, and it confirms the release-artifact name in
 `bash scripts/check-docs.sh`.
 
 There is no `.github/pull_request_template.md`, no `CODEOWNERS`, and no in-repo
-branch-protection hint — a PR is simply a branch opened against `main` with all five
+branch-protection hint — a PR is simply a branch opened against `main` with all six
 checks green. To avoid a red `lint` job, run `pre-commit run --all-files` before pushing;
 to pre-empt the build jobs, reproduce them locally with the two `ci/build.sh` commands
 above (see [docs/build-from-source.md](build-from-source.md) for toolchain setup).
+
+## NCS version management
+
+The NCS version has one source of truth: `west.yml`'s `nrf` project `revision`
+(e.g. `v3.3.0`). A GitHub repo variable, `vars.NCS_VERSION`, carries that version
+into the CI workflows where GitHub Actions expressions need it at job startup
+(container image tags and cache keys in `ci.yml` / `release.yml` evaluate
+`${{ vars.NCS_VERSION }}` — they cannot read `west.yml` at evaluation time).
+
+A shared scanner (`scripts/ncs-version-lib.sh`) defines what counts as an NCS
+version reference and is used by two scripts:
+
+- `scripts/check-ncs-version.sh` — the guard. Verifies every NCS literal in the
+  repo (README, docs, scripts, cache keys) agrees with `west.yml`, and in CI also
+  that `vars.NCS_VERSION` agrees with it. Fails loudly on a stale literal, a
+  mismatched variable, or an unset variable (which would otherwise produce an
+  opaque tagless container image). Run locally with
+  `bash scripts/check-ncs-version.sh`.
+- `scripts/bump-ncs.sh <version>` — the bump operation. The single way to move
+  the NCS version: rewrites `west.yml`'s revision and every literal the scanner
+  finds, sets `vars.NCS_VERSION` to match, runs the guard as a self-check, and
+  opens a PR. README/docs update automatically because the script *is* the bump.
+  Use `--dry-run` to preview the rewrites locally without touching the variable
+  or opening a PR.
+
+**One-time bootstrap:** before this mechanism goes live (or after cloning for CI),
+set the repo variable to the current `west.yml` revision:
+
+```
+gh variable set NCS_VERSION v3.3.0
+```
+
+The bump script updates the variable on each bump thereafter.
 
 ## Out of scope
 

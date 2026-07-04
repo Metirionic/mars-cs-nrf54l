@@ -16,11 +16,22 @@ jobs:
           python-version: '3.x'
       - uses: pre-commit/action@v3.0.1
 
+  verify-ncs-version:
+    name: Verify NCS version
+    runs-on: ubuntu-latest
+    env:
+      NCS_VERSION: ${{ vars.NCS_VERSION }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Check NCS version consistency
+        run: bash scripts/check-ncs-version.sh
+
   build-initiator:
     name: Build initiator
+    needs: [verify-ncs-version]
     runs-on: ubuntu-24.04
     container:
-      image: ghcr.io/nrfconnect/sdk-nrf-toolchain:v3.3.0
+      image: ghcr.io/nrfconnect/sdk-nrf-toolchain:${{ vars.NCS_VERSION }}
     env:
       NCS_DIR: ${{ github.workspace }}
     defaults:
@@ -53,9 +64,10 @@ jobs:
 
   build-reflector:
     name: Build reflector
+    needs: [verify-ncs-version]
     runs-on: ubuntu-24.04
     container:
-      image: ghcr.io/nrfconnect/sdk-nrf-toolchain:v3.3.0
+      image: ghcr.io/nrfconnect/sdk-nrf-toolchain:${{ vars.NCS_VERSION }}
     env:
       NCS_DIR: ${{ github.workspace }}
     defaults:
@@ -83,6 +95,7 @@ jobs:
 
   onboarding-verification:
     name: Onboarding verification (clean OS, native toolchain)
+    needs: [verify-ncs-version]
     runs-on: ubuntu-24.04
     container: ubuntu:24.04
     defaults:
@@ -126,8 +139,8 @@ jobs:
             ${{ env.WS_PARENT }}/bootloader
             ${{ env.WS_PARENT }}/test
             ${{ env.WS_PARENT }}/tools
-          key: ncs-ws-v3.3.0-v2-${{ hashFiles('west.yml') }}
-          restore-keys: ncs-ws-v3.3.0-
+          key: ncs-ws-${{ vars.NCS_VERSION }}-v2-${{ hashFiles('west.yml') }}
+          restore-keys: ncs-ws-${{ vars.NCS_VERSION }}-
 
       - name: Cache NCS venv
         uses: actions/cache@v4
@@ -136,9 +149,9 @@ jobs:
           # Bump the `v1` segment whenever the `setuptools<81` constraint in
           # scripts/install-toolchain.sh (create_venv's bootstrap pip install)
           # or the venv layout changes, so the cache is rebuilt fresh.
-          key: ncs-venv-v3.3.0-v1-${{ runner.os }}-${{ hashFiles('west.yml') }}
+          key: ncs-venv-${{ vars.NCS_VERSION }}-v1-${{ runner.os }}-${{ hashFiles('west.yml') }}
           restore-keys: |
-            ncs-venv-v3.3.0-v1-${{ runner.os }}-
+            ncs-venv-${{ vars.NCS_VERSION }}-v1-${{ runner.os }}-
 
       - name: Install native toolchain (documented path)
         run: bash scripts/install-toolchain.sh --with-rust
