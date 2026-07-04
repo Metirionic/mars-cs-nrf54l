@@ -129,6 +129,17 @@ jobs:
           key: ncs-ws-v3.3.0-v2-${{ hashFiles('west.yml') }}
           restore-keys: ncs-ws-v3.3.0-
 
+      - name: Cache NCS venv
+        uses: actions/cache@v4
+        with:
+          path: ~/.ncs-venv
+          # Bump the `v1` segment whenever the `setuptools<81` constraint in
+          # scripts/install-toolchain.sh (create_venv's bootstrap pip install)
+          # or the venv layout changes, so the cache is rebuilt fresh.
+          key: ncs-venv-v3.3.0-v1-${{ runner.os }}-${{ hashFiles('west.yml') }}
+          restore-keys: |
+            ncs-venv-v3.3.0-v1-${{ runner.os }}-
+
       - name: Install native toolchain (documented path)
         run: bash scripts/install-toolchain.sh --with-rust
 
