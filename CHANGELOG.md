@@ -2,6 +2,14 @@
 All notable changes to this project will be documented in this file. See [conventional commits](https://www.conventionalcommits.org/) for commit guidelines.
 
 - - -
+## [v1.3.6](https://github.com/Metirionic/mars-cs-nrf54l/releases/tag/v1.3.6) - 2026-07-04
+#### Bug Fixes
+- hint 'west update' for partial workspaces; restore empty-ws_root guard - ([a775afc](https://github.com/Metirionic/mars-cs-nrf54l/commit/a775afca81673ac0ecb587009d0fa6d87dfd6fb3)) - AttilaRoemer, Claude
+- validate NCS workspace and surface broken-west errors in find_ncs_dir - ([626a2da](https://github.com/Metirionic/mars-cs-nrf54l/commit/626a2da5e413e64acf28aa47751d29607c87b80b)) - AttilaRoemer, Claude
+- add west topdir fallback to find_ncs_dir; drop NCS_DIR workaround - ([936c13a](https://github.com/Metirionic/mars-cs-nrf54l/commit/936c13adec1ddea949e490abcc459f78c13f73ec)) - AttilaRoemer, Claude
+
+- - -
+
 ## [v1.3.5](https://github.com/Metirionic/mars-cs-nrf54l/releases/tag/v1.3.5) - 2026-07-02
 #### Bug Fixes
 - detect existing release by HTTP status, not gh stderr prose - ([6579644](https://github.com/Metirionic/mars-cs-nrf54l/commit/6579644940265b62883285008d9ac586d3c9ad82)) - AttilaRoemer, Claude
