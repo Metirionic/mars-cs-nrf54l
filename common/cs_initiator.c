@@ -246,6 +246,10 @@ static void subevent_result_cb(struct bt_conn * p_conn, struct bt_conn_le_cs_sub
                     latest_local_steps.size);
             net_buf_simple_reset(&latest_local_steps);
             dropped_ranging_counter = result->header.procedure_counter;
+            /* Return the sem_local_steps token taken at the new-procedure gate
+             * above; IPT has no ranging_data_cb to recover it, so omitting this
+             * give permanently stalls every subsequent procedure. */
+            k_sem_give(&sem_local_steps);
             return;
         }
     }
