@@ -2,6 +2,12 @@
 All notable changes to this project will be documented in this file. See [conventional commits](https://www.conventionalcommits.org/) for commit guidelines.
 
 - - -
+## [v1.3.7](https://github.com/Metirionic/mars-cs-nrf54l/releases/tag/v1.3.7) - 2026-07-06
+#### Bug Fixes
+- add review comment - ([f358438](https://github.com/Metirionic/mars-cs-nrf54l/commit/f358438358f5dd74b88f54f7134e0611385d9e31)) - Yan Wu
+
+- - -
+
 ## [v1.3.6](https://github.com/Metirionic/mars-cs-nrf54l/releases/tag/v1.3.6) - 2026-07-04
 #### Bug Fixes
 - hint 'west update' for partial workspaces; restore empty-ws_root guard - ([a775afc](https://github.com/Metirionic/mars-cs-nrf54l/commit/a775afca81673ac0ecb587009d0fa6d87dfd6fb3)) - AttilaRoemer, Claude
