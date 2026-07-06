@@ -191,12 +191,12 @@ int main(void)
 
     const struct cs_initiator_config config = {
         .cs_sync_phy            = BT_CONN_LE_CS_SYNC_1M_PHY,
-        .procedure_phy          = BT_LE_CS_PROCEDURE_PHY_1M,
-        .min_procedure_interval = 20,
-        .max_procedure_interval = 50,
-        .min_subevent_len       = 16000,
-        .max_subevent_len       = 16000,
-        .max_procedure_len      = 1000,
+        .procedure_phy          = BT_LE_CS_PROCEDURE_PHY_2M,
+        .min_procedure_interval = 2,
+        .max_procedure_interval = 2,
+        .min_subevent_len       = 11000,
+        .max_subevent_len       = 11000,
+        .max_procedure_len      = 250,
     };
 
     err = cs_initiator_start(&config);
