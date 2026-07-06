@@ -54,21 +54,19 @@
 
 #define MARS_CS_IPT_MAX_ANTENNA_PATHS CONFIG_BT_CTLR_SDC_CS_MAX_ANTENNA_PATHS
 
-#define MARS_CS_IPT_MODE_0_MAX_LEN                                                 \
-    MAX(sizeof(struct bt_hci_le_cs_step_data_mode_0_initiator),                    \
-        sizeof(struct bt_hci_le_cs_step_data_mode_0_reflector))
-#define MARS_CS_IPT_MODE_2_MAX_LEN                                                 \
-    (sizeof(struct bt_hci_le_cs_step_data_mode_2) +                                \
+#define MARS_CS_IPT_MODE_0_MAX_LEN \
+    MAX(sizeof(struct bt_hci_le_cs_step_data_mode_0_initiator), sizeof(struct bt_hci_le_cs_step_data_mode_0_reflector))
+#define MARS_CS_IPT_MODE_2_MAX_LEN                  \
+    (sizeof(struct bt_hci_le_cs_step_data_mode_2) + \
      (MARS_CS_IPT_MAX_ANTENNA_PATHS + 1) * sizeof(struct bt_hci_le_cs_step_data_tone_info))
 
 #define MARS_CS_IPT_MAX_STEP_DATA_LEN MAX(MARS_CS_IPT_MODE_0_MAX_LEN, MARS_CS_IPT_MODE_2_MAX_LEN)
 
 /* 3 bytes of per-step framing in the local buffer: mode | channel | data_len. */
-#define MARS_CS_IPT_STEP_FRAMING_LEN 3
+#define MARS_CS_IPT_STEP_FRAMING_LEN  3
 
-#define LOCAL_PROCEDURE_MEM                                                       \
-    (MARS_CS_IPT_MAX_STEPS_PER_PROCEDURE *                                       \
-     (MARS_CS_IPT_STEP_FRAMING_LEN + MARS_CS_IPT_MAX_STEP_DATA_LEN))
+#define LOCAL_PROCEDURE_MEM \
+    (MARS_CS_IPT_MAX_STEPS_PER_PROCEDURE * (MARS_CS_IPT_STEP_FRAMING_LEN + MARS_CS_IPT_MAX_STEP_DATA_LEN))
 #endif  // defined(CONFIG_BT_RAS_RREQ) || defined(CONFIG_BT_RAS_RRSP)
 
 /**
