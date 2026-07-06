@@ -43,8 +43,10 @@ static void inline_result_cb(struct bt_conn * p_conn, int err)
 
     if (err)
     {
+        /* Mirrors the RAS err path: do not wake the consumer on a failed/aborted
+         * procedure so the main loop does not process stale event data.
+         */
         LOG_ERR("IPT procedure failed (err %d)", err);
-        cs_initiator_give_sem_data_ready();
         return;
     }
 
@@ -52,7 +54,13 @@ static void inline_result_cb(struct bt_conn * p_conn, int err)
 
     if (latest_local_steps->len == 0)
     {
+        /* Empty procedure: return the sem_local_steps token before waking the
+         * consumer, otherwise the next procedure's k_sem_take(&sem_local_steps,
+         * K_NO_WAIT) fails and every subsequent procedure is dropped forever.
+         */
         LOG_WRN("IPT procedure produced no step data");
+        net_buf_simple_reset(latest_local_steps);
+        cs_initiator_give_sem_local_steps();
         cs_initiator_give_sem_data_ready();
         return;
     }
@@ -190,6 +198,10 @@ int main(void)
     cs_initiator_set_config_created_cb(config_create_hook);
 
     const struct cs_initiator_config config = {
+#if IS_ENABLED(CONFIG_MARS_CS_INLINE_PCT)
+        /* IPT: 7.5 ms conn interval, fast procedure cadence (matches the
+         * Nordic ipt_initiator sample: procedure_interval=2, subevent=11000).
+         */
         .cs_sync_phy            = BT_CONN_LE_CS_SYNC_1M_PHY,
         .procedure_phy          = BT_LE_CS_PROCEDURE_PHY_2M,
         .min_procedure_interval = 2,
@@ -197,6 +209,19 @@ int main(void)
         .min_subevent_len       = 11000,
         .max_subevent_len       = 11000,
         .max_procedure_len      = 250,
+#else
+        /* RAS: 20 ms conn interval, slower cadence (matches the Nordic
+         * ras_initiator sample: procedure_interval=10, subevent=16000,
+         * max_procedure_len = acl_interval_units * (interval - 1) = 0x10 * 9 = 144).
+         */
+        .cs_sync_phy            = BT_CONN_LE_CS_SYNC_1M_PHY,
+        .procedure_phy          = BT_LE_CS_PROCEDURE_PHY_2M,
+        .min_procedure_interval = 10,
+        .max_procedure_interval = 10,
+        .min_subevent_len       = 16000,
+        .max_subevent_len       = 16000,
+        .max_procedure_len      = 144,
+#endif
     };
 
     err = cs_initiator_start(&config);
