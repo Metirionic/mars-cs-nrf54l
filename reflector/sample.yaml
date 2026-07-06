@@ -14,3 +14,14 @@ tests:
       - nrf54l15dk/nrf54l10/cpuapp
       - nrf54l15dk/nrf54l15/cpuapp
     tags: bluetooth ci_build sysbuild
+  sample.bluetooth.channel_sounding_ipt_reflector:
+    sysbuild: true
+    build_only: true
+    integration_platforms:
+      - nrf54l15dk/nrf54l15/cpuapp
+    platform_allow:
+      - nrf54l15dk/nrf54l15/cpuapp
+    extra_configs:
+      - CONFIG_MARS_CS_INLINE_PCT=y
+      - CONFIG_BT_RAS_RRSP=n
+    tags: bluetooth ci_build sysbuild

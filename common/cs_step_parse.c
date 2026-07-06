@@ -10,13 +10,17 @@
 
 #include "cs_step_parse.h"
 
-#include <bluetooth/services/ras.h>
 #include <string.h>
 #include <zephyr/logging/log.h>
 #include <zephyr/sys/util.h>
 
+#if defined(CONFIG_BT_RAS_RREQ)
+#include <bluetooth/services/ras.h>
+#endif
+
 LOG_MODULE_DECLARE(app_main, LOG_LEVEL_INF);
 
+#if IS_ENABLED(CONFIG_BT_RAS_RREQ)
 /**
  * @brief Convert HCI tone quality pair to ToneQualityIndicator.
  *
@@ -56,6 +60,7 @@ static ExtensionSlot_t extension_slot_from_hci(uint8_t local_ext, uint8_t peer_e
     }
     return EXTENSION_SLOT_NOT_PRESENT;
 }
+#endif /* CONFIG_BT_RAS_RREQ */
 
 /**
  * @brief Convert Phase Correction Term (PCT) IQ values to normalized floats.
@@ -71,6 +76,7 @@ static void pct_to_float(const uint8_t pct[3], float * p_i_value, float * p_q_va
     *p_q_value                              = (float)iq.q / NORMALIZATION;
 }
 
+#if IS_ENABLED(CONFIG_BT_RAS_RREQ)
 /** @brief Callback that extracts the antenna path count from the ranging header. */
 static bool process_ranging_header(struct ras_ranging_header * p_ranging_header, void * p_user_data)
 {
@@ -186,6 +192,138 @@ void cs_step_parse(SubeventResultEvent_t * p_local_event,
                                        NULL,
                                        process_step_data,
                                        &ctx);
+
+    p_local_event->step_count = ctx.step_index;
+    p_peer_event->step_count  = ctx.step_index;
+}
+#endif /* CONFIG_BT_RAS_RREQ */
+
+/**
+ * @brief Number of antenna paths reported by the controller configuration.
+ *
+ * Used by cs_step_parse_inline() to size the per-step tone loop in IPT mode,
+ * where the RAS ranging header (which sets n_ap in the RAS path) is not parsed.
+ */
+static inline uint8_t inline_n_ap(void)
+{
+    uint8_t n_ap = CONFIG_BT_CTLR_SDC_CS_MAX_ANTENNA_PATHS;
+    if (n_ap == 0)
+    {
+        n_ap = 1;
+    }
+    return MIN(n_ap, 5);
+}
+
+/** @brief Fill one Mode-2 step into both events for the inline (IPT) path. */
+static void inline_process_step_mode2(struct cs_step_parse_context * ctx, struct bt_le_cs_subevent_step * local_step)
+{
+    if (ctx->step_index >= 160)
+    {
+        return;
+    }
+
+    struct bt_hci_le_cs_step_data_mode_2 * local_step_data = (struct bt_hci_le_cs_step_data_mode_2 *)local_step->data;
+
+    const uint8_t n_ap = ctx->n_ap;
+
+    for (int event_index = 0; event_index < 2; event_index++)
+    {
+        SubeventResultEvent_t * event = (event_index == 0) ? ctx->p_local_event : ctx->p_peer_event;
+        Step_t *                step  = &event->steps.idx[ctx->step_index];
+
+        step->mode      = local_step->mode;
+        step->channel   = local_step->channel;
+        step->info.kind = MODE_ROLE_SPECIFIC_INFO_KIND_MODE2;
+
+        Mode2_t * mode2 = &step->info.mode2;
+        memset(mode2, 0, sizeof(*mode2));
+        mode2->antenna_permutation_index = 0;
+
+        for (uint8_t tone_index = 0; tone_index < n_ap && tone_index < 5; tone_index++)
+        {
+            struct bt_hci_le_cs_step_data_tone_info * local_tone = &local_step_data->tone_info[tone_index];
+
+            /* Quality/extension are derived from the local tone only in IPT. */
+            mode2->quality_indicators.idx[tone_index] = (local_tone->quality_indicator < 4)
+                                                            ? (ToneQualityIndicator_t)local_tone->quality_indicator
+                                                            : TONE_QUALITY_INDICATOR_UNAVAILABLE;
+            mode2->extension_slots.idx[tone_index] =
+                (local_tone->extension_indicator == EXTENSION_SLOT_EXPECTED_PRESENT ||
+                 local_tone->extension_indicator == EXTENSION_SLOT_NOT_EXPECTED_PRESENT)
+                    ? (ExtensionSlot_t)local_tone->extension_indicator
+                    : EXTENSION_SLOT_NOT_PRESENT;
+
+            if (event_index == 0)
+            {
+                /* Local (initiator) event: real local PCT. */
+                float i_val, q_val;
+                pct_to_float(local_tone->phase_correction_term, &i_val, &q_val);
+                mode2->phase_correction_terms.idx[tone_index].i = i_val;
+                mode2->phase_correction_terms.idx[tone_index].q = q_val;
+            }
+            else
+            {
+                /* Peer (reflector) event: transparent identity PCT (1.0 + 0.0j).
+                 * The reflector's phase contribution is already embedded in the
+                 * local tones in IPT mode, so no phase rotation is applied here.
+                 */
+                mode2->phase_correction_terms.idx[tone_index].i = 1.0f;
+                mode2->phase_correction_terms.idx[tone_index].q = 0.0f;
+            }
+        }
+    }
+
+    ctx->step_index++;
+}
+
+void cs_step_parse_inline(SubeventResultEvent_t * p_local_event,
+                          SubeventResultEvent_t * p_peer_event,
+                          struct net_buf_simple * p_local_steps,
+                          enum bt_conn_le_cs_role role)
+{
+    ARG_UNUSED(role);
+
+    struct cs_step_parse_context ctx = {
+        .p_local_event = p_local_event,
+        .p_peer_event  = p_peer_event,
+        .step_index    = 0,
+        .n_ap          = inline_n_ap(),
+    };
+
+    p_local_event->antenna_path_count = ctx.n_ap;
+    p_peer_event->antenna_path_count  = ctx.n_ap;
+
+    /* The local buffer holds raw HCI subevent steps: mode | channel | data_len | data,
+     * one byte each, concatenated for all steps in the procedure. Walk it as the
+     * Nordic ipt_initiator sample does (subevent_steps_parse).
+     */
+    while (p_local_steps->len >= 3)
+    {
+        struct bt_le_cs_subevent_step local_step = {0};
+        local_step.mode                          = net_buf_simple_pull_u8(p_local_steps);
+        local_step.channel                       = net_buf_simple_pull_u8(p_local_steps);
+        local_step.data_len                      = net_buf_simple_pull_u8(p_local_steps);
+
+        if (local_step.data_len == 0)
+        {
+            LOG_WRN("Inline parse: zero-length step data.");
+            break;
+        }
+        if (local_step.data_len > p_local_steps->len)
+        {
+            LOG_WRN("Inline parse: local step data appears malformed.");
+            break;
+        }
+
+        local_step.data = p_local_steps->data;
+
+        if (local_step.mode == BT_HCI_OP_LE_CS_MAIN_MODE_2)
+        {
+            inline_process_step_mode2(&ctx, &local_step);
+        }
+
+        net_buf_simple_pull(p_local_steps, local_step.data_len);
+    }
 
     p_local_event->step_count = ctx.step_index;
     p_peer_event->step_count  = ctx.step_index;

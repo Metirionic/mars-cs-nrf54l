@@ -161,7 +161,11 @@ void serialize_run(uint64_t                               local_mac,
     g_peer_event.initial_meta.reference_power_level.value      = p_result->header.reference_power_level;
     g_peer_event.has_initial_meta                              = true;
 
+#if IS_ENABLED(CONFIG_MARS_CS_INLINE_PCT)
+    cs_step_parse_inline(&g_local_event, &g_peer_event, p_local_steps, role);
+#else
     cs_step_parse(&g_local_event, &g_peer_event, p_peer_steps, p_local_steps, role);
+#endif
 
     int err;
 
