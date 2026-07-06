@@ -274,8 +274,9 @@ each boot runs one pass.
 
 **devicetree chosen nodes.** Only one `DT_CHOSEN` / `DEVICE_DT_GET` call exists
 in any `src/` directory: `cobs-uart` (`initiator/src/serialize.c:31`). The other
-chosen nodes set by the board overlays (`zephyr,console`, `zephyr,shell-uart`,
-`zephyr,uart-mcumgr`, `zephyr,bt-mon-uart`, `zephyr,bt-c2h-uart`) are consumed by
+chosen nodes are set by the DK/U-Blox/Ezurio/Fanstel board overlays (the TAG
+overlay sets only `cobs-uart`): `zephyr,console`, `zephyr,shell-uart`,
+`zephyr,uart-mcumgr`, `zephyr,bt-mon-uart`, `zephyr,bt-c2h-uart`, consumed by
 Zephyr subsystems (shell, mcumgr, bt-mon, bt-c2h), not by app code. The
 `cs_antenna_switch` node is owned and consumed internally by the Nordic
 controller library; no code in this repo reads `ant-gpios` (see
