@@ -115,7 +115,8 @@ covered separately; this guide covers capture only.
 > **no onboard USB**, so reading the COBS ranging stream requires an external
 > UART-to-USB adapter (e.g. FT232R) wired to the COBS UART: `uart20`
 > **TX → P1.13**, **RX → P1.14** (`921600`, 8N1, no flow control) — the pin
-> assignment defined in `boards/nrf54l15tag_nrf54l15_cpuapp.overlay`. The TAG is
+> assignment in the shared `boards/uart20_p1_13_p1_14.dtsi` (included by
+> `boards/nrf54l15tag_nrf54l15_cpuapp.overlay`). The TAG is
 > flashed through an nRF54L15 DK's `DEBUG OUT` header. See
 > [docs/hardware.md](hardware.md#nrf54l15-tag-wiring-notes) for the full TAG
 > wiring notes.

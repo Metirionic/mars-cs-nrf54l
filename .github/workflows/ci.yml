@@ -72,7 +72,7 @@ jobs:
           west init -l . --mf west.yml
           west update -o=--depth=1 -n
 
-      - name: Build initiator (nrf54l15dk central A1 1-path + nrf54l15tag central A2 4-path)
+      - name: Build initiator (nrf54l15dk central A1 1-path + nrf54l15tag central A2 4-path + IPT)
         run: |
           bash ci/build.sh --target initiator --preset nrf54l15dk_cent_a1_1,nrf54l15tag_cent_a2_4,nrf54l15dk_cent_a1_1_ipt
 
@@ -105,7 +105,7 @@ jobs:
           west init -l . --mf west.yml
           west update -o=--depth=1 -n
 
-      - name: Build reflector (nrf54l15dk peripheral A1 4-path + nrf54l15tag peripheral A2 4-path)
+      - name: Build reflector (nrf54l15dk peripheral A1 4-path + nrf54l15tag peripheral A2 4-path + IPT)
         run: |
           bash ci/build.sh --target reflector --preset nrf54l15dk_peri_a1_4,nrf54l15tag_peri_a2_4,nrf54l15dk_peri_a1_4_ipt
 
