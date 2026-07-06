@@ -27,20 +27,25 @@ jobs:
       # can't apply — the script falls back to the west.yml-only literal scan
       # (its local mode). Pushes and same-repo PRs enforce the full check.
       ENFORCE_NCS_VAR: ${{ github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository }}
+    outputs:
+      # The NCS version parsed from west.yml — the value the guard just
+      # verified. Build jobs consume this for the container image tag and cache
+      # keys so they resolve on fork PRs too (vars.NCS_VERSION is withheld there).
+      ncs_version: ${{ steps.check.outputs.ncs_version }}
     steps:
       - uses: actions/checkout@v4
       - name: Check NCS version consistency
+        id: check
         run: bash scripts/check-ncs-version.sh
 
   build-initiator:
     name: Build initiator
     needs: [verify-ncs-version]
-    # Skip on fork PRs: vars.NCS_VERSION is withheld there, so the container
-    # image tag would be empty. Full CI runs on pushes and same-repo PRs.
-    if: ${{ github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository }}
     runs-on: ubuntu-24.04
     container:
-      image: ghcr.io/nrfconnect/sdk-nrf-toolchain:${{ vars.NCS_VERSION }}
+      # Sourced from west.yml via verify-ncs-version's output (not vars), so
+      # the tag resolves on fork PRs too (vars.NCS_VERSION is withheld there).
+      image: ghcr.io/nrfconnect/sdk-nrf-toolchain:${{ needs.verify-ncs-version.outputs.ncs_version }}
     env:
       NCS_DIR: ${{ github.workspace }}
     defaults:
@@ -74,12 +79,11 @@ jobs:
   build-reflector:
     name: Build reflector
     needs: [verify-ncs-version]
-    # Skip on fork PRs: vars.NCS_VERSION is withheld there, so the container
-    # image tag would be empty. Full CI runs on pushes and same-repo PRs.
-    if: ${{ github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository }}
     runs-on: ubuntu-24.04
     container:
-      image: ghcr.io/nrfconnect/sdk-nrf-toolchain:${{ vars.NCS_VERSION }}
+      # Sourced from west.yml via verify-ncs-version's output (not vars), so
+      # the tag resolves on fork PRs too (vars.NCS_VERSION is withheld there).
+      image: ghcr.io/nrfconnect/sdk-nrf-toolchain:${{ needs.verify-ncs-version.outputs.ncs_version }}
     env:
       NCS_DIR: ${{ github.workspace }}
     defaults:
@@ -108,9 +112,6 @@ jobs:
   onboarding-verification:
     name: Onboarding verification (clean OS, native toolchain)
     needs: [verify-ncs-version]
-    # Skip on fork PRs: vars.NCS_VERSION is withheld there, so the cache keys
-    # would go versionless/cold. Full CI runs on pushes and same-repo PRs.
-    if: ${{ github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository }}
     runs-on: ubuntu-24.04
     container: ubuntu:24.04
     defaults:
@@ -159,8 +160,8 @@ jobs:
           # cache, so no manual version suffix is needed. restore-keys falls
           # back to the closest prior workspace and install-toolchain.sh re-runs
           # west update to bring it current (the script is idempotent/resumable).
-          key: ncs-ws-${{ vars.NCS_VERSION }}-${{ hashFiles('west.yml') }}-${{ hashFiles('scripts/install-toolchain.sh') }}
-          restore-keys: ncs-ws-${{ vars.NCS_VERSION }}-
+          key: ncs-ws-${{ needs.verify-ncs-version.outputs.ncs_version }}-${{ hashFiles('west.yml') }}-${{ hashFiles('scripts/install-toolchain.sh') }}
+          restore-keys: ncs-ws-${{ needs.verify-ncs-version.outputs.ncs_version }}-
 
       - name: Cache NCS venv
         uses: actions/cache@v4
@@ -169,9 +170,9 @@ jobs:
           # Bump the `v1` segment whenever the `setuptools<81` constraint in
           # scripts/install-toolchain.sh (create_venv's bootstrap pip install)
           # or the venv layout changes, so the cache is rebuilt fresh.
-          key: ncs-venv-${{ vars.NCS_VERSION }}-v1-${{ runner.os }}-${{ hashFiles('west.yml') }}
+          key: ncs-venv-${{ needs.verify-ncs-version.outputs.ncs_version }}-v1-${{ runner.os }}-${{ hashFiles('west.yml') }}
           restore-keys: |
-            ncs-venv-${{ vars.NCS_VERSION }}-v1-${{ runner.os }}-
+            ncs-venv-${{ needs.verify-ncs-version.outputs.ncs_version }}-v1-${{ runner.os }}-
 
       - name: Install native toolchain (documented path)
         run: bash scripts/install-toolchain.sh --with-rust
