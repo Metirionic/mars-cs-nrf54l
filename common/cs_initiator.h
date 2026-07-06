@@ -76,8 +76,6 @@
  */
 #define MARS_CS_IPT_MAX_STEPS_PER_PROCEDURE 256
 
-#define MARS_CS_IPT_MAX_ANTENNA_PATHS MARS_CS_MAX_ANTENNA_PATHS
-
 #define MARS_CS_IPT_MODE_0_MAX_LEN \
     MAX(sizeof(struct bt_hci_le_cs_step_data_mode_0_initiator), sizeof(struct bt_hci_le_cs_step_data_mode_0_reflector))
 #define MARS_CS_IPT_MODE_2_MAX_LEN                  \
