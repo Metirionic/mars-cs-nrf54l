@@ -18,6 +18,11 @@
 #include <bluetooth/services/ras.h>
 #endif
 
+/**
+ * @brief Maximum tone index (four paths + extension slot).
+ */
+#define MAX_TONE_COUNT 5u
+
 LOG_MODULE_DECLARE(app_main, LOG_LEVEL_INF);
 
 #if IS_ENABLED(CONFIG_BT_RAS_RREQ)
@@ -26,7 +31,7 @@ LOG_MODULE_DECLARE(app_main, LOG_LEVEL_INF);
  *
  * Returns the lower (worse) of the two quality indicators.
  */
-static ToneQualityIndicator_t tone_quality_from_hci(uint8_t local_qi, uint8_t peer_qi)
+static ToneQualityIndicator_t tone_quality_from_hci(uint8_t local_quality_indicator, uint8_t peer_quality_indicator)
 {
     static const ToneQualityIndicator_t hci_to_ordinal[] = {
         [BT_HCI_LE_CS_TONE_QUALITY_UNAVAILABLE] = TONE_QUALITY_INDICATOR_UNAVAILABLE,
@@ -35,10 +40,12 @@ static ToneQualityIndicator_t tone_quality_from_hci(uint8_t local_qi, uint8_t pe
         [BT_HCI_LE_CS_TONE_QUALITY_HIGH]        = TONE_QUALITY_INDICATOR_HIGH,
     };
 
-    ToneQualityIndicator_t local =
-        (local_qi < ARRAY_SIZE(hci_to_ordinal)) ? hci_to_ordinal[local_qi] : TONE_QUALITY_INDICATOR_UNAVAILABLE;
-    ToneQualityIndicator_t peer =
-        (peer_qi < ARRAY_SIZE(hci_to_ordinal)) ? hci_to_ordinal[peer_qi] : TONE_QUALITY_INDICATOR_UNAVAILABLE;
+    ToneQualityIndicator_t local = (local_quality_indicator < ARRAY_SIZE(hci_to_ordinal))
+                                       ? hci_to_ordinal[local_quality_indicator]
+                                       : TONE_QUALITY_INDICATOR_UNAVAILABLE;
+    ToneQualityIndicator_t peer  = (peer_quality_indicator < ARRAY_SIZE(hci_to_ordinal))
+                                       ? hci_to_ordinal[peer_quality_indicator]
+                                       : TONE_QUALITY_INDICATOR_UNAVAILABLE;
 
     return (local < peer) ? local : peer;
 }
@@ -48,13 +55,15 @@ static ToneQualityIndicator_t tone_quality_from_hci(uint8_t local_qi, uint8_t pe
  *
  * Returns the most permissive combination of local and peer indicators.
  */
-static ExtensionSlot_t extension_slot_from_hci(uint8_t local_ext, uint8_t peer_ext)
+static ExtensionSlot_t extension_slot_from_hci(uint8_t local_extension_slot, uint8_t peer_extension_slot)
 {
-    if (local_ext == EXTENSION_SLOT_EXPECTED_PRESENT || peer_ext == EXTENSION_SLOT_EXPECTED_PRESENT)
+    if (local_extension_slot == EXTENSION_SLOT_EXPECTED_PRESENT ||
+        peer_extension_slot == EXTENSION_SLOT_EXPECTED_PRESENT)
     {
         return EXTENSION_SLOT_EXPECTED_PRESENT;
     }
-    if (local_ext == EXTENSION_SLOT_NOT_EXPECTED_PRESENT || peer_ext == EXTENSION_SLOT_NOT_EXPECTED_PRESENT)
+    if (local_extension_slot == EXTENSION_SLOT_NOT_EXPECTED_PRESENT ||
+        peer_extension_slot == EXTENSION_SLOT_NOT_EXPECTED_PRESENT)
     {
         return EXTENSION_SLOT_NOT_EXPECTED_PRESENT;
     }
@@ -99,9 +108,9 @@ static bool process_step_data(struct bt_le_cs_subevent_step * p_local_step,
                               struct bt_le_cs_subevent_step * p_peer_step,
                               void *                          p_user_data)
 {
-    struct cs_step_parse_context * ctx = (struct cs_step_parse_context *)p_user_data;
+    struct cs_step_parse_context * p_context = (struct cs_step_parse_context *)p_user_data;
 
-    if (ctx->step_index >= 160)
+    if (p_context->step_index >= 160)
     {
         return false;
     }
@@ -113,29 +122,29 @@ static bool process_step_data(struct bt_le_cs_subevent_step * p_local_step,
         struct bt_hci_le_cs_step_data_mode_2 * peer_step_data =
             (struct bt_hci_le_cs_step_data_mode_2 *)p_peer_step->data;
 
-        for (int event_index = 0; event_index < 2; event_index++)
+        for (size_t event_index = 0; event_index < 2; event_index++)
         {
-            SubeventResultEvent_t * event  = (event_index == 0) ? ctx->p_local_event : ctx->p_peer_event;
-            Origin_t                origin = (event_index == 0) ? ORIGIN_INITIATOR : ORIGIN_REFLECTOR;
-            Step_t *                step   = &event->steps.idx[ctx->step_index];
+            SubeventResultEvent_t * p_event = (event_index == 0u) ? p_context->p_local_event : p_context->p_peer_event;
+            Origin_t                origin  = (event_index == 0u) ? ORIGIN_INITIATOR : ORIGIN_REFLECTOR;
+            Step_t *                p_step  = &p_event->steps.idx[p_context->step_index];
 
-            step->mode      = p_local_step->mode;
-            step->channel   = p_local_step->channel;
-            step->info.kind = MODE_ROLE_SPECIFIC_INFO_KIND_MODE2;
+            p_step->mode      = p_local_step->mode;
+            p_step->channel   = p_local_step->channel;
+            p_step->info.kind = MODE_ROLE_SPECIFIC_INFO_KIND_MODE2;
 
-            Mode2_t * mode2 = &step->info.mode2;
-            memset(mode2, 0, sizeof(*mode2));
+            Mode2_t * p_mode2 = &p_step->info.mode2;
+            memset(p_mode2, 0, sizeof(*p_mode2));
 
-            mode2->antenna_permutation_index = 0;
+            p_mode2->antenna_permutation_index = 0u;
 
-            for (uint8_t tone_index = 0; tone_index < ctx->n_ap && tone_index < 5; tone_index++)
+            for (size_t tone_index = 0u; tone_index < p_context->n_ap && tone_index < MAX_TONE_COUNT; tone_index++)
             {
                 struct bt_hci_le_cs_step_data_tone_info * local_tone = &local_step_data->tone_info[tone_index];
                 struct bt_hci_le_cs_step_data_tone_info * peer_tone  = &peer_step_data->tone_info[tone_index];
 
-                mode2->quality_indicators.idx[tone_index] =
+                p_mode2->quality_indicators.idx[tone_index] =
                     tone_quality_from_hci(local_tone->quality_indicator, peer_tone->quality_indicator);
-                mode2->extension_slots.idx[tone_index] =
+                p_mode2->extension_slots.idx[tone_index] =
                     extension_slot_from_hci(local_tone->extension_indicator, peer_tone->extension_indicator);
 
                 float i_val, q_val;
@@ -148,12 +157,12 @@ static bool process_step_data(struct bt_le_cs_subevent_step * p_local_step,
                     pct_to_float(peer_tone->phase_correction_term, &i_val, &q_val);
                 }
 
-                mode2->phase_correction_terms.idx[tone_index].i = i_val;
-                mode2->phase_correction_terms.idx[tone_index].q = q_val;
+                p_mode2->phase_correction_terms.idx[tone_index].i = i_val;
+                p_mode2->phase_correction_terms.idx[tone_index].q = q_val;
             }
         }
 
-        ctx->step_index++;
+        p_context->step_index++;
     }
 
     return true;
@@ -207,11 +216,11 @@ void cs_step_parse(SubeventResultEvent_t * p_local_event,
 static inline uint8_t inline_n_ap(void)
 {
     uint8_t n_ap = CONFIG_BT_CTLR_SDC_CS_MAX_ANTENNA_PATHS;
-    if (n_ap == 0)
+    if (n_ap == 0u)
     {
-        n_ap = 1;
+        n_ap = 1u;
     }
-    return MIN(n_ap, 5);
+    return MIN(n_ap, MAX_TONE_COUNT);
 }
 
 /** @brief Fill one Mode-2 step into both events for the inline (IPT) path. */
@@ -253,7 +262,7 @@ static void inline_process_step_mode2(struct cs_step_parse_context * ctx, struct
                     ? (ExtensionSlot_t)local_tone->extension_indicator
                     : EXTENSION_SLOT_NOT_PRESENT;
 
-            if (event_index == 0)
+            if (event_index == 0u)
             {
                 /* Local (initiator) event: real local PCT. */
                 float i_val, q_val;
