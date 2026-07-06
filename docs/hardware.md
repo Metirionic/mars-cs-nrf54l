@@ -108,8 +108,10 @@ The TAG is not a DK and needs extra hardware to expose the COBS stream:
 
 ### Kconfig fragments
 
-Each preset pulls one `boards/*_local.conf` fragment. Every fragment is three
-lines setting the same three symbols:
+Each preset pulls one `boards/*_local.conf` fragment. Every such fragment is
+three lines setting the same three symbols (the TAG presets additionally pull
+`boards/nrf54l15tag.conf` for RTT-console/serial-driver Kconfig; see
+[TAG wiring notes](#nrf54l15-tag-wiring-notes)):
 
 | Fragment | `RAS_MAX_ANTENNA_PATHS` | `SDC_CS_MAX_ANTENNA_PATHS` | `SDC_CS_NUM_ANTENNAS` | Antennas / Paths |
 |----------|------------------------|----------------------------|------------------------|------------------|
@@ -153,7 +155,9 @@ antennas second.
 ### How a preset composes overlay + fragments
 
 Each preset sets `DTC_OVERLAY_FILE` (the board overlay) and `EXTRA_CONF_FILE`
-(the role fragment `;`-separated from the path-local fragment). `ci/common.sh`
+(the role fragment `;`-separated from the path-local fragment; the TAG presets
+also append `../boards/nrf54l15tag.conf` for RTT-console/serial-driver Kconfig).
+`ci/common.sh`
 parses `CMakePresets.json`, splits `EXTRA_CONF_FILE` on `;`, and resolves each
 part relative to the app directory; `ci/build.sh` passes them to
 `west build -b <BOARD>` as `-DDTC_OVERLAY_FILE`, `-DEXTRA_CONF_FILE`, and
