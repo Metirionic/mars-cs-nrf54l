@@ -319,14 +319,18 @@ counts themselves come from the `boards/*_local.conf` fragments and feed
 
 ## Design notes (contributor gotchas)
 
-- **Serialize + UART TX is synchronous in the RAS callback, with no explicit
-  TX-complete handshake.** `serialize_run()` calls `uart_tx()` directly and
-  reuses the static `g_serialized[]` buffer on every procedure; no
-  `uart_callback_set` / TX-done handler is registered (`initiator/src/serialize.c`).
-  The design relies on the CS procedure interval (`min/max_procedure_interval =
-  20/50` connection events, `initiator/src/main.c:144-145`) exceeding the UART
-  transmission time of up to ~18 KB at 921600 baud. Keep this in mind before
-  changing the serialize path or the procedure cadence.
+- **Serialize + UART TX is gated on a TX-complete handshake.** `serialize_run()`
+  registers a `uart_callback_set` handler that signals `UART_TX_DONE` /
+  `UART_TX_ABORTED` via the `sem_tx_done` semaphore, and takes that semaphore
+  before reusing the static `g_serialized[]` buffer, so `uart_tx()` is never
+  called while a previous transfer is still DMA-ing out of it (no on-wire
+  COBS corruption, no `-EBUSY`) (`initiator/src/serialize.c`). The procedure
+  cadence is `min/max_procedure_interval = 10/10` connection events (200 ms at
+  the 20 ms connection interval, `initiator/src/main.c:207-208`); in steady
+  state the prior TX finishes before the next procedure completes, so the gate
+  returns immediately, and under jitter it blocks only for the brief overshoot
+  in the quiet gap between procedures. Keep this in mind before changing the
+  serialize path or the procedure cadence.
 - **`mars_bluetooth_hci.h` is checked into the crate, not regenerated during the
   firmware build.** The crate's CMake runs only `cargo build --lib`, not the
   header-generator bin, so the firmware consumes the pre-generated header.
