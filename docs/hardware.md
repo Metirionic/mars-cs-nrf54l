@@ -43,9 +43,9 @@ antenna pins). Board names follow the `displayName` strings in
   chosen nodes point to it.
 - **U-Blox swaps** COBS and console versus the DK: COBS on `uart30`, console on
   `uart20`. Ezurio matches the DK assignment. Don't assume a fixed mapping.
-- **Physical TX/RX pins are not in the overlays** except Fanstel's COBS `uart20`
-  (`P1.13` TX / `P1.14` RX, defined in the overlay's pinctrl) and the TAG, whose
-  overlay defines the `uart20` pinctrl (the nrf54l15tag base DTS ships no UART
+- **Physical TX/RX pins are not in the overlays** except Fanstel's and the TAG's
+  COBS `uart20` (`P1.13` TX / `P1.14` RX), which both `#include` the shared
+  `boards/uart20_p1_13_p1_14.dtsi` (the nrf54l15tag base DTS ships no UART
   pinctrl at all). For the DK's pins see
   [docs/flash-quickstart.md](flash-quickstart.md#read-the-ranging-output)
   (console `uart30` = `P0.00`/`P0.01`, COBS `uart20` = `P1.04`/`P1.05`, sourced
@@ -64,20 +64,23 @@ The TAG is not a DK and needs extra hardware to expose the COBS stream:
   This is the pin assignment encoded in the tag overlay's `uart20` pinctrl.
 - **Single UART; console over RTT.** The TAG exposes only one UART — `uart20`,
   used for the COBS ranging stream. There is no console/shell UART: the tag
-  overlay binds only `cobs-uart = &uart20` and `boards/nrf54l15tag.conf` sets
-  `CONFIG_CONSOLE=y` / `CONFIG_RTT_CONSOLE=y` / `CONFIG_UART_CONSOLE=n`, so
-  console, shell, mcumgr, bt-mon, and bt-c2h run over Segger RTT via the debug
-  probe (J-Link through the DK `DEBUG OUT` header) with no extra wiring. This
-  matches Nordic's nrf54l15tag board guidance (RTT/NUS for console).
+  overlay binds only `cobs-uart = &uart20` and `boards/nrf54l15tag.conf` selects
+  the RTT console backend (`CONFIG_USE_SEGGER_RTT=y` / `CONFIG_CONSOLE=y` /
+  `CONFIG_RTT_CONSOLE=y`), so console, shell, mcumgr, bt-mon, and bt-c2h run over
+  Segger RTT via the debug probe (J-Link through the DK `DEBUG OUT` header) with
+  no extra wiring. This matches Nordic's nrf54l15tag board guidance (RTT/NUS for
+  console).
 - **Power and programming.** The TAG is powered and programmed through an
   nRF54L15 DK's `DEBUG OUT` header (the DK's onboard debugger is rerouted to the
   TAG's SoC) or a CR2032 coin cell for power — see the
   [nRF54L15 TAG board documentation](https://docs.nordicsemi.com/bundle/ncs-latest/page/zephyr/boards/nordic/nrf54l15tag/doc/index.html).
 - **UART driver Kconfig.** The nrf54l15tag board defconfig enables only GPIO and
-  MPU (its default console path is RTT), so the tag presets pull in
-  `boards/nrf54l15tag.conf` to enable `CONFIG_SERIAL` (the DK board defconfig
-  provides this for the DK presets). Without it the `uart20` device the
-  initiator's `cobs-uart` (`src/serialize.c`) acquires is never instantiated and
+  MPU (its default console path is RTT), so it does not set `CONFIG_SERIAL`.
+  That is an app-level requirement — the initiator's COBS transport
+  (`src/serialize.c`, `DEVICE_DT_GET(DT_CHOSEN(cobs_uart))`) needs a UART driver
+  device — so `CONFIG_SERIAL=y` lives in `{initiator,reflector}/prj.conf` (the
+  nrf54l15dk board defconfig also sets it for the DK presets). Without it the
+  `uart20` device the initiator's `cobs-uart` acquires is never instantiated and
   the link fails with an undefined `__device_dts_ord_<N>`.
 
 ### Antenna-switch node

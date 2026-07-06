@@ -4,6 +4,8 @@
  * SPDX-License-Identifier: LicenseRef-Nordic-5-Clause
  */
 
+#include "uart20_p1_13_p1_14.dtsi"
+
 / {
     chosen {
         cobs-uart = &uart20;
@@ -12,44 +14,16 @@
 
 /*
  * The nrf54l15tag base DTS ships no uart20 pinctrl (the tag board's default
- * console path is Segger RTT, not a fixed UART), so the pins the application
- * routes the COBS UART to must come from the overlay. Unlike the nRF54L15 DK,
- * the TAG has no onboard USB/UART bridge, so an external UART-to-USB adapter
- * (e.g. FT232R) must be wired to the COBS UART to read the ranging stream. The
- * TAG exposes only this one UART — there is no console/shell UART; console
- * goes over Segger RTT via the debug probe (see boards/nrf54l15tag.conf and
- * docs/hardware.md). Pin assignment (from the tag board's exposed, conflict-free
- * pins — see boards/nordic/nrf54l15tag/doc/index.rst):
- *   uart20 (COBS ranging): TX P1.13 / RX P1.14  -> external FT232R
+ * console path is Segger RTT, not a fixed UART), so the COBS UART pins must
+ * come from the overlay. Unlike the nRF54L15 DK, the TAG has no onboard
+ * USB/UART bridge, so an external UART-to-USB adapter (e.g. FT232R) must be
+ * wired to the COBS UART to read the ranging stream. The TAG exposes only this
+ * one UART — there is no console/shell UART; console goes over Segger RTT via
+ * the debug probe (see boards/nrf54l15tag.conf and docs/hardware.md). The
+ * uart20 pinctrl (TX P1.13 / RX P1.14 -> external FT232R) and enable live in
+ * the shared uart20_p1_13_p1_14.dtsi (also used by the Fanstel BM15C, which
+ * routes the COBS UART to the same pins).
  */
-&pinctrl {
-    /omit-if-no-ref/ uart20_default: uart20_default {
-        group1 {
-            psels = <NRF_PSEL(UART_TX, 1, 13)>;
-        };
-        group2 {
-            psels = <NRF_PSEL(UART_RX, 1, 14)>;
-            bias-pull-up;
-        };
-    };
-
-    /omit-if-no-ref/ uart20_sleep: uart20_sleep {
-        group1 {
-            psels = <NRF_PSEL(UART_TX, 1, 13)>,
-                    <NRF_PSEL(UART_RX, 1, 14)>;
-            low-power-enable;
-        };
-    };
-};
-
-&uart20 {
-    status = "okay";
-    current-speed = <921600>;
-    pinctrl-0 = <&uart20_default>;
-    pinctrl-1 = <&uart20_sleep>;
-    pinctrl-names = "default", "sleep";
-};
-
 / {
 	cs_antenna_switch: cs-antenna-config {
 		status = "okay";
