@@ -35,7 +35,7 @@
  * (compiled unconditionally) can share this single source of truth with
  * @ref LOCAL_PROCEDURE_MEM, instead of hardcoding the literal 3.
  */
-#define MARS_CS_IPT_STEP_FRAMING_LEN  3
+#define MARS_CS_IPT_STEP_FRAMING_LEN 3
 
 #if defined(CONFIG_BT_RAS_RREQ) || defined(CONFIG_BT_RAS_RRSP)
 /** @brief Memory required for the local step data net buffer (RAS sizing). */
