@@ -35,8 +35,8 @@
             "generator": "Ninja",
             "binaryDir": "${sourceDir}/build_nrf54l15dk_peri_a2_4",
             "cacheVariables": {
-                "BOARD": "nrf54l15dk/nrf54l15/cpuapp",
-                "EXTRA_CONF_FILE": "../boards/4_path_2_local.conf",
+                "BOARD": "nrf54l15tag/nrf54l15/cpuapp",
+                "EXTRA_CONF_FILE": "../boards/4_path_2_local.conf;../boards/nrf54l15tag.conf",
                 "CONF_FILE": "prj.conf",
                 "DTC_OVERLAY_FILE": "../boards/nrf54l15dk_nrf54l15_cpuapp.overlay"
             }
