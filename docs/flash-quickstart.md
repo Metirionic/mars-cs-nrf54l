@@ -110,6 +110,16 @@ library. A raw terminal shows binary bytes, not readable text. A host
 decoder for this wire format is not yet shipped with this repo and will be
 covered separately; this guide covers capture only.
 
+> **nRF54L15 TAG is different.** The quickstart above assumes the DK, which
+> routes both UARTs to its onboard J-Link over the debug USB cable. The TAG has
+> **no onboard USB**, so reading the COBS ranging stream requires an external
+> UART-to-USB adapter (e.g. FT232R) wired to the COBS UART: `uart20`
+> **TX → P1.13**, **RX → P1.14** (`921600`, 8N1, no flow control) — the pin
+> assignment defined in `boards/nrf54l15tag_nrf54l15_cpuapp.overlay`. The TAG is
+> flashed through an nRF54L15 DK's `DEBUG OUT` header. See
+> [docs/hardware.md](hardware.md#nrf54l15-tag-wiring-notes) for the full TAG
+> wiring notes.
+
 ## Troubleshooting
 
 - **Only see logs, no ranging bytes** — you opened Serial Port 0 (console)

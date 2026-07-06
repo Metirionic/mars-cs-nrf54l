@@ -11,20 +11,27 @@ mars-bluetooth-hci API.
 
 ## Supported boards
 
-All four target boards build for `BOARD=nrf54l15dk/nrf54l15/cpuapp`; the
-carrier is selected by overlay.
+Four of the target boards build for `BOARD=nrf54l15dk/nrf54l15/cpuapp` with the
+carrier selected by overlay. The nRF54L15 TAG is the exception: it builds
+against its own base board `nrf54l15tag/nrf54l15/cpuapp`, because the tag
+overlay's `/delete-node/ &sky13348` and `antenna_switch_v1`/`antenna_switch_v2`
+target nodes that exist only in the nrf54l15tag DTS (see issue #40).
 
 | Board | Overlay | COBS UART | Console UART | Antenna-switch GPIOs |
 |-------|---------|-----------|--------------|----------------------|
 | nRF54L15DK | `boards/nrf54l15dk_nrf54l15_cpuapp.overlay` | `uart20` @ 921600 | `uart30` @ 921600 | `P1.09`, `P1.10` |
+| nRF54L15 TAG | `boards/nrf54l15tag_nrf54l15_cpuapp.overlay` | `uart20` @ 921600 | `uart30` @ 921600 | `P1.09`, `P1.10` |
 | U-Blox NINA-B40 | `boards/ublox_nrf54l15_cpuapp.overlay` | `uart30` @ 921600 | `uart20` @ 921600 | `P1.09`, `P1.08` |
 | Ezurio BL54L15u | `boards/ezurio_bl54l15u_nrf54l15_cpuapp.overlay` | `uart20` @ 921600 | `uart30` @ 921600 | `P1.09`, `P1.08` |
 | Fanstel BM15C | `boards/fanstel_bm15c_nrf54l15_cpuapp.overlay` | `uart20` @ 921600 | `uart30` @ 921600 | — (no antenna-switch node) |
 
 GPIOs use Zephyr devicetree port-pin notation (`&gpio1 9` → `P1.09`, port 1
-pin 9). All antenna-switch `ant-gpios` are `GPIO_ACTIVE_HIGH` and every antenna
-node sets `multiplexing-mode = <1>`. Board names follow the `displayName` strings
-in `CMakePresets.json` — except U-Blox, whose `displayName` is just `U-Blox`
+pin 9). All antenna-switch `ant-gpios` are `GPIO_ACTIVE_HIGH`. The DK, U-Blox,
+and Ezurio antenna nodes set `multiplexing-mode = <1>`; the TAG sets `<0>` (its
+`sky13348` RF switch and the board's default `antenna_switch_v1`/`v2` gpio-hogs
+are deleted by the overlay to avoid duplicate access to the `P1.09`/`P1.10`
+antenna pins). Board names follow the `displayName` strings in
+`CMakePresets.json` — except U-Blox, whose `displayName` is just `U-Blox`
 (shown here as `U-Blox NINA-B40`).
 
 ### UART assignments
@@ -37,11 +44,39 @@ in `CMakePresets.json` — except U-Blox, whose `displayName` is just `U-Blox`
 - **U-Blox swaps** COBS and console versus the DK: COBS on `uart30`, console on
   `uart20`. Ezurio matches the DK assignment. Don't assume a fixed mapping.
 - **Physical TX/RX pins are not in the overlays** except Fanstel's COBS `uart20`
-  (`P1.13` TX / `P1.14` RX, defined in the overlay's pinctrl). For the DK's pins
-  see [docs/flash-quickstart.md](flash-quickstart.md#read-the-ranging-output)
+  (`P1.13` TX / `P1.14` RX, defined in the overlay's pinctrl) and the TAG, which
+  defines pinctrl for both `uart20` and `uart30` in its overlay (the nrf54l15tag
+  base DTS ships no UART pinctrl at all). For the DK's pins see
+  [docs/flash-quickstart.md](flash-quickstart.md#read-the-ranging-output)
   (console `uart30` = `P0.00`/`P0.01`, COBS `uart20` = `P1.04`/`P1.05`, sourced
   from the NCS base DTS). U-Blox and Ezurio physical pins are not in this repo —
   see the carrier-board documentation.
+
+### nRF54L15 TAG wiring notes
+
+The TAG is not a DK and needs extra hardware to expose the COBS stream:
+
+- **No onboard USB.** Unlike the nRF54L15 DK, the TAG has no USB interface and no
+  onboard J-Link/UART bridge, so its UARTs are not exposed as virtual COM ports
+  over a debug USB cable. To read the COBS ranging stream you **must wire an
+  external UART-to-USB adapter** (e.g. an FT232R breakout) to the COBS UART:
+  `uart20` **TX → P1.13**, **RX → P1.14** (`921600` baud, 8N1, no flow control).
+  This is the pin assignment encoded in the tag overlay's `uart20` pinctrl.
+- **Console.** `uart30` (`TX P0.01` / `RX P0.02`, also defined in the overlay) is
+  available for shell/mcumgr/bt-mon/bt-c2h if wired to a second adapter; Nordic's
+  tag board guidance is alternatively to use Segger RTT or the NUS service for
+  console (no wiring needed) — see the nrf54l15tag board docs.
+- **Power and programming.** The TAG is powered and programmed through an
+  nRF54L15 DK's `DEBUG OUT` header (the DK's onboard debugger is rerouted to the
+  TAG's SoC) or a CR2032 coin cell for power — see the
+  [nRF54L15 TAG board documentation](https://docs.nordicsemi.com/bundle/ncs-latest/page/zephyr/boards/nordic/nrf54l15tag/doc/index.html).
+- **UART driver Kconfig.** The nrf54l15tag board defconfig enables only GPIO and
+  MPU (its default console path is RTT), so the tag presets pull in
+  `boards/nrf54l15tag.conf` to enable `CONFIG_SERIAL` / `CONFIG_CONSOLE` /
+  `CONFIG_UART_CONSOLE` — the same symbols the nrf54l15dk board defconfig
+  provides for the DK presets. Without it the `uart20` device the initiator's
+  `cobs-uart` (`src/serialize.c`) acquires is never instantiated and the link
+  fails with an undefined `__device_dts_ord_<N>`.
 
 ### Antenna-switch node
 
@@ -86,10 +121,12 @@ antennas second.
 | Preset | Role | Board | Overlay | `EXTRA_CONF_FILE` | Antennas / Paths |
 |--------|------|-------|---------|-------------------|------------------|
 | `nrf54l15dk_cent_a1_1` | initiator | nRF54L15DK | `nrf54l15dk_*.overlay` | `central.overlay;1_path_1_local.conf` | A1 / 1 |
+| `nrf54l15tag_cent_a2_4` | initiator | nRF54L15 TAG | `nrf54l15tag_*.overlay` | `central.overlay;4_path_2_local.conf;nrf54l15tag.conf` | A2 / 4 |
 | `ublox_cent_a1_1` | initiator | U-Blox NINA-B40 | `ublox_*.overlay` | `central.overlay;1_path_1_local.conf` | A1 / 1 |
 | `ezurio_bl54l15u_cent_a2_4` | initiator | Ezurio BL54L15u | `ezurio_*.overlay` | `central.overlay;4_path_2_local.conf` | A2 / 4 |
 | `fanstel_bm15c_cent_a1_1` | initiator | Fanstel BM15C | `fanstel_*.overlay` | `central.overlay;1_path_1_local.conf` | A1 / 1 |
 | `nrf54l15dk_peri_a1_4` | reflector | nRF54L15DK | `nrf54l15dk_*.overlay` | `4_path_1_local.conf` | A1 / 4 |
+| `nrf54l15tag_peri_a2_4` | reflector | nRF54L15 TAG | `nrf54l15tag_*.overlay` | `4_path_2_local.conf;nrf54l15tag.conf` | A2 / 4 |
 | `ezurio_bl54l15u_peri_a2_4` | reflector | Ezurio BL54L15u | `ezurio_*.overlay` | `4_path_2_local.conf` | A2 / 4 |
 | `fanstel_bm15c_peri_a1_4` | reflector | Fanstel BM15C | `fanstel_*.overlay` | `4_path_1_local.conf` | A1 / 4 |
 | `ublox_peri_a1_4` | reflector | U-Blox NINA-B40 | `ublox_*.overlay` | `4_path_1_local.conf` | A1 / 4 |
