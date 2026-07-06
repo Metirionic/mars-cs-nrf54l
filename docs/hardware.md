@@ -20,7 +20,7 @@ target nodes that exist only in the nrf54l15tag DTS (see issue #40).
 | Board | Overlay | COBS UART | Console UART | Antenna-switch GPIOs |
 |-------|---------|-----------|--------------|----------------------|
 | nRF54L15DK | `boards/nrf54l15dk_nrf54l15_cpuapp.overlay` | `uart20` @ 921600 | `uart30` @ 921600 | `P1.09`, `P1.10` |
-| nRF54L15 TAG | `boards/nrf54l15tag_nrf54l15_cpuapp.overlay` | `uart20` @ 921600 | `uart30` @ 921600 | `P1.09`, `P1.10` |
+| nRF54L15 TAG | `boards/nrf54l15tag_nrf54l15_cpuapp.overlay` | `uart20` @ 921600 | — (RTT via debug probe) | `P1.09`, `P1.10` |
 | U-Blox NINA-B40 | `boards/ublox_nrf54l15_cpuapp.overlay` | `uart30` @ 921600 | `uart20` @ 921600 | `P1.09`, `P1.08` |
 | Ezurio BL54L15u | `boards/ezurio_bl54l15u_nrf54l15_cpuapp.overlay` | `uart20` @ 921600 | `uart30` @ 921600 | `P1.09`, `P1.08` |
 | Fanstel BM15C | `boards/fanstel_bm15c_nrf54l15_cpuapp.overlay` | `uart20` @ 921600 | `uart30` @ 921600 | — (no antenna-switch node) |
@@ -44,9 +44,9 @@ antenna pins). Board names follow the `displayName` strings in
 - **U-Blox swaps** COBS and console versus the DK: COBS on `uart30`, console on
   `uart20`. Ezurio matches the DK assignment. Don't assume a fixed mapping.
 - **Physical TX/RX pins are not in the overlays** except Fanstel's COBS `uart20`
-  (`P1.13` TX / `P1.14` RX, defined in the overlay's pinctrl) and the TAG, which
-  defines pinctrl for both `uart20` and `uart30` in its overlay (the nrf54l15tag
-  base DTS ships no UART pinctrl at all). For the DK's pins see
+  (`P1.13` TX / `P1.14` RX, defined in the overlay's pinctrl) and the TAG, whose
+  overlay defines the `uart20` pinctrl (the nrf54l15tag base DTS ships no UART
+  pinctrl at all). For the DK's pins see
   [docs/flash-quickstart.md](flash-quickstart.md#read-the-ranging-output)
   (console `uart30` = `P0.00`/`P0.01`, COBS `uart20` = `P1.04`/`P1.05`, sourced
   from the NCS base DTS). U-Blox and Ezurio physical pins are not in this repo —
@@ -62,21 +62,23 @@ The TAG is not a DK and needs extra hardware to expose the COBS stream:
   external UART-to-USB adapter** (e.g. an FT232R breakout) to the COBS UART:
   `uart20` **TX → P1.13**, **RX → P1.14** (`921600` baud, 8N1, no flow control).
   This is the pin assignment encoded in the tag overlay's `uart20` pinctrl.
-- **Console.** `uart30` (`TX P0.01` / `RX P0.02`, also defined in the overlay) is
-  available for shell/mcumgr/bt-mon/bt-c2h if wired to a second adapter; Nordic's
-  tag board guidance is alternatively to use Segger RTT or the NUS service for
-  console (no wiring needed) — see the nrf54l15tag board docs.
+- **Single UART; console over RTT.** The TAG exposes only one UART — `uart20`,
+  used for the COBS ranging stream. There is no console/shell UART: the tag
+  overlay binds only `cobs-uart = &uart20` and `boards/nrf54l15tag.conf` sets
+  `CONFIG_CONSOLE=y` / `CONFIG_RTT_CONSOLE=y` / `CONFIG_UART_CONSOLE=n`, so
+  console, shell, mcumgr, bt-mon, and bt-c2h run over Segger RTT via the debug
+  probe (J-Link through the DK `DEBUG OUT` header) with no extra wiring. This
+  matches Nordic's nrf54l15tag board guidance (RTT/NUS for console).
 - **Power and programming.** The TAG is powered and programmed through an
   nRF54L15 DK's `DEBUG OUT` header (the DK's onboard debugger is rerouted to the
   TAG's SoC) or a CR2032 coin cell for power — see the
   [nRF54L15 TAG board documentation](https://docs.nordicsemi.com/bundle/ncs-latest/page/zephyr/boards/nordic/nrf54l15tag/doc/index.html).
 - **UART driver Kconfig.** The nrf54l15tag board defconfig enables only GPIO and
   MPU (its default console path is RTT), so the tag presets pull in
-  `boards/nrf54l15tag.conf` to enable `CONFIG_SERIAL` / `CONFIG_CONSOLE` /
-  `CONFIG_UART_CONSOLE` — the same symbols the nrf54l15dk board defconfig
-  provides for the DK presets. Without it the `uart20` device the initiator's
-  `cobs-uart` (`src/serialize.c`) acquires is never instantiated and the link
-  fails with an undefined `__device_dts_ord_<N>`.
+  `boards/nrf54l15tag.conf` to enable `CONFIG_SERIAL` (the DK board defconfig
+  provides this for the DK presets). Without it the `uart20` device the
+  initiator's `cobs-uart` (`src/serialize.c`) acquires is never instantiated and
+  the link fails with an undefined `__device_dts_ord_<N>`.
 
 ### Antenna-switch node
 
