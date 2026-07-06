@@ -37,6 +37,23 @@
  */
 #define MARS_CS_IPT_STEP_FRAMING_LEN 3
 
+/** @brief Max antenna paths the controller is built for (CS Kconfig).
+ *
+ * Hoisted out of the RAS/IPT @c #if below so the parse loop in cs_step_parse.c
+ * (compiled unconditionally) and the IPT buffer sizing share one source of
+ * truth, instead of each hardcoding the literal.
+ */
+#define MARS_CS_MAX_ANTENNA_PATHS (CONFIG_BT_CTLR_SDC_CS_MAX_ANTENNA_PATHS)
+
+/** @brief Max tone_info entries per mode-2 step: n_ap paths + 1 extension slot.
+ *
+ * This is both the IPT local step buffer tone count (see @ref
+ * MARS_CS_IPT_MODE_2_MAX_LEN) and the cap on the mode-2 parse loop in
+ * cs_step_parse.c, which indexes Mode2_t's idx[] arrays. Kept unsigned to match
+ * the former literal `5u` and avoid -Wsign-compare in MIN/MAX/loop usage.
+ */
+#define MARS_CS_MAX_TONE_COUNT ((unsigned int)(MARS_CS_MAX_ANTENNA_PATHS + 1))
+
 #if defined(CONFIG_BT_RAS_RREQ) || defined(CONFIG_BT_RAS_RRSP)
 /** @brief Memory required for the local step data net buffer (RAS sizing). */
 #define LOCAL_PROCEDURE_MEM                                                     \
@@ -59,13 +76,13 @@
  */
 #define MARS_CS_IPT_MAX_STEPS_PER_PROCEDURE 256
 
-#define MARS_CS_IPT_MAX_ANTENNA_PATHS CONFIG_BT_CTLR_SDC_CS_MAX_ANTENNA_PATHS
+#define MARS_CS_IPT_MAX_ANTENNA_PATHS MARS_CS_MAX_ANTENNA_PATHS
 
 #define MARS_CS_IPT_MODE_0_MAX_LEN \
     MAX(sizeof(struct bt_hci_le_cs_step_data_mode_0_initiator), sizeof(struct bt_hci_le_cs_step_data_mode_0_reflector))
 #define MARS_CS_IPT_MODE_2_MAX_LEN                  \
     (sizeof(struct bt_hci_le_cs_step_data_mode_2) + \
-     (MARS_CS_IPT_MAX_ANTENNA_PATHS + 1) * sizeof(struct bt_hci_le_cs_step_data_tone_info))
+     MARS_CS_MAX_TONE_COUNT * sizeof(struct bt_hci_le_cs_step_data_tone_info))
 
 #define MARS_CS_IPT_MAX_STEP_DATA_LEN MAX(MARS_CS_IPT_MODE_0_MAX_LEN, MARS_CS_IPT_MODE_2_MAX_LEN)
 
