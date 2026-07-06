@@ -78,7 +78,7 @@ The TAG is not a DK and needs extra hardware to expose the COBS stream:
   MPU (its default console path is RTT), so it does not set `CONFIG_SERIAL`.
   That is an app-level requirement — the initiator's COBS transport
   (`src/serialize.c`, `DEVICE_DT_GET(DT_CHOSEN(cobs_uart))`) needs a UART driver
-  device — so `CONFIG_SERIAL=y` lives in `{initiator,reflector}/prj.conf` (the
+  device — so `CONFIG_SERIAL=y` lives in `initiator/prj.conf` (the
   nrf54l15dk board defconfig also sets it for the DK presets). Without it the
   `uart20` device the initiator's `cobs-uart` acquires is never instantiated and
   the link fails with an undefined `__device_dts_ord_<N>`.
@@ -86,7 +86,7 @@ The TAG is not a DK and needs extra hardware to expose the COBS stream:
 ### Antenna-switch node
 
 - The `cs_antenna_switch` node (`compatible = "nordic,bt-cs-antenna-switch"`,
-  `multiplexing-mode = <1>`) is owned and consumed internally by the Nordic
+  `multiplexing-mode = <1>` — the TAG sets `<0>`) is owned and consumed internally by the Nordic
   controller library in NCS; no code in this repo reads `ant-gpios` directly.
   The overlay comment "See `cs_antenna_switch.c`" refers to NCS-owned source, not
   a file in this repo.
