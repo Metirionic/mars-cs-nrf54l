@@ -19,7 +19,7 @@
         },
         {
             "name": "nrf54l15dk_cent_a1_2",
-            "displayName": "nRF54L15DK: central A1 (2 path)",
+            "displayName": "nRF54L15DK: central A1 (2 paths)",
             "generator": "Ninja",
             "binaryDir": "${sourceDir}/build_nrf54l15dk_cent_a1_2",
             "cacheVariables": {
@@ -31,7 +31,7 @@
         },
         {
             "name": "nrf54l15dk_cent_a2_4",
-            "displayName": "nRF54L15DK: central A2 (4 path)",
+            "displayName": "nRF54L15DK: central A2 (4 paths)",
             "generator": "Ninja",
             "binaryDir": "${sourceDir}/build_nrf54l15dk_cent_a2_4",
             "cacheVariables": {
@@ -43,7 +43,7 @@
         },
         {
             "name": "nrf54l15dk_cent_a4_4",
-            "displayName": "nRF54L15DK: central A4 (4 path)",
+            "displayName": "nRF54L15DK: central A4 (4 paths)",
             "generator": "Ninja",
             "binaryDir": "${sourceDir}/build_nrf54l15dk_cent_a4_4",
             "cacheVariables": {
@@ -55,7 +55,7 @@
         },
         {
             "name": "nrf54l15dk_cent_a1_4",
-            "displayName": "nRF54L15DK: central A1 (4 path)",
+            "displayName": "nRF54L15DK: central A1 (4 paths)",
             "generator": "Ninja",
             "binaryDir": "${sourceDir}/build_nrf54l15dk_cent_a1_4",
             "cacheVariables": {
@@ -67,7 +67,7 @@
         },
         {
             "name": "nrf54l15dm_cent_a4_4",
-            "displayName": "nRF54L15 DM: central A4 (4 path)",
+            "displayName": "nRF54L15 DM: central A4 (4 paths)",
             "generator": "Ninja",
             "binaryDir": "${sourceDir}/build_nrf54l15dm_cent_a4_4",
             "cacheVariables": {
