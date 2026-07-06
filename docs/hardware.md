@@ -32,7 +32,8 @@ and Ezurio antenna nodes set `multiplexing-mode = <1>`; the TAG sets `<0>` (its
 are deleted by the overlay to avoid duplicate access to the `P1.09`/`P1.10`
 antenna pins). Board names follow the `displayName` strings in
 `CMakePresets.json` — except U-Blox, whose `displayName` is just `U-Blox`
-(shown here as `U-Blox NINA-B40`).
+(shown here as `U-Blox NINA-B40`), and the TAG, whose `displayName` `nRF54L15TAG`
+is shown here as `nRF54L15 TAG`.
 
 ### UART assignments
 
@@ -66,8 +67,8 @@ The TAG is not a DK and needs extra hardware to expose the COBS stream:
   used for the COBS ranging stream. There is no console/shell UART: the tag
   overlay binds only `cobs-uart = &uart20` and `boards/nrf54l15tag.conf` selects
   the RTT console backend (`CONFIG_USE_SEGGER_RTT=y` / `CONFIG_CONSOLE=y` /
-  `CONFIG_RTT_CONSOLE=y`), so console, shell, mcumgr, bt-mon, and bt-c2h run over
-  Segger RTT via the debug probe (J-Link through the DK `DEBUG OUT` header) with
+  `CONFIG_RTT_CONSOLE=y`), so the console (log output) runs over Segger RTT via
+  the debug probe (J-Link through the DK `DEBUG OUT` header) with
   no extra wiring. This matches Nordic's nrf54l15tag board guidance (RTT/NUS for
   console).
 - **Power and programming.** The TAG is powered and programmed through an

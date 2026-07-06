@@ -288,8 +288,10 @@ for the preset → (board, overlay, conf-fragment) mapping. `ci/common.sh:28`
 resolving each path relative to the app dir (`ci/common.sh:84-103`).
 `ci/build.sh` then assembles the CMake args (`-DCONF_FILE`,
 `-DEXTRA_CONF_FILE`, `-DDTC_OVERLAY_FILE`, `ci/build.sh:66-68`) and runs
-`west build -b <BOARD>` from the NCS dir (`ci/build.sh:71`). `BOARD` is always
-`nrf54l15dk/nrf54l15/cpuapp`; the overlay selects the carrier. The full preset
+`west build -b <BOARD>` from the NCS dir (`ci/build.sh:71`). `BOARD` is
+`nrf54l15dk/nrf54l15/cpuapp` for every preset except the TAG presets, which use
+`nrf54l15tag/nrf54l15/cpuapp` (their own base board). The overlay selects the
+carrier. The full preset
 table is in [docs/hardware.md](hardware.md#presets) — it is not reproduced here.
 
 **`central.overlay` (initiator only).** Despite its `.overlay` extension this is a
