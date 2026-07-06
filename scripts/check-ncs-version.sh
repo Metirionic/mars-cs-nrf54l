@@ -14,6 +14,11 @@
 # ${{ vars.NCS_VERSION }}`. Locally, run `bash scripts/check-ncs-version.sh`
 # with no NCS_VERSION env: it just verifies every literal matches west.yml.
 #
+# Also exports the resolved version to $GITHUB_OUTPUT (as `ncs_version`) so
+# ci.yml's build jobs can source the container image tag and cache keys from
+# west.yml — which is checked out on fork PRs too — instead of vars.NCS_VERSION
+# (withheld on fork-PR pull_request runs). No-op outside Actions.
+#
 # Fork-PR note: GitHub does not pass repo variables to pull_request runs from
 # forks (public repo; the "send vars to fork PRs" toggle is private-repo-only),
 # so vars.NCS_VERSION is empty there. ci.yml sets ENFORCE_NCS_VAR=false on fork
@@ -47,6 +52,14 @@ expected="$(ncs_version_from_west)" || {
   add_error "could not parse nrf revision from west.yml (is the manifest well-formed?)"
   exit 1
 }
+
+# Export the resolved version so downstream jobs source the NCS image tag and
+# cache keys from west.yml (the canonical source) instead of vars.NCS_VERSION,
+# which GitHub withholds from fork-PR pull_request runs. ci.yml's build jobs
+# read needs.verify-ncs-version.outputs.ncs_version. No-op outside Actions.
+if [[ -n "${GITHUB_OUTPUT:-}" ]]; then
+  printf 'ncs_version=%s\n' "$expected" >> "$GITHUB_OUTPUT"
+fi
 
 # CI-only: the workflow injects vars.NCS_VERSION as NCS_VERSION. An empty value
 # here would expand container.image to a tagless image and cache keys to
