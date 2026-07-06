@@ -14,6 +14,13 @@
 # ${{ vars.NCS_VERSION }}`. Locally, run `bash scripts/check-ncs-version.sh`
 # with no NCS_VERSION env: it just verifies every literal matches west.yml.
 #
+# Fork-PR note: GitHub does not pass repo variables to pull_request runs from
+# forks (public repo; the "send vars to fork PRs" toggle is private-repo-only),
+# so vars.NCS_VERSION is empty there. ci.yml sets ENFORCE_NCS_VAR=false on fork
+# PRs, so the guard skips the variable cross-check and runs the literal-only
+# scan. Pushes, same-repo PRs, and release.yml (ENFORCE_NCS_VAR defaulting
+# true) enforce the full check.
+#
 # Mirrors scripts/check-docs.sh: set -euo pipefail, an errors counter + summary
 # list, a GITHUB_STEP_SUMMARY block, and a 1/0 exit with a pass/fail message.
 
@@ -45,8 +52,10 @@ expected="$(ncs_version_from_west)" || {
 # here would expand container.image to a tagless image and cache keys to
 # 'ncs-ws--…' — an opaque failure far from the cause. Fail loudly with the
 # remediation instead. Locally (GITHUB_ACTIONS unset) this block is skipped and
-# west.yml is the reference.
-if [[ "${GITHUB_ACTIONS:-}" == "true" ]]; then
+# west.yml is the reference. On fork-PR pull_request runs vars.NCS_VERSION is
+# withheld (see header note), so ci.yml sets ENFORCE_NCS_VAR=false and this
+# block is skipped too — the literal-only scan below still guards staleness.
+if [[ "${GITHUB_ACTIONS:-}" == "true" && "${ENFORCE_NCS_VAR:-true}" == "true" ]]; then
   if [[ -z "${NCS_VERSION:-}" ]]; then
     add_error "NCS_VERSION repo variable is not set; run: gh variable set NCS_VERSION ${expected}"
   elif [[ "${NCS_VERSION}" != "${expected}" ]]; then
