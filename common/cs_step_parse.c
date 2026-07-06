@@ -10,11 +10,11 @@
 
 #include "cs_step_parse.h"
 
-#include "cs_initiator.h"
-
 #include <string.h>
 #include <zephyr/logging/log.h>
 #include <zephyr/sys/util.h>
+
+#include "cs_initiator.h"
 
 #if defined(CONFIG_BT_RAS_RREQ)
 #include <bluetooth/services/ras.h>
