@@ -3,22 +3,22 @@
 #include "uart20_p1_13_p1_14.dtsi"
 
 &lfxo {
-	load-capacitors = "external";
-	load-capacitance-femtofarad = <15500>;
+    load-capacitors = "external";
+    load-capacitance-femtofarad = <15500>;
 };
 
 / {
-	chosen {
-		cobs-uart = &uart20;
-		zephyr,shell-uart = &uart30;
-		zephyr,console = &uart30;
-		zephyr,uart-mcumgr = &uart30;
-		zephyr,bt-mon-uart = &uart30;
-		zephyr,bt-c2h-uart = &uart30;
-	};
+    chosen {
+        cobs-uart = &uart20;
+        zephyr,shell-uart = &uart30;
+        zephyr,console = &uart30;
+        zephyr,uart-mcumgr = &uart30;
+        zephyr,bt-mon-uart = &uart30;
+        zephyr,bt-c2h-uart = &uart30;
+    };
 };
 
 &uart30 {
-	status = "okay";
-	current-speed = <921600>;
+    status = "okay";
+    current-speed = <921600>;
 };
