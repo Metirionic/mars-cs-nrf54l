@@ -66,6 +66,18 @@
             }
         },
         {
+            "name": "nrf54l15dm_cent_a4_4",
+            "displayName": "nRF54L15 DM: central A4 (4 path)",
+            "generator": "Ninja",
+            "binaryDir": "${sourceDir}/build_nrf54l15dm_cent_a4_4",
+            "cacheVariables": {
+                "BOARD": "nrf54l15dk/nrf54l15/cpuapp",
+                "EXTRA_CONF_FILE": "central.overlay;../boards/4_path_4_local.conf",
+                "CONF_FILE": "prj.conf",
+                "DTC_OVERLAY_FILE": "../boards/dm_nrf54l15_cpuapp.overlay"
+            }
+        },
+        {
             "name": "ublox_cent_a1_1",
             "displayName": "U-Blox: central A1 (1 path)",
             "generator": "Ninja",

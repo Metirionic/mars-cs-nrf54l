@@ -1,0 +1,36 @@
+/* SPDX-License-Identifier: MIT */
+
+/ {
+    chosen {
+        cobs-uart = &uart30;
+        zephyr,shell-uart = &uart20;
+        zephyr,console = &uart20;
+        zephyr,uart-mcumgr = &uart20;
+        zephyr,bt-mon-uart = &uart20;
+        zephyr,bt-c2h-uart = &uart20;
+
+    };
+};
+
+&uart30 {
+    status = "okay";
+    current-speed = <921600>;
+};
+
+&uart20 {
+    status = "okay";
+    current-speed = <921600>;
+};
+
+/* Antenna control below is implemented as described in the CS documentation.
+ * See cs_antenna_switch.c
+ */
+/ {
+    cs_antenna_switch: cs-antenna-config {
+        status = "okay";
+        compatible = "nordic,bt-cs-antenna-switch";
+        ant-gpios = <&gpio1 11 (GPIO_ACTIVE_HIGH)>,
+                    <&gpio1 13 (GPIO_ACTIVE_HIGH)>;
+        multiplexing-mode = <1>;
+    };
+};
