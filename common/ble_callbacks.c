@@ -54,8 +54,8 @@ void ble_callbacks_register(struct k_sem * p_sem_connected,
                             struct k_sem * p_sem_config_created,
                             struct k_sem * p_sem_cs_security_enabled)
 {
-    p_sem_connected                     = p_sem_connected;
-    p_sem_security                      = p_sem_security;
+    gp_sem_connected                    = p_sem_connected;
+    gp_sem_security                     = p_sem_security;
     gp_sem_remote_capabilities_obtained = p_sem_remote_capabilities_obtained;
     gp_sem_config_created               = p_sem_config_created;
     gp_sem_cs_security_enabled          = p_sem_cs_security_enabled;
