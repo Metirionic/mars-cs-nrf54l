@@ -198,9 +198,15 @@ int main(void)
     cs_initiator_set_config_created_cb(config_create_hook);
 
     const struct cs_initiator_config config = {
-        /* 20 ms conn interval, slower cadence (matches the Nordic
-         * ras_initiator sample: procedure_interval=10, subevent=16000,
-         * max_procedure_len = acl_interval_units * (interval - 1) = 0x10 * 9 = 144).
+        /* Procedure cadence applies to ALL builds (RAS + IPT): this is
+         * intentional, not an IPT leak — the new cadence speeds up
+         * measurements across every antenna configuration (see #41).
+         * It supersedes the prior RAS-only defaults (procedure_phy=1M,
+         * min/max_procedure_interval=20/50, max_procedure_len=1000); any
+         * RAS fixture/calibration/range baseline assuming those must be
+         * re-baselined. Values match the Nordic ras_initiator sample:
+         * procedure_interval=10, subevent=16000, max_procedure_len =
+         * acl_interval_units * (interval - 1) = 0x10 * 9 = 144.
          */
         .cs_sync_phy            = BT_CONN_LE_CS_SYNC_1M_PHY,
         .procedure_phy          = BT_LE_CS_PROCEDURE_PHY_2M,
