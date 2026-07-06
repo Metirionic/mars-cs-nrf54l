@@ -36,15 +36,39 @@
     ((BT_RAS_MAX_STEPS_PER_PROCEDURE * sizeof(struct bt_le_cs_subevent_step)) + \
      (BT_RAS_MAX_STEPS_PER_PROCEDURE * BT_RAS_MAX_STEP_DATA_LEN))
 #else  // defined(CONFIG_BT_RAS_RREQ) || defined(CONFIG_BT_RAS_RRSP)
-/* IPT mode: no RAS sizing macros available; size for the worst-case local
- * procedure (256 steps * (3-byte header + max mode-2 step data)). The local
- * step buffer holds raw HCI subevent steps, not the RAS ranging-data record.
+/* IPT-mode local step buffer sizing.
+ *
+ * The negotiated CS mode is MAIN_MODE_2 with no sub-mode or with sub-mode-1
+ * (which inserts mode-0 steps), so the local buffer only ever holds mode-0 and
+ * mode-2 step data. Mode-1 / mode-3 / sounding-sequence RTT are never produced.
+ *
+ * Mirrors the RAS sizing in bluetooth/services/ras.h, but parameterises it on
+ * the controller's antenna-path Kconfig and accounts for the IPT step framing
+ * (3 bytes: mode | channel | data_len) instead of the RAS 1-byte mode tag.
+ *
+ * tone_info count per mode-2 step is (n_ap + 1): the +1 is the extension slot
+ * (see cs.h: tone_index = n_ap corresponds to extension slot), matching
+ * BT_RAS_STEP_MODE_2_3_ANT_DEPENDENT_LEN(antenna_paths) in ras.h.
  */
 #define MARS_CS_IPT_MAX_STEPS_PER_PROCEDURE 256
-#define MARS_CS_IPT_MAX_STEP_DATA_LEN       80
-#define LOCAL_PROCEDURE_MEM                                                          \
-    ((MARS_CS_IPT_MAX_STEPS_PER_PROCEDURE * sizeof(struct bt_le_cs_subevent_step)) + \
-     (MARS_CS_IPT_MAX_STEPS_PER_PROCEDURE * MARS_CS_IPT_MAX_STEP_DATA_LEN))
+
+#define MARS_CS_IPT_MAX_ANTENNA_PATHS CONFIG_BT_CTLR_SDC_CS_MAX_ANTENNA_PATHS
+
+#define MARS_CS_IPT_MODE_0_MAX_LEN                                                 \
+    MAX(sizeof(struct bt_hci_le_cs_step_data_mode_0_initiator),                    \
+        sizeof(struct bt_hci_le_cs_step_data_mode_0_reflector))
+#define MARS_CS_IPT_MODE_2_MAX_LEN                                                 \
+    (sizeof(struct bt_hci_le_cs_step_data_mode_2) +                                \
+     (MARS_CS_IPT_MAX_ANTENNA_PATHS + 1) * sizeof(struct bt_hci_le_cs_step_data_tone_info))
+
+#define MARS_CS_IPT_MAX_STEP_DATA_LEN MAX(MARS_CS_IPT_MODE_0_MAX_LEN, MARS_CS_IPT_MODE_2_MAX_LEN)
+
+/* 3 bytes of per-step framing in the local buffer: mode | channel | data_len. */
+#define MARS_CS_IPT_STEP_FRAMING_LEN 3
+
+#define LOCAL_PROCEDURE_MEM                                                       \
+    (MARS_CS_IPT_MAX_STEPS_PER_PROCEDURE *                                       \
+     (MARS_CS_IPT_STEP_FRAMING_LEN + MARS_CS_IPT_MAX_STEP_DATA_LEN))
 #endif  // defined(CONFIG_BT_RAS_RREQ) || defined(CONFIG_BT_RAS_RRSP)
 
 /**
