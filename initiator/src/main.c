@@ -8,10 +8,13 @@
  *  @brief Channel Sounding initiator with ranging requester sample
  */
 
-#include <bluetooth/services/ras.h>
 #include <zephyr/bluetooth/cs.h>
 #include <zephyr/kernel.h>
 #include <zephyr/logging/log.h>
+
+#if !defined(CONFIG_MARS_CS_INLINE_PCT)
+#include <bluetooth/services/ras.h>
+#endif
 
 #include "addr_utils.h"
 #include "antenna.h"
@@ -23,6 +26,49 @@ LOG_MODULE_REGISTER(app_main, LOG_LEVEL_INF);
 /** @brief Saved CS config from config creation callback (used for role in serialization). */
 static struct bt_conn_le_cs_config cs_config;
 
+#if IS_ENABLED(CONFIG_MARS_CS_INLINE_PCT)
+/**
+ * @brief Callback for IPT procedure completion.
+ *
+ * Called from subevent_result_cb when a CS procedure completes. The local
+ * step buffer holds raw HCI step data; the reflector's PCT contribution is
+ * already embedded in the local tones, so we serialize only the local steps
+ * (the peer event is synthesized with a transparent identity PCT inside
+ * cs_step_parse_inline). The peer steps pointer passed to serialize_run is
+ * NULL in IPT mode and ignored by the inline parser.
+ */
+static void inline_result_cb(struct bt_conn * p_conn, int err)
+{
+    ARG_UNUSED(p_conn);
+
+    if (err)
+    {
+        LOG_ERR("IPT procedure failed (err %d)", err);
+        cs_initiator_give_sem_data_ready();
+        return;
+    }
+
+    struct net_buf_simple * latest_local_steps = cs_initiator_get_local_steps();
+
+    if (latest_local_steps->len == 0)
+    {
+        LOG_WRN("IPT procedure produced no step data");
+        cs_initiator_give_sem_data_ready();
+        return;
+    }
+
+    serialize_run(cs_initiator_get_local_mac(),
+                  cs_initiator_get_peer_mac(),
+                  cs_initiator_get_latest_subevent_header(),
+                  latest_local_steps,
+                  NULL,
+                  cs_config.role);
+
+    net_buf_simple_reset(latest_local_steps);
+    cs_initiator_give_sem_local_steps();
+    cs_initiator_give_sem_data_ready();
+}
+#else
 /**
  * @brief Callback for ranging data received from peer (realtime or on-demand).
  *
@@ -114,6 +160,7 @@ static void ranging_data_ready_cb(struct bt_conn * p_conn, uint16_t ranging_coun
         }
     }
 }
+#endif /* CONFIG_MARS_CS_INLINE_PCT */
 
 /** @brief Hook that saves the negotiated CS config for later use. */
 static void config_create_hook(struct bt_conn_le_cs_config * config)
@@ -134,8 +181,12 @@ int main(void)
         return 0;
     }
 
+#if IS_ENABLED(CONFIG_MARS_CS_INLINE_PCT)
+    cs_initiator_set_inline_result_cb(inline_result_cb);
+#else
     cs_initiator_set_ranging_data_cb(ranging_data_cb);
     cs_initiator_set_ranging_data_ready_cb(ranging_data_ready_cb);
+#endif
     cs_initiator_set_config_created_cb(config_create_hook);
 
     const struct cs_initiator_config config = {

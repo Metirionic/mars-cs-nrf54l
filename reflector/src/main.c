@@ -8,7 +8,9 @@
  *  @brief Channel Sounding Reflector with Ranging Responder sample
  */
 
+#if !defined(CONFIG_MARS_CS_INLINE_PCT)
 #include <bluetooth/services/ras.h>
+#endif  // !defined(CONFIG_MARS_CS_INLINE_PCT)
 #include <dk_buttons_and_leds.h>
 #include <zephyr/bluetooth/bluetooth.h>
 #include <zephyr/bluetooth/conn.h>
@@ -35,12 +37,19 @@ static K_SEM_DEFINE(sem_config, 0, 1);
 /** @brief Current BLE connection reference. */
 static struct bt_conn * connection;
 
-/** @brief BLE advertising data — flags, Ranging Service UUID, device name. */
+/** @brief BLE advertising data — flags, device name, and (in RAS mode) Ranging Service UUID. */
+#if IS_ENABLED(CONFIG_MARS_CS_INLINE_PCT)
+static const struct bt_data ad[] = {
+    BT_DATA_BYTES(BT_DATA_FLAGS, (BT_LE_AD_GENERAL | BT_LE_AD_NO_BREDR)),
+    BT_DATA(BT_DATA_NAME_COMPLETE, CONFIG_BT_DEVICE_NAME, sizeof(CONFIG_BT_DEVICE_NAME) - 1),
+};
+#else   // IS_ENABLED(CONFIG_MARS_CS_INLINE_PCT)
 static const struct bt_data ad[] = {
     BT_DATA_BYTES(BT_DATA_FLAGS, (BT_LE_AD_GENERAL | BT_LE_AD_NO_BREDR)),
     BT_DATA_BYTES(BT_DATA_UUID16_ALL, BT_UUID_16_ENCODE(BT_UUID_RANGING_SERVICE_VAL)),
     BT_DATA(BT_DATA_NAME_COMPLETE, CONFIG_BT_DEVICE_NAME, sizeof(CONFIG_BT_DEVICE_NAME) - 1),
 };
+#endif  // IS_ENABLED(CONFIG_MARS_CS_INLINE_PCT)
 
 /** @brief Callback for BLE connection established — stores connection ref and lights LED. */
 static void connected_cb(struct bt_conn * conn, uint8_t err)
@@ -284,6 +293,17 @@ int main(void)
             LOG_ERR("Failed to configure default CS settings (err %d)", err);
         }
 
+#if IS_ENABLED(CONFIG_MARS_CS_INLINE_PCT)
+        /*
+         * IPT mode: the connected central device performs the rest of the CS
+         * setup (config creation, security enable, procedure parameters and
+         * enable). The reflector does not set procedure parameters or expose
+         * the Ranging Service. The reflector reboots on disconnect, so the
+         * outer loop simply re-waits for the next connection (moot in normal
+         * operation but kept for symmetry with the RAS path).
+         */
+        continue;
+#else   // IS_ENABLED(CONFIG_MARS_CS_INLINE_PCT)
         k_sem_take(&sem_config, K_FOREVER);
 
         const uint8_t ANTENNA_CONFIG         = antenna_get_config_for_initiator();
@@ -316,6 +336,7 @@ int main(void)
             LOG_ERR("Failed to set procedure parameters (err %d)", err);
             return 0;
         }
+#endif  // IS_ENABLED(CONFIG_MARS_CS_INLINE_PCT)
     }
 
     return 0;

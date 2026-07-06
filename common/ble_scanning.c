@@ -10,12 +10,15 @@
 
 #include "ble_scanning.h"
 
-#include <bluetooth/gatt_dm.h>
 #include <bluetooth/scan.h>
-#include <bluetooth/services/ras.h>
 #include <zephyr/bluetooth/gatt.h>
 #include <zephyr/kernel.h>
 #include <zephyr/logging/log.h>
+
+#if !defined(CONFIG_MARS_CS_INLINE_PCT)
+#include <bluetooth/gatt_dm.h>
+#include <bluetooth/services/ras.h>
+#endif
 
 LOG_MODULE_DECLARE(app_main, LOG_LEVEL_INF);
 
@@ -54,8 +57,15 @@ static void scan_connecting(struct bt_scan_device_info * p_device_info, struct b
 
 BT_SCAN_CB_INIT(scan_cb, scan_filter_match, NULL, scan_connecting_error, scan_connecting);
 
+/** @brief Advertised name of the IPT reflector (matched by name scan filter in IPT mode). */
+#define IPT_REFLECTOR_NAME "Nordic CS IPT Reflector"
+
 /**
- * @brief Initialize BLE scanning with Ranging Service UUID filter.
+ * @brief Initialize BLE scanning.
+ *
+ * In RAS mode the initiator filters by Ranging Service UUID. In IPT mode the
+ * reflector does not advertise that UUID, so the initiator filters by name
+ * instead, matching `IPT_REFLECTOR_NAME`.
  *
  * @return 0 on success, negative errno on error.
  */
@@ -70,6 +80,21 @@ int scan_init(void)
     bt_scan_init(&param);
     bt_scan_cb_register(&scan_cb);
 
+#if IS_ENABLED(CONFIG_MARS_CS_INLINE_PCT)
+    err = bt_scan_filter_add(BT_SCAN_FILTER_TYPE_NAME, IPT_REFLECTOR_NAME);
+    if (err)
+    {
+        LOG_ERR("Scanning filters cannot be set (err %d)", err);
+        return err;
+    }
+
+    err = bt_scan_filter_enable(BT_SCAN_NAME_FILTER, false);
+    if (err)
+    {
+        LOG_ERR("Filters cannot be turned on (err %d)", err);
+        return err;
+    }
+#else   // IS_ENABLED(CONFIG_MARS_CS_INLINE_PCT)
     err = bt_scan_filter_add(BT_SCAN_FILTER_TYPE_UUID, BT_UUID_RANGING_SERVICE);
     if (err)
     {
@@ -83,6 +108,7 @@ int scan_init(void)
         LOG_ERR("Filters cannot be turned on (err %d)", err);
         return err;
     }
+#endif  // IS_ENABLED(CONFIG_MARS_CS_INLINE_PCT)
 
     return 0;
 }
