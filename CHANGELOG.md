@@ -2,6 +2,46 @@
 All notable changes to this project will be documented in this file. See [conventional commits](https://www.conventionalcommits.org/) for commit guidelines.
 
 - - -
+## [v1.4.0](https://github.com/Metirionic/mars-cs-nrf54l/releases/tag/v1.4.0) - 2026-07-07
+#### Features
+- Inline PCT support (v3.1.1) - ([6b7129c](https://github.com/Metirionic/mars-cs-nrf54l/commit/6b7129cca75885332616b40f5c06742b390852ee)) - Adrian Figueroa
+#### Bug Fixes
+- (**initiator**) return sem_local_steps token on IPT buffer-overflow path - ([d14340f](https://github.com/Metirionic/mars-cs-nrf54l/commit/d14340fa03eafa806e96041102fea68d4aeabb06)) - AttilaRoemer, Claude
+- (**initiator**) gate async UART TX on completion to fix g_serialized reuse race - ([4302591](https://github.com/Metirionic/mars-cs-nrf54l/commit/4302591e127005bb059d0397523f73fb7d42a0fb)) - AttilaRoemer, Claude
+- (**ipt**) derive MAX_TONE_COUNT from MARS_CS_IPT_MAX_ANTENNA_PATHS + 1 - ([769caf7](https://github.com/Metirionic/mars-cs-nrf54l/commit/769caf756fccf8d617dba762b719c7f8790aed41)) - AttilaRoemer, Claude
+- (**ipt**) share MARS_CS_IPT_STEP_FRAMING_LEN with cs_step_parse walk loop - ([4d24e60](https://github.com/Metirionic/mars-cs-nrf54l/commit/4d24e60e5d22eed3ae8d3b95948b618f2b128207)) - AttilaRoemer, Claude
+- (**ipt**) share CONFIG_BT_DEVICE_NAME so scan filter can't drift from ad name - ([54f0cc0](https://github.com/Metirionic/mars-cs-nrf54l/commit/54f0cc0a4dbad209b36d5d054fb9c3be5b6831b7)) - AttilaRoemer, Claude
+- (**kconfig**) factor MARS_CS_INLINE_PCT menu into common/Kconfig - ([7f79e3d](https://github.com/Metirionic/mars-cs-nrf54l/commit/7f79e3d103ce4619b4e51e730e07acb170f73703)) - AttilaRoemer, Claude
+- (**tag**) fix Fanstel uart20 sleep-state pin leak + review cleanups - ([dff37dd](https://github.com/Metirionic/mars-cs-nrf54l/commit/dff37ddea3de85e2074a3fb1cdfadb4a06630eec)) - AttilaRoemer, Claude
+- (**tag**) use single UART (uart20) + RTT console for tag presets - ([1352d7b](https://github.com/Metirionic/mars-cs-nrf54l/commit/1352d7ba9fa9044bf1fe6237efb2a2af62d45cac)) - AttilaRoemer, Claude
+- (**tag**) use nrf54l15tag base board for tag presets - ([5f70f9e](https://github.com/Metirionic/mars-cs-nrf54l/commit/5f70f9e8eb812f3e6f5cf96b883d601fc2a3cad0)) - AttilaRoemer, Claude
+- tag setup - ([335109a](https://github.com/Metirionic/mars-cs-nrf54l/commit/335109a8d7b830258df2a93889db5af4ad1231f0)) - Adrian Figueroa
+- board naming - ([ae89c39](https://github.com/Metirionic/mars-cs-nrf54l/commit/ae89c39e2aab62649d60ebdec70647b6c69ebea4)) - Adrian Figueroa
+- build presets - ([cc49324](https://github.com/Metirionic/mars-cs-nrf54l/commit/cc49324b65c51fdad5c2d17b159a574a50e65c82)) - Adrian Figueroa
+- use older NCS version (3.3.0) - ([c869264](https://github.com/Metirionic/mars-cs-nrf54l/commit/c8692643c60ccc10dbc919df6467290463d8693e)) - Adrian Figueroa
+- slow down measurement speed for binary transfer - ([3cddd56](https://github.com/Metirionic/mars-cs-nrf54l/commit/3cddd56a6dcfdecdee381b969da58b28809f859e)) - Adrian Figueroa
+- shorten connection interval - ([a092cc2](https://github.com/Metirionic/mars-cs-nrf54l/commit/a092cc2976b63683bf8cb810516557da181020ad)) - Adrian Figueroa
+- variable names - ([2ffc439](https://github.com/Metirionic/mars-cs-nrf54l/commit/2ffc4395d0c4384d51201fd78b244ab093625ecc)) - Adrian Figueroa
+- variable naming - ([56e0a99](https://github.com/Metirionic/mars-cs-nrf54l/commit/56e0a9925fa6e81b7a1474fa8a16fcb4381d9eb0)) - Adrian Figueroa
+- formatting - ([562d219](https://github.com/Metirionic/mars-cs-nrf54l/commit/562d219d8bad8871158337ca3f0c47f699215b5a)) - Adrian Figueroa
+#### Documentation
+- (**cs**) record all-builds procedure-cadence decision (#41) - ([9011351](https://github.com/Metirionic/mars-cs-nrf54l/commit/901135189f62de776fe285eb845cfd180c12caa5)) - AttilaRoemer, Claude
+- (**tag**) note nrf54l15tag.conf in EXTRA_CONF_FILE + Kconfig-fragment framing - ([ad126a4](https://github.com/Metirionic/mars-cs-nrf54l/commit/ad126a4298813ded2d8a41e4d756c16776bbbdca)) - AttilaRoemer, Claude
+- (**tag**) finish TAG exceptions for chosen-node blankets + CI label - ([02f9438](https://github.com/Metirionic/mars-cs-nrf54l/commit/02f9438e8f0d1c39a0d2102c023c1a0cbaa00a09)) - AttilaRoemer, Claude
+- (**tag**) fix RTT console claim, displayName rule, and architecture.md BOARD - ([e2c1ed4](https://github.com/Metirionic/mars-cs-nrf54l/commit/e2c1ed4c01c1bebbf2c3f5eecdfa97f7ade24743)) - AttilaRoemer, Claude
+- (**tag**) fix stale CONFIG_SERIAL refs + multiplexing-mode blanket - ([0d4130b](https://github.com/Metirionic/mars-cs-nrf54l/commit/0d4130b1444789890a372aa560ddc552f64a4161)) - AttilaRoemer, Claude
+- (**tag**) document nRF54L15 TAG UART wiring + FT232R requirement - ([e07ad9d](https://github.com/Metirionic/mars-cs-nrf54l/commit/e07ad9deaa07bd1835693cfcef642b847bfc2daf)) - AttilaRoemer, Claude
+#### Refactoring
+- (**tag**) drop redundant reflector CONFIG_SERIAL + 4-space overlays - ([4362db0](https://github.com/Metirionic/mars-cs-nrf54l/commit/4362db0027461a40f3fcffa33de8640027cde82f)) - AttilaRoemer, Claude
+- (**tag**) address PR #50 review findings - ([0b06c4a](https://github.com/Metirionic/mars-cs-nrf54l/commit/0b06c4a7bc2cf4587d83e9ec8e166afb0f9655dc)) - AttilaRoemer, Claude
+- deduplicate RAS/IPT code paths - ([b2845eb](https://github.com/Metirionic/mars-cs-nrf54l/commit/b2845ebbc04529bb9c51758eabf606d45543767b)) - Adrian Figueroa
+#### Style
+- apply clang-format + end-of-file-fixer to IPT files - ([8d40ecf](https://github.com/Metirionic/mars-cs-nrf54l/commit/8d40ecf4eab56eebfc660e4259279a637b5b380d)) - AttilaRoemer, Claude
+- formatting - ([f14c58e](https://github.com/Metirionic/mars-cs-nrf54l/commit/f14c58e102e84f6073df17c9df25197dd994cc26)) - Adrian Figueroa
+- adjust coding style - ([790757b](https://github.com/Metirionic/mars-cs-nrf54l/commit/790757b0b93a52a24e17df87c88e799abfe20142)) - Adrian Figueroa
+
+- - -
+
 ## [v1.3.7](https://github.com/Metirionic/mars-cs-nrf54l/releases/tag/v1.3.7) - 2026-07-06
 #### Bug Fixes
 - add review comment - ([f358438](https://github.com/Metirionic/mars-cs-nrf54l/commit/f358438358f5dd74b88f54f7134e0611385d9e31)) - Yan Wu
