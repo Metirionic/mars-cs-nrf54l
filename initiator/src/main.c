@@ -9,6 +9,7 @@
  */
 
 #include <zephyr/bluetooth/cs.h>
+#include <zephyr/drivers/gpio.h>
 #include <zephyr/kernel.h>
 #include <zephyr/logging/log.h>
 
@@ -176,9 +177,26 @@ static void config_create_hook(struct bt_conn_le_cs_config * config)
     cs_config = *config;
 }
 
+#define RF_SWITCH_SUPPLY_GPIO_NODE DT_NODELABEL(gpio2)
+#define RF_SWITCH_SUPPLY_GPIO_PIN  5
+
 int main(void)
 {
     int err;
+
+    const struct device * rf_switch_supply_gpio = DEVICE_DT_GET(RF_SWITCH_SUPPLY_GPIO_NODE);
+    if (!device_is_ready(rf_switch_supply_gpio))
+    {
+        LOG_ERR("RF switch supply is not ready");
+        return 0;
+    }
+
+    err = gpio_pin_configure(rf_switch_supply_gpio, RF_SWITCH_SUPPLY_GPIO_PIN, GPIO_OUTPUT_HIGH);
+    if (err)
+    {
+        LOG_ERR("Failed to configure RF switch supply P2.%02d high (err %d)", RF_SWITCH_SUPPLY_GPIO_PIN, err);
+        return 0;
+    }
 
     LOG_INF("Starting Mars Channel Sounding Initiator");
 
