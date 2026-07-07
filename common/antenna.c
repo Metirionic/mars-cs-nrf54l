@@ -92,14 +92,14 @@ uint8_t antenna_get_mask_for_initiator(void)
 uint8_t antenna_get_config_for_role(enum bt_conn_le_cs_role role)
 {
     const uint8_t local_antenna_count = CONFIG_BT_CTLR_SDC_CS_NUM_ANTENNAS;
-    const uint8_t peer_antennas       = antenna_get_peer_count();
+    const uint8_t peer_antenna_count  = antenna_get_peer_count();
 
     if (role == BT_CONN_LE_CS_ROLE_REFLECTOR)
     {
-        return antenna_get_config_from_ab(peer_antennas, local_antenna_count);
+        return antenna_get_config_from_ab(peer_antenna_count, local_antenna_count);
     }
 
-    return antenna_get_config_from_ab(local_antenna_count, peer_antennas);
+    return antenna_get_config_from_ab(local_antenna_count, peer_antenna_count);
 }
 
 /**

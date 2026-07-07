@@ -62,7 +62,7 @@
                 "BOARD": "nrf54l15dk/nrf54l15/cpuapp",
                 "EXTRA_CONF_FILE": "../boards/4_path_1_local.conf",
                 "CONF_FILE": "prj.conf",
-                "DTC_OVERLAY_FILE": "../boards/dm_nrf54l15_cpuapp.overlay"
+                "DTC_OVERLAY_FILE": "../boards/nrf54l15dm_cpuapp.overlay"
             }
         },
         {
