@@ -155,7 +155,7 @@ static bool fill_mode2_step(struct cs_step_parse_context *  ctx,
 
         Mode2_t * p_mode2 = &p_step->info.mode2;
         memset(p_mode2, 0, sizeof(*p_mode2));
-        p_mode2->antenna_permutation_index = 0u;
+        p_mode2->antenna_permutation_index = local_step_data->antenna_permutation_index;
 
         for (size_t tone_index = 0u; tone_index < n_ap && tone_index < MARS_CS_MAX_TONE_COUNT; tone_index++)
         {
