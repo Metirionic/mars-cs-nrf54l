@@ -2,6 +2,13 @@
 All notable changes to this project will be documented in this file. See [conventional commits](https://www.conventionalcommits.org/) for commit guidelines.
 
 - - -
+## [v1.4.1](https://github.com/Metirionic/mars-cs-nrf54l/releases/tag/v1.4.1) - 2026-07-08
+#### Bug Fixes
+- reflector antenna count - ([92ef0e2](https://github.com/Metirionic/mars-cs-nrf54l/commit/92ef0e26dba88266bea919c8527e7c87fd8a8b59)) - Adrian Figueroa
+- consider antenna permutation index - ([2dc40d2](https://github.com/Metirionic/mars-cs-nrf54l/commit/2dc40d25b42094400d68d95711bf448ab062ccb0)) - Adrian Figueroa
+
+- - -
+
 ## [v1.4.0](https://github.com/Metirionic/mars-cs-nrf54l/releases/tag/v1.4.0) - 2026-07-07
 #### Features
 - Inline PCT support (v3.1.1) - ([6b7129c](https://github.com/Metirionic/mars-cs-nrf54l/commit/6b7129cca75885332616b40f5c06742b390852ee)) - Adrian Figueroa
