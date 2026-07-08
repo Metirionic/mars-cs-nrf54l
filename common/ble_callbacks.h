@@ -8,8 +8,8 @@
  *  @brief Shared BLE connection and Channel Sounding callbacks
  */
 
-#ifndef BLE_CALLBACKS_H__
-#define BLE_CALLBACKS_H__
+#ifndef BLE_CALLBACKS_H
+#define BLE_CALLBACKS_H
 
 #include <zephyr/bluetooth/conn.h>
 #include <zephyr/bluetooth/cs.h>
@@ -41,4 +41,4 @@ void ble_callbacks_set_subevent_data_cb(bt_le_cs_subevent_data_available_cb p_cb
 
 void ble_callbacks_set_config_created_cb(bt_le_cs_config_created_cb p_cb);
 
-#endif /* BLE_CALLBACKS_H__ */
+#endif /* BLE_CALLBACKS_H */

@@ -64,26 +64,6 @@ static uint8_t antenna_get_config_from_ab(size_t antenna_count_a, size_t antenna
 }
 
 /**
- * @brief Get the initiator tone antenna configuration.
- *
- * @return Bluetooth LE CS tone antenna configuration for initiator role.
- */
-uint8_t antenna_get_config_for_initiator(void)
-{
-    return antenna_get_config_for_role(BT_CONN_LE_CS_ROLE_INITIATOR);
-}
-
-/**
- * @brief Get the preferred peer antenna mask for initiator role.
- *
- * @return Peer antenna bit mask.
- */
-uint8_t antenna_get_mask_for_initiator(void)
-{
-    return antenna_get_peer_mask();
-}
-
-/**
  * @brief Get the tone antenna configuration for a CS role.
  *
  * @param role Local CS role used to determine Dev A/Dev B ordering.

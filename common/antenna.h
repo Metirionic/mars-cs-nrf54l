@@ -8,15 +8,13 @@
  *  @brief Antenna configuration lookup tables for Channel Sounding
  */
 
-#ifndef ANTENNA_H__
-#define ANTENNA_H__
+#ifndef ANTENNA_H
+#define ANTENNA_H
 
 #include <stdint.h>
 #include <zephyr/bluetooth/cs.h>
 
-uint8_t antenna_get_config_for_initiator(void);
-uint8_t antenna_get_mask_for_initiator(void);
 uint8_t antenna_get_config_for_role(enum bt_conn_le_cs_role role);
 uint8_t antenna_get_peer_mask(void);
 
-#endif /* ANTENNA_H__ */
+#endif /* ANTENNA_H */
