@@ -555,7 +555,7 @@ int cs_initiator_start(const struct cs_initiator_config * p_config)
     k_sem_take(&sem_cs_security_enabled, K_FOREVER);
 
     const uint8_t ANTENNA_CONFIG         = antenna_get_config_for_role(BT_CONN_LE_CS_ROLE_INITIATOR);
-    const uint8_t PREFERRED_PEER_ANTENNA = antenna_get_mask_for_role();
+    const uint8_t PREFERRED_PEER_ANTENNA = antenna_get_peer_mask();
 
     LOG_INF("Local antennas: %d, paths: %d, using config: %d, preferred peer ant.: %d",
             CONFIG_BT_CTLR_SDC_CS_NUM_ANTENNAS,

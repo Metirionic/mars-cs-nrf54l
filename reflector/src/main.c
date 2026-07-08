@@ -306,13 +306,14 @@ int main(void)
 #else   // IS_ENABLED(CONFIG_MARS_CS_INLINE_PCT)
         k_sem_take(&sem_config, K_FOREVER);
 
-        const uint8_t ANTENNA_CONFIG         = antenna_get_config_for_initiator();
-        const uint8_t PREFERRED_PEER_ANTENNA = antenna_get_mask_for_initiator();
+        const uint8_t ANTENNA_CONFIG         = antenna_get_config_for_role(BT_CONN_LE_CS_ROLE_REFLECTOR);
+        const uint8_t PREFERRED_PEER_ANTENNA = antenna_get_peer_mask();
 
-        LOG_INF("Local antennas: %d, paths: %d, using config: %d",
+        LOG_INF("Local antennas: %d, paths: %d, using config: %d, preferred peer antenna: %d",
                 CONFIG_BT_CTLR_SDC_CS_NUM_ANTENNAS,
                 CONFIG_BT_CTLR_SDC_CS_MAX_ANTENNA_PATHS,
-                ANTENNA_CONFIG);
+                ANTENNA_CONFIG,
+                PREFERRED_PEER_ANTENNA);
 
         const struct bt_le_cs_set_procedure_parameters_param procedure_params = {
             .config_id                     = 0,
