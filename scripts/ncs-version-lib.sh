@@ -69,7 +69,7 @@ find_ncs_refs() {
     [[ -f "${root}/${f}" ]] || continue
     while IFS= read -r line; do
       # grep -no output is "lineno:match"; the match may itself contain ':'
-      # (e.g. sdk-nrf-toolchain:v3.3.0), so split only the first field.
+      # (e.g. sdk-nrf-toolchain:v3.3.1), so split only the first field.
       lineno="${line%%:*}"
       match="${line#*:}"
       [[ -z "$match" ]] && continue
