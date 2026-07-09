@@ -11,7 +11,7 @@ mars-bluetooth-hci API.
 
 ## Supported boards
 
-Four of the target boards build for `BOARD=nrf54l15dk/nrf54l15/cpuapp` with the
+Five of the target boards build for `BOARD=nrf54l15dk/nrf54l15/cpuapp` with the
 carrier selected by overlay. The nRF54L15 TAG is the exception: it builds
 against its own base board `nrf54l15tag/nrf54l15/cpuapp`, because the tag
 overlay's `/delete-node/ &sky13348` and `antenna_switch_v1`/`antenna_switch_v2`
@@ -24,6 +24,7 @@ target nodes that exist only in the nrf54l15tag DTS (see issue #40).
 | U-Blox NINA-B40 | `boards/ublox_nrf54l15_cpuapp.overlay` | `uart30` @ 921600 | `uart20` @ 921600 | `P1.09`, `P1.08` |
 | Ezurio BL54L15u | `boards/ezurio_bl54l15u_nrf54l15_cpuapp.overlay` | `uart20` @ 921600 | `uart30` @ 921600 | `P1.09`, `P1.08` |
 | Fanstel BM15C | `boards/fanstel_bm15c_nrf54l15_cpuapp.overlay` | `uart20` @ 921600 | `uart30` @ 921600 | — (no antenna-switch node) |
+| Minewsemi ME54BE01 | `boards/minew_me54be01_nrf54l15_cpuapp.overlay` | `uart20` @ 921600 | — (RTT via debug probe) | — (no antenna-switch node) |
 
 GPIOs use Zephyr devicetree port-pin notation (`&gpio1 9` → `P1.09`, port 1
 pin 9). All antenna-switch `ant-gpios` are `GPIO_ACTIVE_HIGH`. The DK, U-Blox,
@@ -39,7 +40,7 @@ is shown here as `nRF54L15 TAG`.
 
 - `cobs-uart` is the authoritative chosen node for the COBS ranging stream,
   consumed by `initiator/src/serialize.c` via `DEVICE_DT_GET(DT_CHOSEN(cobs_uart))`.
-  On boards with a console UART (all except the TAG), the console UART also
+  On boards with a console UART (all except the TAG and the ME54BE01), the console UART also
   carries shell, mcumgr, bt-mon, and bt-c2h — all five `zephyr,console` /
   `shell-uart` / `uart-mcumgr` / `bt-mon-uart` / `bt-c2h-uart` chosen nodes point
   to it. The TAG has no console UART (see [TAG wiring notes](#nrf54l15-tag-wiring-notes)).
@@ -85,6 +86,37 @@ The TAG is not a DK and needs extra hardware to expose the COBS stream:
   `uart20` device the initiator's `cobs-uart` acquires is never instantiated and
   the link fails with an undefined `__device_dts_ord_<N>`.
 
+### Minewsemi ME54BE01 wiring notes
+
+The ME54BE01 is a third-party module dev board (ME54BS01-nRF54L15), not a DK;
+like the TAG it exposes a single UART and uses RTT for console, but it differs
+in two ways: it has an onboard USB-to-serial bridge (Type-C) for the COBS UART,
+and no onboard debugger. It builds on `BOARD=nrf54l15dk/nrf54l15/cpuapp` (there
+is no NCS board def for the ME54BE01) — the overlay selects the carrier.
+
+- **No onboard debugger.** The ME54BE01 has no onboard J-Link; flashing and RTT
+  both need an external J-Link (or an nRF54L15 DK `DEBUG OUT` header) wired to the
+  module's SWDIO (`P0.02`) / SWDCLK (`P0.03`) pins.
+- **Single UART; console over RTT.** Only `uart20` is exposed — the COBS ranging
+  stream via `cobs-uart`, over the onboard USB-to-serial bridge (Type-C). There
+  is no console/shell UART: the overlay binds only `cobs-uart = &uart20` and
+  `boards/minew_me54be01.conf` selects the RTT console backend (and disables the
+  DK defconfig's `CONFIG_UART_CONSOLE`, since the overlay defines no
+  `zephyr,console` node), so the console (log output) runs over Segger RTT via the
+  same external debug probe, with no extra wiring.
+- **Power and COBS.** Type-C provides both board power and the COBS UART bridge
+  (`uart20` TX `P1.05` / RX `P1.04`, `921600` baud, 8N1) — no external
+  UART-to-USB adapter is needed (unlike the TAG). The COBS `uart20` pins are
+  inherited from the nrf54l15dk base DTS (the ME54BE01 builds on
+  `nrf54l15dk/nrf54l15/cpuapp`), the same `P1.04`/`P1.05` as the DK.
+- **UART driver Kconfig.** The ME54BE01 builds on the nrf54l15dk board defconfig,
+  which sets `CONFIG_SERIAL=y` (so the `uart20` `cobs-uart` device instantiates
+  with no app-level `CONFIG_SERIAL` line — unlike the TAG, which needs it in
+  `initiator/prj.conf`) and `CONFIG_UART_CONSOLE=y` (disabled here in favour of
+  the RTT console). See the
+  [ME54BE01 dev board datasheet](https://store.minewsemi.com/wp-content/uploads/2024/11/Development_Board_ME54BE01_Datasheet_EN.pdf)
+  and the [ME54BS01 module datasheet](https://store.minewsemi.com/wp-content/uploads/2025/02/ME54BS01-nRF54L15_Datasheet_K_EN.pdf).
+
 ### Antenna-switch node
 
 - The `cs_antenna_switch` node (`compatible = "nordic,bt-cs-antenna-switch"`,
@@ -92,9 +124,13 @@ The TAG is not a DK and needs extra hardware to expose the COBS stream:
   controller library in NCS; no code in this repo reads `ant-gpios` directly.
   The overlay comment "See `cs_antenna_switch.c`" refers to NCS-owned source, not
   a file in this repo.
-- Fanstel has no `cs_antenna_switch` node (single-antenna board). Its overlay
-  instead sets `&lfxo` load-capacitance to 15.5 pF (`15500` fF) — a factual
-  board-clock difference recorded here as overlay content, not tuning guidance.
+- Fanstel and the Minewsemi ME54BE01 have no `cs_antenna_switch` node
+  (single-antenna boards; the Nordic controller's `cs_antenna_switch.c` is
+  compiled only under `CONFIG_BT_CTLR_SDC_CS_MULTIPLE.ANTENNA_SUPPORT`, i.e.
+  `NUM_ANTENNAS >= 2`, and both boards' presets use `NUM_ANTENNAS=1`). The
+  Fanstel overlay instead sets `&lfxo` load-capacitance to 15.5 pF (`15500` fF) —
+  a factual board-clock difference recorded here as overlay content, not tuning
+  guidance.
 
 ## Antenna and path presets
 
@@ -134,11 +170,13 @@ antennas second.
 | `ublox_cent_a1_1` | initiator | U-Blox NINA-B40 | `ublox_*.overlay` | `central.overlay;1_path_1_local.conf` | A1 / 1 |
 | `ezurio_bl54l15u_cent_a2_4` | initiator | Ezurio BL54L15u | `ezurio_*.overlay` | `central.overlay;4_path_2_local.conf` | A2 / 4 |
 | `fanstel_bm15c_cent_a1_1` | initiator | Fanstel BM15C | `fanstel_*.overlay` | `central.overlay;1_path_1_local.conf` | A1 / 1 |
+| `minew_me54be01_cent_a1_1` | initiator | Minewsemi ME54BE01 | `minew_me54be01_*.overlay` | `central.overlay;1_path_1_local.conf;minew_me54be01.conf` | A1 / 1 |
 | `nrf54l15dk_peri_a1_4` | reflector | nRF54L15DK | `nrf54l15dk_*.overlay` | `4_path_1_local.conf` | A1 / 4 |
 | `nrf54l15tag_peri_a2_4` | reflector | nRF54L15 TAG | `nrf54l15tag_*.overlay` | `4_path_2_local.conf;nrf54l15tag.conf` | A2 / 4 |
 | `ezurio_bl54l15u_peri_a2_4` | reflector | Ezurio BL54L15u | `ezurio_*.overlay` | `4_path_2_local.conf` | A2 / 4 |
 | `fanstel_bm15c_peri_a1_4` | reflector | Fanstel BM15C | `fanstel_*.overlay` | `4_path_1_local.conf` | A1 / 4 |
 | `ublox_peri_a1_4` | reflector | U-Blox NINA-B40 | `ublox_*.overlay` | `4_path_1_local.conf` | A1 / 4 |
+| `minew_me54be01_peri_a1_4` | reflector | Minewsemi ME54BE01 | `minew_me54be01_*.overlay` | `4_path_1_local.conf;minew_me54be01.conf` | A1 / 4 |
 
 - **Naming asymmetry.** Preset names are `<board>_<cent|peri>_a<antennas>_<paths>`
   — antennas first, paths second (e.g. `ezurio_bl54l15u_cent_a2_4` = A2, 4 paths).

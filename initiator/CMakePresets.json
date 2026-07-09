@@ -114,6 +114,18 @@
             }
         },
         {
+            "name": "minew_me54be01_cent_a1_1",
+            "displayName": "Minewsemi ME54BE01: central A1 (1 path)",
+            "generator": "Ninja",
+            "binaryDir": "${sourceDir}/build_minew_me54be01_cent_a1_1",
+            "cacheVariables": {
+                "BOARD": "nrf54l15dk/nrf54l15/cpuapp",
+                "EXTRA_CONF_FILE": "central.overlay;../boards/1_path_1_local.conf;../boards/minew_me54be01.conf",
+                "CONF_FILE": "prj.conf",
+                "DTC_OVERLAY_FILE": "../boards/minew_me54be01_nrf54l15_cpuapp.overlay"
+            }
+        },
+        {
             "name": "nrf54l15dk_cent_a1_1_ipt",
             "displayName": "nRF54L15DK: central A1 (1 path, inline PCT)",
             "generator": "Ninja",
@@ -159,6 +171,18 @@
                 "EXTRA_CONF_FILE": "central.overlay;../boards/inline_pct_initiator.conf;../boards/inline_pct_shared.conf;../boards/1_path_1_local.conf",
                 "CONF_FILE": "prj.conf",
                 "DTC_OVERLAY_FILE": "../boards/fanstel_bm15c_nrf54l15_cpuapp.overlay"
+            }
+        },
+        {
+            "name": "minew_me54be01_cent_a1_1_ipt",
+            "displayName": "Minewsemi ME54BE01: central A1 (1 path, inline PCT)",
+            "generator": "Ninja",
+            "binaryDir": "${sourceDir}/build_minew_me54be01_cent_a1_1_ipt",
+            "cacheVariables": {
+                "BOARD": "nrf54l15dk/nrf54l15/cpuapp",
+                "EXTRA_CONF_FILE": "central.overlay;../boards/inline_pct_initiator.conf;../boards/inline_pct_shared.conf;../boards/1_path_1_local.conf;../boards/minew_me54be01.conf",
+                "CONF_FILE": "prj.conf",
+                "DTC_OVERLAY_FILE": "../boards/minew_me54be01_nrf54l15_cpuapp.overlay"
             }
         }
     ]
