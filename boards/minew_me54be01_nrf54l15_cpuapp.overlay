@@ -1,0 +1,45 @@
+/* SPDX-License-Identifier: MIT */
+/*
+ * Minewsemi ME54BE01 development board (ME54BS01-nRF54L15 module) overlay.
+ * Builds on the nrf54l15dk base board (no NCS board def for the ME54BE01);
+ * BOARD stays nrf54l15dk/nrf54l15/cpuapp and this overlay selects the carrier.
+ *
+ * COBS ranging stream: uart20, pinctrl inherited from the nrf54l15dk base DTS
+ * (P1.04 TX / P1.05 RX, 921600 baud) via the onboard USB-to-serial bridge
+ * (Type-C). Unlike the Fanstel BM15C and the nRF54L15 TAG, which repurpose
+ * uart20 to P1.13/P1.14 via boards/uart20_p1_13_p1_14.dtsi, the ME54BE01 uses
+ * the DK's default uart20 pins, so this overlay only sets status + speed (the
+ * base pinctrl + 115200 default come from nrf54l15dk_common.dtsi).
+ *
+ * Antenna: single onboard PCB antenna, no RF switch. No cs_antenna_switch node
+ * — the Nordic controller's cs_antenna_switch.c is compiled only under
+ * CONFIG_BT_CTLR_SDC_CS_MULTIPLE.ANTENNA_SUPPORT (NUM_ANTENNAS >= 2); both
+ * ME54BE01 presets use NUM_ANTENNAS=1 (1_path_1_local / 4_path_1_local), so it
+ * is compiled out and the node is not required (same as the Fanstel BM15C).
+ *
+ * Console: Segger RTT via an external J-Link (no console UART, no onboard
+ * debugger). The nrf54l15dk base (nrf54l_05_10_15_cpuapp_common.dtsi) binds
+ * zephyr,console / shell-uart / uart-mcumgr / bt-mon-uart / bt-c2h-uart to
+ * uart20 — here the COBS stream — so those are /delete-property/'d below to
+ * keep uart20 for COBS only; boards/minew_me54be01.conf selects the RTT
+ * backend and disables the DK defconfig's UART_CONSOLE. (The nrf54l15tag base
+ * doesn't set those chosen nodes, so the TAG needs no such deletion.) See
+ * docs/hardware.md.
+ */
+
+/ {
+    chosen {
+        cobs-uart = &uart20;
+
+        /delete-property/ zephyr,console;
+        /delete-property/ zephyr,shell-uart;
+        /delete-property/ zephyr,uart-mcumgr;
+        /delete-property/ zephyr,bt-mon-uart;
+        /delete-property/ zephyr,bt-c2h-uart;
+    };
+};
+
+&uart20 {
+    status = "okay";
+    current-speed = <921600>;
+};

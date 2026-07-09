@@ -102,6 +102,18 @@
             }
         },
         {
+            "name": "minew_me54be01_peri_a1_4",
+            "displayName": "Minewsemi ME54BE01: peripheral A1 (4 paths)",
+            "generator": "Ninja",
+            "binaryDir": "${sourceDir}/build_minew_me54be01_peri_a1_4",
+            "cacheVariables": {
+                "BOARD": "nrf54l15dk/nrf54l15/cpuapp",
+                "EXTRA_CONF_FILE": "../boards/4_path_1_local.conf;../boards/minew_me54be01.conf",
+                "CONF_FILE": "prj.conf",
+                "DTC_OVERLAY_FILE": "../boards/minew_me54be01_nrf54l15_cpuapp.overlay"
+            }
+        },
+        {
             "name": "nrf54l15dk_peri_a1_4_ipt",
             "displayName": "nRF54L15DK: peripheral A1 (4 paths, inline PCT)",
             "generator": "Ninja",
@@ -147,6 +159,18 @@
                 "EXTRA_CONF_FILE": "../boards/inline_pct_reflector.conf;../boards/inline_pct_shared.conf;../boards/4_path_1_local.conf",
                 "CONF_FILE": "prj.conf",
                 "DTC_OVERLAY_FILE": "../boards/ublox_nrf54l15_cpuapp.overlay"
+            }
+        },
+        {
+            "name": "minew_me54be01_peri_a1_4_ipt",
+            "displayName": "Minewsemi ME54BE01: peripheral A1 (4 paths, inline PCT)",
+            "generator": "Ninja",
+            "binaryDir": "${sourceDir}/build_minew_me54be01_peri_a1_4_ipt",
+            "cacheVariables": {
+                "BOARD": "nrf54l15dk/nrf54l15/cpuapp",
+                "EXTRA_CONF_FILE": "../boards/inline_pct_reflector.conf;../boards/inline_pct_shared.conf;../boards/4_path_1_local.conf;../boards/minew_me54be01.conf",
+                "CONF_FILE": "prj.conf",
+                "DTC_OVERLAY_FILE": "../boards/minew_me54be01_nrf54l15_cpuapp.overlay"
             }
         }
     ]

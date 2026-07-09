@@ -109,10 +109,10 @@ workflow builds every shipped preset:
 
 ```bash
 bash ci/build.sh --target initiator \
-  --preset nrf54l15dk_cent_a1_1,ublox_cent_a1_1,ezurio_bl54l15u_cent_a2_4,fanstel_bm15c_cent_a1_1 \
+  --preset nrf54l15dk_cent_a1_1,ublox_cent_a1_1,ezurio_bl54l15u_cent_a2_4,fanstel_bm15c_cent_a1_1,minew_me54be01_cent_a1_1 \
   --release-dir release
 bash ci/build.sh --target reflector \
-  --preset nrf54l15dk_peri_a1_4,ezurio_bl54l15u_peri_a2_4,fanstel_bm15c_peri_a1_4,ublox_peri_a1_4 \
+  --preset nrf54l15dk_peri_a1_4,ezurio_bl54l15u_peri_a2_4,fanstel_bm15c_peri_a1_4,ublox_peri_a1_4,minew_me54be01_peri_a1_4 \
   --release-dir release
 ```
 
