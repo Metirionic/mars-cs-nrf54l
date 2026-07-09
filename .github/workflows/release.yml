@@ -83,7 +83,7 @@ jobs:
   build:
     name: Build firmware
     needs: version-bump
-    if: github.event_name == 'workflow_dispatch' || needs.version-bump.outputs.bump_needed == 'true'
+    if: always() && (github.event_name == 'workflow_dispatch' || needs.version-bump.outputs.bump_needed == 'true')
     runs-on: ubuntu-24.04
     container:
       image: ghcr.io/nrfconnect/sdk-nrf-toolchain:${{ vars.NCS_VERSION }}
@@ -139,7 +139,7 @@ jobs:
   release:
     name: Create GitHub Release
     needs: [version-bump, build]
-    if: github.event_name == 'workflow_dispatch' || needs.version-bump.outputs.bump_needed == 'true'
+    if: always() && (github.event_name == 'workflow_dispatch' || needs.version-bump.outputs.bump_needed == 'true') && needs.build.result == 'success'
     runs-on: ubuntu-latest
     permissions:
       contents: write
