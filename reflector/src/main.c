@@ -291,6 +291,7 @@ int main(void)
         if (err)
         {
             LOG_ERR("Failed to configure default CS settings (err %d)", err);
+            return 0;
         }
 
 #if IS_ENABLED(CONFIG_MARS_CS_INLINE_PCT)
