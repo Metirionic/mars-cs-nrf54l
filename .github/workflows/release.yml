@@ -91,11 +91,11 @@ jobs:
         with:
           ref: ${{ needs.version-bump.outputs.tag }}
 
-      - name: Verify NCS version
-        run: bash scripts/check-ncs-version.sh
-
       - name: Fix git safe directory
         run: git config --global --add safe.directory $GITHUB_WORKSPACE
+
+      - name: Verify NCS version
+        run: bash scripts/check-ncs-version.sh
 
       - name: Install dependencies
         run: |
