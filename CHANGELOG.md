@@ -2,6 +2,12 @@
 All notable changes to this project will be documented in this file. See [conventional commits](https://www.conventionalcommits.org/) for commit guidelines.
 
 - - -
+## [v1.5.0](https://github.com/Metirionic/mars-cs-nrf54l/releases/tag/v1.5.0) - 2026-07-09
+#### Features
+- (**board**) add Minewsemi ME54BE01 (ME54BS01-nRF54L15) support - ([1d0e797](https://github.com/Metirionic/mars-cs-nrf54l/commit/1d0e797ce9d9b3eb89b95932f46d49837e4121c2)) - AttilaRoemer, Claude
+
+- - -
+
 ## [v1.4.1](https://github.com/Metirionic/mars-cs-nrf54l/releases/tag/v1.4.1) - 2026-07-08
 #### Bug Fixes
 - reflector antenna count - ([92ef0e2](https://github.com/Metirionic/mars-cs-nrf54l/commit/92ef0e26dba88266bea919c8527e7c87fd8a8b59)) - Adrian Figueroa
