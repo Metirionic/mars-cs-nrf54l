@@ -81,7 +81,7 @@ for PRESET in "${PRESET_LIST[@]}"; do
 
     hex_source="${BUILD_DIR}/merged.hex"
     if [[ ! -f "${hex_source}" ]]; then
-      hex_source="${BUILD_DIR}/zephyr/zephyr.hex"
+      hex_source="${BUILD_DIR}/${APP_NAME}/zephyr/zephyr.hex"
     fi
     if [[ -f "${hex_source}" ]]; then
       cp "${hex_source}" "${RELEASE_DIR}/${APP_NAME}_${PRESET}.hex"
