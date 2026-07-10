@@ -296,7 +296,7 @@ sequenceDiagram
     CTRL->>ACC: subevent_data_available (step_data_buf)
     ACC->>ACC: accumulate step_data_buf into latest_local_steps
     Note over ACC: guarded by sem_local_steps (taken K_NO_WAIT)
-    Note over ACC: no RAS; procedure counter used directly (no ranging-counter indirection)
+    Note over ACC: no RAS — procedure counter used directly (no ranging-counter indirection)
     ACC->>POP: subevent_populate_inline(local steps, MACs, role) (on procedure complete)
     Note over POP: peer event synthesized with identity PCT (1.0 + 0.0j)
     POP-->>ACC: populated local_event + peer_event
@@ -446,7 +446,7 @@ on top of `prj.conf` via `EXTRA_CONF_FILE`, overriding the RAS defaults above:
 | `CONFIG_BT_RAS` / `CONFIG_BT_RAS_RREQ` | `inline_pct_initiator.conf:13-14` (`n`) | — | RAS GATT path unused in IPT |
 | `CONFIG_BT_RAS_RRSP` | — | `inline_pct_reflector.conf:15` (`n`) | RAS responder unused in IPT |
 | `CONFIG_BT_GATT_CLIENT` / `CONFIG_BT_GATT_DYNAMIC_DB` | `inline_pct_initiator.conf:19-20` (`n`) | — | no GATT discovery (no Ranging Service to find) |
-| `CONFIG_BT_SCAN_UUID_CNT` / `CONFIG_BT_SCAN_NAME_CNT` | `:21` (`0`) / `:30` (`1`) | — | scan by advertised name, not Ranging Service UUID |
+| `CONFIG_BT_SCAN_UUID_CNT` / `CONFIG_BT_SCAN_NAME_CNT` | `inline_pct_initiator.conf:21` (`0`) / `:30` (`1`) | — | scan by advertised name, not Ranging Service UUID |
 | `CONFIG_BT_CTLR_EXTENDED_FEAT_SET` | (via `select`) | `inline_pct_reflector.conf:11` (`y`) | controller CS enhancements for inline PCT transfer |
 | `CONFIG_BT_DEVICE_NAME` | `inline_pct_shared.conf:10` | `inline_pct_shared.conf:10` | the IPT reflector's advertised name (single source of truth — the initiator scans for it) |
 
