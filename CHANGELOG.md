@@ -2,6 +2,12 @@
 All notable changes to this project will be documented in this file. See [conventional commits](https://www.conventionalcommits.org/) for commit guidelines.
 
 - - -
+## [v1.6.1](https://github.com/Metirionic/mars-cs-nrf54l/releases/tag/v1.6.1) - 2026-07-10
+#### Bug Fixes
+- (**initiator**) unshadow latest_local_steps in IPT procedure-complete block - ([f403ff7](https://github.com/Metirionic/mars-cs-nrf54l/commit/f403ff755ca2557f0cb1d5d9e4ef99726fb1bc99)) - Adrian Figueroa
+
+- - -
+
 ## [v1.6.0](https://github.com/Metirionic/mars-cs-nrf54l/releases/tag/v1.6.0) - 2026-07-10
 #### Features
 - share subevent populate + generalize IPT inline-result skeleton - ([201820d](https://github.com/Metirionic/mars-cs-nrf54l/commit/201820d34b25f423c1b5d9cdef77929c745df610)) - Adrian Figueroa, Claude
