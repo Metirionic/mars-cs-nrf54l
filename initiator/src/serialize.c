@@ -14,7 +14,7 @@
 #include <zephyr/drivers/uart.h>
 #include <zephyr/logging/log.h>
 
-#include "cs_step_parse.h"
+#include "subevent.h"
 
 LOG_MODULE_DECLARE(app_main, LOG_LEVEL_INF);
 
@@ -42,11 +42,6 @@ static K_SEM_DEFINE(sem_tx_done, 1, 1);
 
 /** @brief One-time UART async init guard (callback registered on first TX). */
 static bool g_uart_async_init_done;
-
-/** @brief Static storage for locally recorded (initiator) event. */
-static SubeventResultEvent_t g_local_event;
-/** @brief Static storage for remotely recorded (reflector) event. */
-static SubeventResultEvent_t g_peer_event;
 
 /**
  * @brief Append data to the global UART TX buffer.
@@ -112,54 +107,6 @@ static int serialize_append_event(SubeventResultEvent_t * p_event)
 }
 
 /**
- * @brief Fill the common SubeventResultEvent header fields shared by both
- *        events serialized in serialize_run() (RAS and IPT).
- *
- * The two events' headers are identical except for origin/MAC placement, which
- * mirrors the event perspective (initiator vs reflector).
- *
- * @param p_event              Output event to populate.
- * @param origin               ORIGIN_INITIATOR or ORIGIN_REFLECTOR.
- * @param local_mac            MAC address of the event's "local" side.
- * @param peer_mac             MAC address of the event's "peer" side.
- * @param p_result             Local subevent result header.
- * @param antenna_path_count   Initial antenna path count (RAS path passes 0 and
- *                             derives it from the ranging header inside
- *                             cs_step_parse; IPT passes
- *                             p_result->header.num_antenna_paths so a procedure
- *                             that negotiates fewer antenna paths than the
- *                             controller's compile-time max does not cause
- *                             cs_step_parse_inline to over-read tone_info past
- *                             the step's real data_len).
- */
-static void fill_subevent_header(SubeventResultEvent_t *                p_event,
-                                 Origin_t                               origin,
-                                 uint64_t                               local_mac,
-                                 uint64_t                               peer_mac,
-                                 struct bt_conn_le_cs_subevent_result * p_result,
-                                 uint8_t                                antenna_path_count)
-{
-    p_event->origin                                        = origin;
-    p_event->local_mac                                     = local_mac;
-    p_event->peer_mac                                      = peer_mac;
-    p_event->connection_handle                             = 0;
-    p_event->config_id                                     = p_result->header.config_id;
-    p_event->has_config_id                                 = true;
-    p_event->procedure_done_status                         = p_result->header.procedure_done_status;
-    p_event->procedure_abort_reason                        = p_result->header.procedure_abort_reason;
-    p_event->subevent_done_status                          = p_result->header.subevent_done_status;
-    p_event->subevent_abort_reason                         = p_result->header.subevent_abort_reason;
-    p_event->antenna_path_count                            = antenna_path_count;
-    p_event->step_count                                    = 0;
-    p_event->initial_meta.start_acl_conn_event_counter     = p_result->header.start_acl_conn_event;
-    p_event->initial_meta.has_start_acl_conn_event_counter = true;
-    p_event->initial_meta.procedure_counter                = p_result->header.procedure_counter;
-    p_event->initial_meta.frequency_compensation.value     = p_result->header.frequency_compensation;
-    p_event->initial_meta.reference_power_level.value      = p_result->header.reference_power_level;
-    p_event->has_initial_meta                              = true;
-}
-
-/**
  * @brief UART async callback: signals TX completion to release sem_tx_done.
  *
  * TX-only path: only UART_TX_DONE and UART_TX_ABORTED are handled (RX events
@@ -190,25 +137,17 @@ static void cobs_uart_async_cb(const struct device * p_dev, struct uart_event * 
 }
 
 /**
- * @brief Serialize local and peer CS subevent data and transmit over UART.
+ * @brief Serialize populated SubeventResultEvents and transmit over UART.
  *
- * Parses both local and peer step data into SubeventResultEvent structures,
- * serializes them via the Rust FFI, and transmits the COBS-encoded binary
- * over the configured UART device.
+ * COBS-encodes two SubeventResultEvent structures (initiator + reflector)
+ * via the Rust FFI and transmits the COBS-encoded binary over the configured
+ * UART device. The events must already be populated (via subevent_populate
+ * or subevent_populate_inline) before calling this function.
  *
- * @param local_mac  Local Bluetooth MAC address.
- * @param peer_mac   Peer Bluetooth MAC address.
- * @param p_result   Pointer to the local subevent result header.
- * @param p_local_steps  Net buffer containing local step data.
- * @param p_peer_steps   Net buffer containing peer step data.
- * @param role       CS role (initiator or reflector).
+ * @param p_local_event  Populated initiator SubeventResultEvent.
+ * @param p_peer_event   Populated reflector SubeventResultEvent.
  */
-void serialize_run(uint64_t                               local_mac,
-                   uint64_t                               peer_mac,
-                   struct bt_conn_le_cs_subevent_result * p_result,
-                   struct net_buf_simple *                p_local_steps,
-                   struct net_buf_simple *                p_peer_steps,
-                   enum bt_conn_le_cs_role                role)
+void serialize_run(SubeventResultEvent_t * p_local_event, SubeventResultEvent_t * p_peer_event)
 {
     if (!g_uart_async_init_done)
     {
@@ -236,32 +175,11 @@ void serialize_run(uint64_t                               local_mac,
 
     serialize_init();
 
-    LOG_INF("Run serialization for procedure %u", p_result->header.procedure_counter);
-
-#if IS_ENABLED(CONFIG_MARS_CS_INLINE_PCT)
-    /* IPT: antenna path count from the per-procedure negotiated header so a
-     * procedure that negotiates fewer antenna paths than the controller's
-     * compile-time max does not cause cs_step_parse_inline to over-read
-     * tone_info past the step's real data_len.
-     */
-    const uint8_t n_ap = p_result->header.num_antenna_paths;
-#else
-    /* RAS derives antenna_path_count from the ranging header inside cs_step_parse. */
-    const uint8_t n_ap = 0;
-#endif
-
-    fill_subevent_header(&g_local_event, ORIGIN_INITIATOR, local_mac, peer_mac, p_result, n_ap);
-    fill_subevent_header(&g_peer_event, ORIGIN_REFLECTOR, peer_mac, local_mac, p_result, n_ap);
-
-#if IS_ENABLED(CONFIG_MARS_CS_INLINE_PCT)
-    cs_step_parse_inline(&g_local_event, &g_peer_event, p_local_steps, role);
-#else
-    cs_step_parse(&g_local_event, &g_peer_event, p_peer_steps, p_local_steps, role);
-#endif
+    LOG_INF("Run serialization for procedure %u", p_local_event->initial_meta.procedure_counter);
 
     int err;
 
-    err = serialize_append_event(&g_local_event);
+    err = serialize_append_event(p_local_event);
     if (err)
     {
         LOG_ERR("Failed to serialize local event (err %d)", err);
@@ -269,7 +187,7 @@ void serialize_run(uint64_t                               local_mac,
         return;
     }
 
-    err = serialize_append_event(&g_peer_event);
+    err = serialize_append_event(p_peer_event);
     if (err)
     {
         LOG_ERR("Failed to serialize peer event (err %d)", err);

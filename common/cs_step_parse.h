@@ -15,7 +15,7 @@
 #include <zephyr/bluetooth/cs.h>
 #include <zephyr/net_buf.h>
 
-#include "rust_ffi_types.h"
+#include "mars_bluetooth_hci.h"
 
 /**
  * @brief Context for step data parsing callbacks.

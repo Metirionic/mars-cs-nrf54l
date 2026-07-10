@@ -20,6 +20,7 @@
 #include "addr_utils.h"
 #include "ble_callbacks.h"
 #include "ble_scanning.h"
+#include "subevent.h"
 #if defined(CONFIG_BT_RAS_RREQ)
 #include <bluetooth/gatt_dm.h>
 #include <bluetooth/services/ras.h>
@@ -53,10 +54,10 @@ static struct bt_conn_le_cs_subevent_result g_latest_subevent_header;
 static uint64_t g_local_mac;
 static uint64_t g_peer_mac;
 
-static cs_initiator_ranging_data_cb       gp_ranging_data_cb;
-static cs_initiator_ranging_data_ready_cb gp_ranging_data_ready_cb;
-static cs_initiator_config_created_cb     gp_config_created_cb;
-static cs_initiator_inline_result_cb      gp_inline_result_cb;
+static cs_initiator_ranging_data_cb        gp_ranging_data_cb;
+static cs_initiator_ranging_data_ready_cb  gp_ranging_data_ready_cb;
+static cs_initiator_config_created_cb      gp_config_created_cb;
+static cs_initiator_process_subevent_cb    gp_process_subevent_cb;
 
 /** @brief Get the current BLE connection reference. */
 struct bt_conn * cs_initiator_get_connection(void)
@@ -148,10 +149,10 @@ void cs_initiator_set_config_created_cb(cs_initiator_config_created_cb p_cb)
     gp_config_created_cb = p_cb;
 }
 
-/** @brief Register callback invoked when a CS procedure completes in IPT mode. */
-void cs_initiator_set_inline_result_cb(cs_initiator_inline_result_cb p_cb)
+/** @brief Register callback invoked to process populated subevent events (IPT mode). */
+void cs_initiator_set_process_subevent_cb(cs_initiator_process_subevent_cb p_cb)
 {
-    gp_inline_result_cb = p_cb;
+    gp_process_subevent_cb = p_cb;
 }
 
 #if IS_ENABLED(CONFIG_BT_RAS_RREQ)
@@ -261,18 +262,41 @@ static void subevent_result_cb(struct bt_conn * p_conn, struct bt_conn_le_cs_sub
         local_ranging_counter = procedure_ranging_counter;
 
 #if IS_ENABLED(CONFIG_MARS_CS_INLINE_PCT)
-        /* IPT: local steps are complete; hand off to the inline result path.
-         * The callback takes ownership of latest_local_steps and is expected
-         * to reset the buffer and give sem_local_steps when done.
+        /* IPT: local steps are complete. The shared skeleton handles the
+         * err/empty/populate/wake protocol:
+         *   - empty procedure → recover sem_local_steps + wake consumer
+         *   - non-empty → subevent_populate_inline → process callback → reset → wake
          */
-        if (gp_inline_result_cb)
+        struct net_buf_simple * latest_local_steps = &latest_local_steps;
+
+        if (latest_local_steps->len == 0)
         {
-            gp_inline_result_cb(p_conn, 0);
+            LOG_WRN("IPT procedure produced no step data");
+            net_buf_simple_reset(latest_local_steps);
+            cs_initiator_give_sem_local_steps();
+            cs_initiator_give_sem_data_ready();
         }
         else
         {
-            net_buf_simple_reset(&latest_local_steps);
-            k_sem_give(&sem_local_steps);
+            static SubeventResultEvent_t local_event;
+            static SubeventResultEvent_t peer_event;
+
+            subevent_populate_inline(&local_event,
+                                     &peer_event,
+                                     g_local_mac,
+                                     g_peer_mac,
+                                     &g_latest_subevent_header,
+                                     latest_local_steps,
+                                     BT_CONN_LE_CS_ROLE_INITIATOR);
+
+            if (gp_process_subevent_cb)
+            {
+                gp_process_subevent_cb(&local_event, &peer_event);
+            }
+
+            net_buf_simple_reset(latest_local_steps);
+            cs_initiator_give_sem_local_steps();
+            cs_initiator_give_sem_data_ready();
         }
 #endif  // IS_ENABLED(CONFIG_MARS_CS_INLINE_PCT)
     }
@@ -282,12 +306,10 @@ static void subevent_result_cb(struct bt_conn * p_conn, struct bt_conn_le_cs_sub
         net_buf_simple_reset(&latest_local_steps);
         k_sem_give(&sem_local_steps);
 
-#if IS_ENABLED(CONFIG_MARS_CS_INLINE_PCT)
-        if (gp_inline_result_cb)
-        {
-            gp_inline_result_cb(p_conn, -EIO);
-        }
-#endif  // IS_ENABLED(CONFIG_MARS_CS_INLINE_PCT)
+        /* No process callback on abort — mirrors the RAS err path: do not
+         * wake the consumer on a failed/aborted procedure so the main loop
+         * does not process stale event data.
+         */
     }
 }
 

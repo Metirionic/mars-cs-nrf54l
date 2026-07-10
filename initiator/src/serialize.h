@@ -7,20 +7,14 @@
 #ifndef SERIALIZE_H__
 #define SERIALIZE_H__
 
-#include <stdint.h>
-#include <zephyr/bluetooth/conn.h>
-#include <zephyr/bluetooth/cs.h>
-#include <zephyr/net_buf.h>
+#include "mars_bluetooth_hci.h"
 
-#if !defined(CONFIG_MARS_CS_INLINE_PCT)
-#include <bluetooth/services/ras.h>
-#endif
-
-void serialize_run(uint64_t                               local_mac,
-                   uint64_t                               peer_mac,
-                   struct bt_conn_le_cs_subevent_result * p_result,
-                   struct net_buf_simple *                p_local_steps,
-                   struct net_buf_simple *                p_peer_steps,
-                   enum bt_conn_le_cs_role                role);
+/**
+ * @brief Serialize populated SubeventResultEvents and transmit over UART COBS.
+ *
+ * @param p_local_event  Populated initiator SubeventResultEvent.
+ * @param p_peer_event   Populated reflector SubeventResultEvent.
+ */
+void serialize_run(SubeventResultEvent_t * p_local_event, SubeventResultEvent_t * p_peer_event);
 
 #endif /* SERIALIZE_H__ */

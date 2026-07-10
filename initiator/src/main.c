@@ -20,6 +20,7 @@
 #include "antenna.h"
 #include "cs_initiator.h"
 #include "serialize.h"
+#include "subevent.h"
 
 LOG_MODULE_REGISTER(app_main, LOG_LEVEL_INF);
 
@@ -28,60 +29,21 @@ static struct bt_conn_le_cs_config cs_config;
 
 #if IS_ENABLED(CONFIG_MARS_CS_INLINE_PCT)
 /**
- * @brief Callback for IPT procedure completion.
+ * @brief Process populated subevent events by serializing them over UART COBS.
  *
- * Called from subevent_result_cb when a CS procedure completes. The local
- * step buffer holds raw HCI step data; the reflector's PCT contribution is
- * already embedded in the local tones, so we serialize only the local steps
- * (the peer event is synthesized with a transparent identity PCT inside
- * cs_step_parse_inline). The peer steps pointer passed to serialize_run is
- * NULL in IPT mode and ignored by the inline parser.
+ * Called from the shared IPT skeleton in cs_initiator.c after the local and
+ * peer events have been populated via subevent_populate_inline().
  */
-static void inline_result_cb(struct bt_conn * p_conn, int err)
+static void process_subevent_cb(SubeventResultEvent_t * p_local_event, SubeventResultEvent_t * p_peer_event)
 {
-    ARG_UNUSED(p_conn);
-
-    if (err)
-    {
-        /* Mirrors the RAS err path: do not wake the consumer on a failed/aborted
-         * procedure so the main loop does not process stale event data.
-         */
-        LOG_ERR("IPT procedure failed (err %d)", err);
-        return;
-    }
-
-    struct net_buf_simple * latest_local_steps = cs_initiator_get_local_steps();
-
-    if (latest_local_steps->len == 0)
-    {
-        /* Empty procedure: return the sem_local_steps token before waking the
-         * consumer, otherwise the next procedure's k_sem_take(&sem_local_steps,
-         * K_NO_WAIT) fails and every subsequent procedure is dropped forever.
-         */
-        LOG_WRN("IPT procedure produced no step data");
-        net_buf_simple_reset(latest_local_steps);
-        cs_initiator_give_sem_local_steps();
-        cs_initiator_give_sem_data_ready();
-        return;
-    }
-
-    serialize_run(cs_initiator_get_local_mac(),
-                  cs_initiator_get_peer_mac(),
-                  cs_initiator_get_latest_subevent_header(),
-                  latest_local_steps,
-                  NULL,
-                  cs_config.role);
-
-    net_buf_simple_reset(latest_local_steps);
-    cs_initiator_give_sem_local_steps();
-    cs_initiator_give_sem_data_ready();
+    serialize_run(p_local_event, p_peer_event);
 }
 #else
 /**
  * @brief Callback for ranging data received from peer (realtime or on-demand).
  *
- * Checks counter match, validates step data, serializes via UART COBS,
- * and signals the main loop.
+ * Checks counter match, validates step data, populates SubeventResultEvents
+ * via subevent_populate, serializes via UART COBS, and signals the main loop.
  */
 static void ranging_data_cb(struct bt_conn * p_conn, uint16_t ranging_counter, int err)
 {
@@ -130,12 +92,19 @@ static void ranging_data_cb(struct bt_conn * p_conn, uint16_t ranging_counter, i
         return;
     }
 
-    serialize_run(cs_initiator_get_local_mac(),
-                  cs_initiator_get_peer_mac(),
-                  cs_initiator_get_latest_subevent_header(),
-                  latest_local_steps,
-                  cs_initiator_get_peer_steps(),
-                  cs_config.role);
+    static SubeventResultEvent_t local_event;
+    static SubeventResultEvent_t peer_event;
+
+    subevent_populate(&local_event,
+                      &peer_event,
+                      cs_initiator_get_local_mac(),
+                      cs_initiator_get_peer_mac(),
+                      cs_initiator_get_latest_subevent_header(),
+                      latest_local_steps,
+                      cs_initiator_get_peer_steps(),
+                      cs_config.role);
+
+    serialize_run(&local_event, &peer_event);
 
     net_buf_simple_reset(latest_local_steps);
 
@@ -190,7 +159,7 @@ int main(void)
     }
 
 #if IS_ENABLED(CONFIG_MARS_CS_INLINE_PCT)
-    cs_initiator_set_inline_result_cb(inline_result_cb);
+    cs_initiator_set_process_subevent_cb(process_subevent_cb);
 #else
     cs_initiator_set_ranging_data_cb(ranging_data_cb);
     cs_initiator_set_ranging_data_ready_cb(ranging_data_ready_cb);

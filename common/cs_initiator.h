@@ -18,6 +18,7 @@
 #include <zephyr/net_buf.h>
 
 #include "antenna.h"
+#include "mars_bluetooth_hci.h"
 
 #if defined(CONFIG_BT_RAS_RREQ) || defined(CONFIG_BT_RAS_RRSP)
 #include <bluetooth/services/ras.h>
@@ -133,20 +134,24 @@ typedef void (*cs_initiator_ranging_data_ready_cb)(struct bt_conn * p_conn, uint
 typedef void (*cs_initiator_config_created_cb)(struct bt_conn_le_cs_config * p_config);
 
 /**
- * @brief Callback type for inline-PCT (IPT) procedure completion.
+ * @brief Callback type for processing populated SubeventResultEvents (IPT mode).
  *
- * Invoked when a CS procedure completes in IPT mode and local step data is
- * ready for serialization/distance estimation. Not used in RAS mode.
+ * Called from the shared IPT procedure-completion skeleton in cs_initiator.c
+ * after the local and peer events have been populated via
+ * subevent_populate_inline(). The app does its work here — serialize over
+ * UART (COBS initiator), feed into a ranging flow, or nothing (the main loop
+ * does the ranging). Called only on a successful, non-empty procedure.
  *
- * @param p_conn  BLE connection reference.
- * @param err     0 on success, non-zero if the procedure was aborted/dropped.
+ * @param p_local_event  Populated initiator SubeventResultEvent.
+ * @param p_peer_event   Populated reflector SubeventResultEvent (identity PCT).
  */
-typedef void (*cs_initiator_inline_result_cb)(struct bt_conn * p_conn, int err);
+typedef void (*cs_initiator_process_subevent_cb)(SubeventResultEvent_t * p_local_event,
+                                                  SubeventResultEvent_t * p_peer_event);
 
 void                                   cs_initiator_set_ranging_data_cb(cs_initiator_ranging_data_cb cb);
 void                                   cs_initiator_set_ranging_data_ready_cb(cs_initiator_ranging_data_ready_cb cb);
 void                                   cs_initiator_set_config_created_cb(cs_initiator_config_created_cb cb);
-void                                   cs_initiator_set_inline_result_cb(cs_initiator_inline_result_cb cb);
+void                                   cs_initiator_set_process_subevent_cb(cs_initiator_process_subevent_cb cb);
 int                                    cs_initiator_start(const struct cs_initiator_config * p_config);
 struct bt_conn *                       cs_initiator_get_connection(void);
 uint32_t                               cs_initiator_get_ras_feature_bits(void);
