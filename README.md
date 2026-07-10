@@ -1,7 +1,7 @@
 # mars-cs-nrf54l
 
 Nordic nRF54L15 Channel Sounding firmware samples. Runs on top of
-[nRF Connect SDK v3.3.1](https://developer.nordicsemi.com/nRF_Connect_SDK/)
+[nRF Connect SDK v3.4.0](https://developer.nordicsemi.com/nRF_Connect_SDK/)
 and uses [mars-bluetooth-hci](https://github.com/Metirionic/mars-bluetooth-hci)
 for COBS serialization of CS measurement data.
 
