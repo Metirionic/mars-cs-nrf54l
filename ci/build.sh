@@ -79,10 +79,14 @@ for PRESET in "${PRESET_LIST[@]}"; do
   if [[ -n "${RELEASE_DIR}" ]]; then
     mkdir -p "${RELEASE_DIR}"
 
-    if [[ -f "${BUILD_DIR}/merged.hex" ]]; then
-      cp "${BUILD_DIR}/merged.hex" "${RELEASE_DIR}/${APP_NAME}_${PRESET}.hex"
+    local hex_source="${BUILD_DIR}/merged.hex"
+    if [[ ! -f "${hex_source}" ]]; then
+      hex_source="${BUILD_DIR}/zephyr/zephyr.hex"
+    fi
+    if [[ -f "${hex_source}" ]]; then
+      cp "${hex_source}" "${RELEASE_DIR}/${APP_NAME}_${PRESET}.hex"
     else
-      echo "Error: merged.hex not found for ${APP_NAME}/${PRESET}" >&2
+      echo "Error: no firmware hex found for ${APP_NAME}/${PRESET}" >&2
       FAILED=1
       continue
     fi
