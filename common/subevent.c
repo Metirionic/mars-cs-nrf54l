@@ -32,12 +32,12 @@ LOG_MODULE_DECLARE(app_main, LOG_LEVEL_INF);
  *                             derives it from the ranging header later; IPT
  *                             passes p_result->header.num_antenna_paths).
  */
-static void fill_subevent_header(SubeventResultEvent_t *                 p_event,
-                                 Origin_t                                origin,
-                                 uint64_t                                local_mac,
-                                 uint64_t                                peer_mac,
-                                 struct bt_conn_le_cs_subevent_result *  p_result,
-                                 uint8_t                                 antenna_path_count)
+static void fill_subevent_header(SubeventResultEvent_t *                p_event,
+                                 Origin_t                               origin,
+                                 uint64_t                               local_mac,
+                                 uint64_t                               peer_mac,
+                                 struct bt_conn_le_cs_subevent_result * p_result,
+                                 uint8_t                                antenna_path_count)
 {
     p_event->origin                                        = origin;
     p_event->local_mac                                     = local_mac;
@@ -74,20 +74,20 @@ static void fill_subevent_header(SubeventResultEvent_t *                 p_event
  * @param p_peer_steps    Net buffer containing peer step data.
  * @param role            CS role (initiator or reflector).
  */
-void subevent_populate(SubeventResultEvent_t *                 p_local_event,
-                       SubeventResultEvent_t *                 p_peer_event,
-                       uint64_t                                local_mac,
-                       uint64_t                                peer_mac,
-                       struct bt_conn_le_cs_subevent_result *  p_result,
-                       struct net_buf_simple *                 p_local_steps,
-                       struct net_buf_simple *                 p_peer_steps,
-                       enum bt_conn_le_cs_role                 role)
+void subevent_populate(SubeventResultEvent_t *                p_local_event,
+                       SubeventResultEvent_t *                p_peer_event,
+                       uint64_t                               local_mac,
+                       uint64_t                               peer_mac,
+                       struct bt_conn_le_cs_subevent_result * p_result,
+                       struct net_buf_simple *                p_local_steps,
+                       struct net_buf_simple *                p_peer_steps,
+                       enum bt_conn_le_cs_role                role)
 {
     /* RAS derives antenna_path_count from the ranging header inside cs_step_parse,
      * so seed both events with 0 here.
      */
     fill_subevent_header(p_local_event, ORIGIN_INITIATOR, local_mac, peer_mac, p_result, 0);
-    fill_subevent_header(p_peer_event,  ORIGIN_REFLECTOR, peer_mac, local_mac, p_result, 0);
+    fill_subevent_header(p_peer_event, ORIGIN_REFLECTOR, peer_mac, local_mac, p_result, 0);
 
     cs_step_parse(p_local_event, p_peer_event, p_peer_steps, p_local_steps, role);
 }
@@ -117,17 +117,17 @@ void subevent_populate(SubeventResultEvent_t *                 p_local_event,
  * @param role            CS role (initiator or reflector).
  */
 void subevent_populate_inline(SubeventResultEvent_t *                p_local_event,
-                               SubeventResultEvent_t *                p_peer_event,
-                               uint64_t                                local_mac,
-                               uint64_t                                peer_mac,
-                               struct bt_conn_le_cs_subevent_result * p_result,
-                               struct net_buf_simple *                 p_local_steps,
-                               enum bt_conn_le_cs_role                 role)
+                              SubeventResultEvent_t *                p_peer_event,
+                              uint64_t                               local_mac,
+                              uint64_t                               peer_mac,
+                              struct bt_conn_le_cs_subevent_result * p_result,
+                              struct net_buf_simple *                p_local_steps,
+                              enum bt_conn_le_cs_role                role)
 {
     const uint8_t n_ap = p_result->header.num_antenna_paths;
 
     fill_subevent_header(p_local_event, ORIGIN_INITIATOR, local_mac, peer_mac, p_result, n_ap);
-    fill_subevent_header(p_peer_event,  ORIGIN_REFLECTOR, peer_mac, local_mac, p_result, n_ap);
+    fill_subevent_header(p_peer_event, ORIGIN_REFLECTOR, peer_mac, local_mac, p_result, n_ap);
 
     cs_step_parse_inline(p_local_event, p_peer_event, p_local_steps, role);
 }

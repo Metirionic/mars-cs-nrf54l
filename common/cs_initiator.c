@@ -54,10 +54,10 @@ static struct bt_conn_le_cs_subevent_result g_latest_subevent_header;
 static uint64_t g_local_mac;
 static uint64_t g_peer_mac;
 
-static cs_initiator_ranging_data_cb        gp_ranging_data_cb;
-static cs_initiator_ranging_data_ready_cb  gp_ranging_data_ready_cb;
-static cs_initiator_config_created_cb      gp_config_created_cb;
-static cs_initiator_process_subevent_cb    gp_process_subevent_cb;
+static cs_initiator_ranging_data_cb       gp_ranging_data_cb;
+static cs_initiator_ranging_data_ready_cb gp_ranging_data_ready_cb;
+static cs_initiator_config_created_cb     gp_config_created_cb;
+static cs_initiator_process_subevent_cb   gp_process_subevent_cb;
 
 /** @brief Get the current BLE connection reference. */
 struct bt_conn * cs_initiator_get_connection(void)

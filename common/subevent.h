@@ -32,14 +32,14 @@
  * @param p_peer_steps    Net buffer containing peer step data.
  * @param role            CS role (initiator or reflector).
  */
-void subevent_populate(SubeventResultEvent_t *                 p_local_event,
-                       SubeventResultEvent_t *                 p_peer_event,
-                       uint64_t                                local_mac,
-                       uint64_t                                peer_mac,
-                       struct bt_conn_le_cs_subevent_result *  p_result,
-                       struct net_buf_simple *                 p_local_steps,
-                       struct net_buf_simple *                 p_peer_steps,
-                       enum bt_conn_le_cs_role                 role);
+void subevent_populate(SubeventResultEvent_t *                p_local_event,
+                       SubeventResultEvent_t *                p_peer_event,
+                       uint64_t                               local_mac,
+                       uint64_t                               peer_mac,
+                       struct bt_conn_le_cs_subevent_result * p_result,
+                       struct net_buf_simple *                p_local_steps,
+                       struct net_buf_simple *                p_peer_steps,
+                       enum bt_conn_le_cs_role                role);
 
 /**
  * @brief Populate SubeventResultEvent structures from local-only CS subevent data (IPT mode).
@@ -65,11 +65,11 @@ void subevent_populate(SubeventResultEvent_t *                 p_local_event,
  * @param role            CS role (initiator or reflector).
  */
 void subevent_populate_inline(SubeventResultEvent_t *                p_local_event,
-                               SubeventResultEvent_t *                p_peer_event,
-                               uint64_t                                local_mac,
-                               uint64_t                                peer_mac,
-                               struct bt_conn_le_cs_subevent_result * p_result,
-                               struct net_buf_simple *                 p_local_steps,
-                               enum bt_conn_le_cs_role                 role);
+                              SubeventResultEvent_t *                p_peer_event,
+                              uint64_t                               local_mac,
+                              uint64_t                               peer_mac,
+                              struct bt_conn_le_cs_subevent_result * p_result,
+                              struct net_buf_simple *                p_local_steps,
+                              enum bt_conn_le_cs_role                role);
 
 #endif /* SUBEVENT_H */

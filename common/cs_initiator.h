@@ -146,7 +146,7 @@ typedef void (*cs_initiator_config_created_cb)(struct bt_conn_le_cs_config * p_c
  * @param p_peer_event   Populated reflector SubeventResultEvent (identity PCT).
  */
 typedef void (*cs_initiator_process_subevent_cb)(SubeventResultEvent_t * p_local_event,
-                                                  SubeventResultEvent_t * p_peer_event);
+                                                 SubeventResultEvent_t * p_peer_event);
 
 void                                   cs_initiator_set_ranging_data_cb(cs_initiator_ranging_data_cb cb);
 void                                   cs_initiator_set_ranging_data_ready_cb(cs_initiator_ranging_data_ready_cb cb);
