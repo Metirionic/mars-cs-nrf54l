@@ -2,6 +2,14 @@
 All notable changes to this project will be documented in this file. See [conventional commits](https://www.conventionalcommits.org/) for commit guidelines.
 
 - - -
+## [v1.6.0](https://github.com/Metirionic/mars-cs-nrf54l/releases/tag/v1.6.0) - 2026-07-10
+#### Features
+- share subevent populate + generalize IPT inline-result skeleton - ([201820d](https://github.com/Metirionic/mars-cs-nrf54l/commit/201820d34b25f423c1b5d9cdef77929c745df610)) - Adrian Figueroa, Claude
+#### Style
+- formatting - ([0fe36ee](https://github.com/Metirionic/mars-cs-nrf54l/commit/0fe36eec737d214ec40ebbd0a1ef218bcb075a3c)) - Adrian Figueroa
+
+- - -
+
 ## [v1.5.1](https://github.com/Metirionic/mars-cs-nrf54l/releases/tag/v1.5.1) - 2026-07-09
 #### Bug Fixes
 - (**reflector**) return on CS default settings failure - ([9820ca2](https://github.com/Metirionic/mars-cs-nrf54l/commit/9820ca24ca53c5867529e94b2b2c7a78244029df)) - AttilaRoemer
