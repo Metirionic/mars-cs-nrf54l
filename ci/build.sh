@@ -79,7 +79,7 @@ for PRESET in "${PRESET_LIST[@]}"; do
   if [[ -n "${RELEASE_DIR}" ]]; then
     mkdir -p "${RELEASE_DIR}"
 
-    local hex_source="${BUILD_DIR}/merged.hex"
+    hex_source="${BUILD_DIR}/merged.hex"
     if [[ ! -f "${hex_source}" ]]; then
       hex_source="${BUILD_DIR}/zephyr/zephyr.hex"
     fi
