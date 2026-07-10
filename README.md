@@ -14,22 +14,38 @@ Channel Sounding needs a pair of boards — one initiator, one reflector. Pick a
 
 ## Firmware variants
 
+Each build targets a BLE role and a ranging mode.
+
 | Target | Description |
 |--------|-------------|
 | `initiator` | BLE Central that connects to a CS reflector, collects ranging data, and outputs COBS-encoded binary over UART |
 | `reflector` | BLE Peripheral that advertises and responds to CS procedures |
 
+The ranging mode is a build-time choice, set by `CONFIG_MARS_CS_INLINE_PCT`:
+
+- **RAS** (Ranging Service) — the initiator pulls the reflector's step data over
+  a BLE GATT service and combines it with its own.
+- **IPT** (Inline PCT) — the reflector's phase contribution is embedded in
+  the local tones, so the initiator uses its own step data only (no GATT service).
+
+Both modes emit the same COBS-encoded ranging stream over UART. See
+[docs/architecture.md](docs/architecture.md#ranging-data-flow) for the full
+RAS-vs-IPT contrast and per-mode data flow.
+
 ## Presets at a glance
 
-The recommended starting pair on the nRF54L15 DK:
+The recommended starting pairs on the nRF54L15 DK — RAS and IPT, peer choices:
 
-| Role | Preset | Antennas | Paths |
-|------|--------|----------|-------|
-| Initiator (BLE Central) | `nrf54l15dk_cent_a1_1` | 1 | 1 |
-| Reflector (BLE Peripheral) | `nrf54l15dk_peri_a1_4` | 1 | 4 |
+| Mode | Role | Preset | Antennas | Paths |
+|------|------|--------|----------|-------|
+| RAS | Initiator (BLE Central) | `nrf54l15dk_cent_a1_1` | 1 | 1 |
+| RAS | Reflector (BLE Peripheral) | `nrf54l15dk_peri_a1_4` | 1 | 4 |
+| IPT | Initiator (BLE Central) | `nrf54l15dk_cent_a1_1_ipt` | 1 | 1 |
+| IPT | Reflector (BLE Peripheral) | `nrf54l15dk_peri_a1_4_ipt` | 1 | 4 |
 
-Preset names follow `<board>_<cent|peri>_a<antennas>_<paths>`. For all boards and
-antenna/path configurations, see [docs/hardware.md](docs/hardware.md#presets).
+Preset names follow `<board>_<cent|peri>_a<antennas>_<paths>`, with an `_ipt`
+suffix for IPT. For all boards and antenna/path configurations, see
+[docs/hardware.md](docs/hardware.md#presets).
 
 ## Hardware reference
 
