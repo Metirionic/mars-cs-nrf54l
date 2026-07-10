@@ -144,10 +144,11 @@ is no NCS board def for the ME54BE01) — the overlay selects the carrier.
 
 ### Kconfig fragments
 
-Each preset pulls one `boards/*_local.conf` fragment. Every such fragment is
-three lines setting the same three symbols (the TAG presets additionally pull
-`boards/nrf54l15tag.conf` for RTT-console/serial-driver Kconfig; see
-[TAG wiring notes](#nrf54l15-tag-wiring-notes)):
+Every preset pulls a `boards/*_local.conf` path-local fragment. RAS presets pull
+just that one (plus `central.overlay` for initiators, and `nrf54l15tag.conf` for
+the TAG presets' RTT-console/serial-driver Kconfig — see
+[TAG wiring notes](#nrf54l15-tag-wiring-notes)). Each local fragment is three
+lines setting the same three symbols:
 
 | Fragment | `RAS_MAX_ANTENNA_PATHS` | `SDC_CS_MAX_ANTENNA_PATHS` | `SDC_CS_NUM_ANTENNAS` | Antennas / Paths |
 |----------|------------------------|----------------------------|------------------------|------------------|
@@ -161,22 +162,51 @@ three lines setting the same three symbols (the TAG presets additionally pull
 Fragment filenames follow `<paths>_path_<antennas>_local.conf` — paths first,
 antennas second.
 
+IPT presets pull the same path-local fragment **plus** two Inline PCT fragments
+that switch the firmware from RAS to IPT mode (see
+[docs/architecture.md](architecture.md) for what IPT mode is). Applied via
+`EXTRA_CONF_FILE` after `CONF_FILE`, they override the RAS defaults:
+
+| Fragment | Applied to | Purpose |
+|----------|-----------|---------|
+| `boards/inline_pct_shared.conf` | both initiator & reflector | Sets `CONFIG_BT_DEVICE_NAME="Nordic CS IPT Reflector"` — the single source of truth for the IPT reflector's advertised name. The reflector advertises it; the initiator scans for it by name instead of the Ranging Service UUID. |
+| `boards/inline_pct_initiator.conf` | initiator only | Enables `CONFIG_MARS_CS_INLINE_PCT=y`, disables RAS (`CONFIG_BT_RAS=n`…), drops the GATT client / large MTU (the reflector's PCT contribution is embedded in the local tones — no RAS ranging-data transfer), and sets `CONFIG_BT_SCAN_NAME_CNT=1` to discover the reflector by name. |
+| `boards/inline_pct_reflector.conf` | reflector only | Enables `CONFIG_MARS_CS_INLINE_PCT=y` + `CONFIG_BT_CTLR_EXTENDED_FEAT_SET=y` and disables the RAS responder (`CONFIG_BT_RAS_RRSP=n`…). |
+
 ### Presets
 
-| Preset | Role | Board | Overlay | `EXTRA_CONF_FILE` | Antennas / Paths |
-|--------|------|-------|---------|-------------------|------------------|
-| `nrf54l15dk_cent_a1_1` | initiator | nRF54L15DK | `nrf54l15dk_*.overlay` | `central.overlay;1_path_1_local.conf` | A1 / 1 |
-| `nrf54l15tag_cent_a2_4` | initiator | nRF54L15 TAG | `nrf54l15tag_*.overlay` | `central.overlay;4_path_2_local.conf;nrf54l15tag.conf` | A2 / 4 |
-| `ublox_cent_a1_1` | initiator | U-Blox NINA-B40 | `ublox_*.overlay` | `central.overlay;1_path_1_local.conf` | A1 / 1 |
-| `ezurio_bl54l15u_cent_a2_4` | initiator | Ezurio BL54L15u | `ezurio_*.overlay` | `central.overlay;4_path_2_local.conf` | A2 / 4 |
-| `fanstel_bm15c_cent_a1_1` | initiator | Fanstel BM15C | `fanstel_*.overlay` | `central.overlay;1_path_1_local.conf` | A1 / 1 |
-| `minew_me54be01_cent_a1_1` | initiator | Minewsemi ME54BE01 | `minew_me54be01_*.overlay` | `central.overlay;1_path_1_local.conf;minew_me54be01.conf` | A1 / 1 |
-| `nrf54l15dk_peri_a1_4` | reflector | nRF54L15DK | `nrf54l15dk_*.overlay` | `4_path_1_local.conf` | A1 / 4 |
-| `nrf54l15tag_peri_a2_4` | reflector | nRF54L15 TAG | `nrf54l15tag_*.overlay` | `4_path_2_local.conf;nrf54l15tag.conf` | A2 / 4 |
-| `ezurio_bl54l15u_peri_a2_4` | reflector | Ezurio BL54L15u | `ezurio_*.overlay` | `4_path_2_local.conf` | A2 / 4 |
-| `fanstel_bm15c_peri_a1_4` | reflector | Fanstel BM15C | `fanstel_*.overlay` | `4_path_1_local.conf` | A1 / 4 |
-| `ublox_peri_a1_4` | reflector | U-Blox NINA-B40 | `ublox_*.overlay` | `4_path_1_local.conf` | A1 / 4 |
-| `minew_me54be01_peri_a1_4` | reflector | Minewsemi ME54BE01 | `minew_me54be01_*.overlay` | `4_path_1_local.conf;minew_me54be01.conf` | A1 / 4 |
+Each preset is either **RAS** (Ranging Service) or **IPT** (Inline PCT); the
+Mode column marks which. The two are peer choices — see
+[docs/architecture.md](architecture.md) for the RAS-vs-IPT contrast and the IPT
+data flow. RAS and IPT share the same board overlays and path-local fragments;
+IPT presets additionally pull the `inline_pct_*.conf` fragments above. There is
+no TAG IPT preset — IPT covers the five carrier boards below (A1/A2 on the
+initiator, A1 4-path on the reflector, with the Ezurio reflector at A2 4-path).
+
+| Preset | Mode | Role | Board | Overlay | `EXTRA_CONF_FILE` | Antennas / Paths |
+|--------|------|------|-------|---------|-------------------|------------------|
+| `nrf54l15dk_cent_a1_1` | RAS | initiator | nRF54L15DK | `nrf54l15dk_*.overlay` | `central.overlay;1_path_1_local.conf` | A1 / 1 |
+| `nrf54l15dk_cent_a1_1_ipt` | IPT | initiator | nRF54L15DK | `nrf54l15dk_*.overlay` | `central.overlay;inline_pct_initiator.conf;inline_pct_shared.conf;1_path_1_local.conf` | A1 / 1 |
+| `nrf54l15tag_cent_a2_4` | RAS | initiator | nRF54L15 TAG | `nrf54l15tag_*.overlay` | `central.overlay;4_path_2_local.conf;nrf54l15tag.conf` | A2 / 4 |
+| `ublox_cent_a1_1` | RAS | initiator | U-Blox NINA-B40 | `ublox_*.overlay` | `central.overlay;1_path_1_local.conf` | A1 / 1 |
+| `ublox_cent_a1_1_ipt` | IPT | initiator | U-Blox NINA-B40 | `ublox_*.overlay` | `central.overlay;inline_pct_initiator.conf;inline_pct_shared.conf;1_path_1_local.conf` | A1 / 1 |
+| `ezurio_bl54l15u_cent_a2_4` | RAS | initiator | Ezurio BL54L15u | `ezurio_*.overlay` | `central.overlay;4_path_2_local.conf` | A2 / 4 |
+| `ezurio_bl54l15u_cent_a2_4_ipt` | IPT | initiator | Ezurio BL54L15u | `ezurio_*.overlay` | `central.overlay;inline_pct_initiator.conf;inline_pct_shared.conf;4_path_2_local.conf` | A2 / 4 |
+| `fanstel_bm15c_cent_a1_1` | RAS | initiator | Fanstel BM15C | `fanstel_*.overlay` | `central.overlay;1_path_1_local.conf` | A1 / 1 |
+| `fanstel_bm15c_cent_a1_1_ipt` | IPT | initiator | Fanstel BM15C | `fanstel_*.overlay` | `central.overlay;inline_pct_initiator.conf;inline_pct_shared.conf;1_path_1_local.conf` | A1 / 1 |
+| `minew_me54be01_cent_a1_1` | RAS | initiator | Minewsemi ME54BE01 | `minew_me54be01_*.overlay` | `central.overlay;1_path_1_local.conf;minew_me54be01.conf` | A1 / 1 |
+| `minew_me54be01_cent_a1_1_ipt` | IPT | initiator | Minewsemi ME54BE01 | `minew_me54be01_*.overlay` | `central.overlay;inline_pct_initiator.conf;inline_pct_shared.conf;1_path_1_local.conf;minew_me54be01.conf` | A1 / 1 |
+| `nrf54l15dk_peri_a1_4` | RAS | reflector | nRF54L15DK | `nrf54l15dk_*.overlay` | `4_path_1_local.conf` | A1 / 4 |
+| `nrf54l15dk_peri_a1_4_ipt` | IPT | reflector | nRF54L15DK | `nrf54l15dk_*.overlay` | `inline_pct_reflector.conf;inline_pct_shared.conf;4_path_1_local.conf` | A1 / 4 |
+| `nrf54l15tag_peri_a2_4` | RAS | reflector | nRF54L15 TAG | `nrf54l15tag_*.overlay` | `4_path_2_local.conf;nrf54l15tag.conf` | A2 / 4 |
+| `ezurio_bl54l15u_peri_a2_4` | RAS | reflector | Ezurio BL54L15u | `ezurio_*.overlay` | `4_path_2_local.conf` | A2 / 4 |
+| `ezurio_bl54l15u_peri_a2_4_ipt` | IPT | reflector | Ezurio BL54L15u | `ezurio_*.overlay` | `inline_pct_reflector.conf;inline_pct_shared.conf;4_path_2_local.conf` | A2 / 4 |
+| `fanstel_bm15c_peri_a1_4` | RAS | reflector | Fanstel BM15C | `fanstel_*.overlay` | `4_path_1_local.conf` | A1 / 4 |
+| `fanstel_bm15c_peri_a1_4_ipt` | IPT | reflector | Fanstel BM15C | `fanstel_*.overlay` | `inline_pct_reflector.conf;inline_pct_shared.conf;4_path_1_local.conf` | A1 / 4 |
+| `ublox_peri_a1_4` | RAS | reflector | U-Blox NINA-B40 | `ublox_*.overlay` | `4_path_1_local.conf` | A1 / 4 |
+| `ublox_peri_a1_4_ipt` | IPT | reflector | U-Blox NINA-B40 | `ublox_*.overlay` | `inline_pct_reflector.conf;inline_pct_shared.conf;4_path_1_local.conf` | A1 / 4 |
+| `minew_me54be01_peri_a1_4` | RAS | reflector | Minewsemi ME54BE01 | `minew_me54be01_*.overlay` | `4_path_1_local.conf;minew_me54be01.conf` | A1 / 4 |
+| `minew_me54be01_peri_a1_4_ipt` | IPT | reflector | Minewsemi ME54BE01 | `minew_me54be01_*.overlay` | `inline_pct_reflector.conf;inline_pct_shared.conf;4_path_1_local.conf;minew_me54be01.conf` | A1 / 4 |
 
 - **Naming asymmetry.** Preset names are `<board>_<cent|peri>_a<antennas>_<paths>`
   — antennas first, paths second (e.g. `ezurio_bl54l15u_cent_a2_4` = A2, 4 paths).
@@ -195,6 +225,9 @@ antennas second.
 Each preset sets `DTC_OVERLAY_FILE` (the board overlay) and `EXTRA_CONF_FILE`
 (the role fragment `;`-separated from the path-local fragment; the TAG presets
 also append `../boards/nrf54l15tag.conf` for RTT-console/serial-driver Kconfig).
+IPT presets insert the `inline_pct_initiator.conf` / `inline_pct_reflector.conf`
+and `inline_pct_shared.conf` fragments between the role fragment and the
+path-local fragment (see the preset table above).
 `ci/common.sh`
 parses `CMakePresets.json`, splits `EXTRA_CONF_FILE` on `;`, and resolves each
 part relative to the app directory; `ci/build.sh` passes them to
