@@ -12,3 +12,4 @@ add_library(
   addr_utils.c)
 target_include_directories(cs_common PUBLIC ${CMAKE_CURRENT_SOURCE_DIR})
 target_link_libraries(cs_common PRIVATE zephyr_interface)
+target_compile_options(cs_common PRIVATE $<$<C_COMPILER_ID:GNU>:-Werror=incompatible-pointer-types>)

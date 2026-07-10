@@ -267,12 +267,10 @@ static void subevent_result_cb(struct bt_conn * p_conn, struct bt_conn_le_cs_sub
          *   - empty procedure → recover sem_local_steps + wake consumer
          *   - non-empty → subevent_populate_inline → process callback → reset → wake
          */
-        struct net_buf_simple * latest_local_steps = &latest_local_steps;
-
-        if (latest_local_steps->len == 0)
+        if (latest_local_steps.len == 0)
         {
             LOG_WRN("IPT procedure produced no step data");
-            net_buf_simple_reset(latest_local_steps);
+            net_buf_simple_reset(&latest_local_steps);
             cs_initiator_give_sem_local_steps();
             cs_initiator_give_sem_data_ready();
         }
@@ -286,7 +284,7 @@ static void subevent_result_cb(struct bt_conn * p_conn, struct bt_conn_le_cs_sub
                                      g_local_mac,
                                      g_peer_mac,
                                      &g_latest_subevent_header,
-                                     latest_local_steps,
+                                     &latest_local_steps,
                                      BT_CONN_LE_CS_ROLE_INITIATOR);
 
             if (gp_process_subevent_cb)
@@ -294,7 +292,7 @@ static void subevent_result_cb(struct bt_conn * p_conn, struct bt_conn_le_cs_sub
                 gp_process_subevent_cb(&local_event, &peer_event);
             }
 
-            net_buf_simple_reset(latest_local_steps);
+            net_buf_simple_reset(&latest_local_steps);
             cs_initiator_give_sem_local_steps();
             cs_initiator_give_sem_data_ready();
         }
