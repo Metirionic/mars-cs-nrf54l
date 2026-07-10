@@ -2,6 +2,15 @@
 All notable changes to this project will be documented in this file. See [conventional commits](https://www.conventionalcommits.org/) for commit guidelines.
 
 - - -
+## [v1.6.2](https://github.com/Metirionic/mars-cs-nrf54l/releases/tag/v1.6.2) - 2026-07-10
+#### Bug Fixes
+- (**ci**) correct zephyr.hex fallback path in build.sh - ([a4fa796](https://github.com/Metirionic/mars-cs-nrf54l/commit/a4fa7960175df0b5210304f88c31f13fe05feaef)) - AttilaRoemer, Claude
+- (**ci**) remove 'local' keyword outside function in build.sh - ([8f0f8ed](https://github.com/Metirionic/mars-cs-nrf54l/commit/8f0f8ed7fa6a6adf3a2a21d38f86b8a86f4be456)) - AttilaRoemer, Claude
+#### Style
+- apply cmake-format to common/CMakeLists.txt - ([869f572](https://github.com/Metirionic/mars-cs-nrf54l/commit/869f572d3e71cefa8d912a26a262d015c55707bb)) - AttilaRoemer, Claude
+
+- - -
+
 ## [v1.6.1](https://github.com/Metirionic/mars-cs-nrf54l/releases/tag/v1.6.1) - 2026-07-10
 #### Bug Fixes
 - (**initiator**) unshadow latest_local_steps in IPT procedure-complete block - ([f403ff7](https://github.com/Metirionic/mars-cs-nrf54l/commit/f403ff755ca2557f0cb1d5d9e4ef99726fb1bc99)) - Adrian Figueroa
