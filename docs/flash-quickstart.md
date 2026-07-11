@@ -19,28 +19,38 @@ see [docs/build-from-source.md](build-from-source.md).
 
 Channel Sounding is a two-device protocol. You must flash **one board as the
 initiator and a second board as the reflector** — flashing only one board
-yields nothing. This guide uses the recommended starting pair, both on the
-nRF54L15 DK:
+yields nothing. This guide uses the recommended starting pairs on the nRF54L15 DK — RAS and
+IPT, peer choices (see
+[docs/architecture.md](architecture.md#ranging-data-flow) for what differs
+between the modes). Flash a **matched** pair — both boards in the same mode
+(RAS **or** IPT); the two modes use different BLE discovery and won't pair
+with each other:
 
-| Role | Preset | Antennas | Paths |
-|------|--------|----------|-------|
-| Initiator (BLE Central) | `nrf54l15dk_cent_a1_1` | 1 | 1 |
-| Reflector (BLE Peripheral) | `nrf54l15dk_peri_a1_4` | 1 | 4 |
+| Mode | Role | Preset | Antennas | Paths |
+|------|------|--------|----------|-------|
+| RAS | Initiator (BLE Central) | `nrf54l15dk_cent_a1_1` | 1 | 1 |
+| RAS | Reflector (BLE Peripheral) | `nrf54l15dk_peri_a1_4` | 1 | 4 |
+| IPT | Initiator (BLE Central) | `nrf54l15dk_cent_a1_1_ipt` | 1 | 1 |
+| IPT | Reflector (BLE Peripheral) | `nrf54l15dk_peri_a1_4_ipt` | 1 | 4 |
 
-Preset names follow the form `<board>_<cent|peri>_a<antennas>_<paths>`:
-`cent`/`peri` is the BLE role, `a1` is the antenna count, and the trailing
-number is the antenna-path count. Other presets for third-party boards ship
-in the same archive; see the [preset table](hardware.md#presets).
+Preset names follow `<board>_<cent|peri>_a<antennas>_<paths>`, with an `_ipt`
+suffix for IPT: `cent`/`peri` is the BLE role, `a1` is the antenna count, and
+the trailing number is the antenna-path count. Other presets for third-party
+boards ship in the same archive; see the [preset table](hardware.md#presets).
 
 ## Download the firmware
 
 1. Go to the repo's **Releases** page on GitHub and download
    `cs-ranging-firmware.zip` from the latest release.
-2. Unzip it. The archive is flat — eight `.hex` files at the root, named
-   `<role>_<preset>.hex`. No build step is needed.
-3. Locate the two files for the recommended pair:
-   - `initiator_nrf54l15dk_cent_a1_1.hex`
-   - `reflector_nrf54l15dk_peri_a1_4.hex`
+2. Unzip it. The archive is flat — 22 `.hex` files at the root, named
+   `<role>_<preset>.hex`. That is six RAS presets and five `_ipt` presets per
+   role (11 initiator + 11 reflector); no build step is needed.
+3. Locate the two files for your chosen pair. IPT files use the same
+   `<role>_<preset>.hex` name with an `_ipt` suffix before `.hex`:
+   - **RAS pair** — `initiator_nrf54l15dk_cent_a1_1.hex` +
+     `reflector_nrf54l15dk_peri_a1_4.hex`
+   - **IPT pair** — `initiator_nrf54l15dk_cent_a1_1_ipt.hex` +
+     `reflector_nrf54l15dk_peri_a1_4_ipt.hex`
 
 The repo ships no prebuilt `.hex` files itself — the release archive is the
 only source.
@@ -57,19 +67,23 @@ each DK by USB (its onboard J-Link), then use either path below.
    and install the **Programmer** app.
 2. Launch Programmer and select the DK's onboard J-Link from the device
    drop-down.
-3. Click **Add file** and choose the matching `.hex`:
-   `initiator_nrf54l15dk_cent_a1_1.hex` for the initiator board,
-   `reflector_nrf54l15dk_peri_a1_4.hex` for the reflector board.
+3. Click **Add file** and choose the matching `.hex` for your chosen pair —
+   the initiator file for the initiator board, the reflector file for the
+   reflector board (e.g. `initiator_nrf54l15dk_cent_a1_1.hex` and
+   `reflector_nrf54l15dk_peri_a1_4.hex` for RAS; the same names with `_ipt`
+   for IPT).
 4. Click **Erase & write** to flash. Repeat on the second board with its file.
 
 ### Option B — `nrfjprog` CLI (for scripted use)
 
 ```bash
-# Initiator board:
+# RAS pair — initiator board, then reflector board:
 nrfjprog --program initiator_nrf54l15dk_cent_a1_1.hex --verify --reset
-
-# Reflector board:
 nrfjprog --program reflector_nrf54l15dk_peri_a1_4.hex --verify --reset
+
+# IPT pair — same names with the _ipt suffix:
+nrfjprog --program initiator_nrf54l15dk_cent_a1_1_ipt.hex --verify --reset
+nrfjprog --program reflector_nrf54l15dk_peri_a1_4_ipt.hex --verify --reset
 ```
 
 The modern alternative is `nrfutil device program --firmware <file>.hex` from
