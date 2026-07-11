@@ -79,13 +79,23 @@ disk — do not conflate them:
 ## Build the firmware
 
 Activate the venv, point `ci/build.sh` at the workspace, and build each app the
-same way CI does. The default starting presets are `nrf54l15dk_cent_a1_1`
-(initiator) and `nrf54l15dk_peri_a1_4` (reflector) on the nRF54L15 DK:
+same way CI does. The recommended starting pairs on the nRF54L15 DK are RAS and
+IPT — peer choices (see
+[docs/architecture.md](architecture.md#ranging-data-flow) for what differs
+between the modes). Build a **matched** pair — both boards in the same mode
+(RAS **or** IPT); the two modes use different BLE discovery and won't pair with
+each other:
 
 ```bash
 source ~/.ncs-venv/bin/activate
+
+# RAS pair — nrf54l15dk_cent_a1_1 (initiator) + nrf54l15dk_peri_a1_4 (reflector)
 bash ci/build.sh --target initiator --preset nrf54l15dk_cent_a1_1
 bash ci/build.sh --target reflector --preset nrf54l15dk_peri_a1_4
+
+# IPT pair — nrf54l15dk_cent_a1_1_ipt (initiator) + nrf54l15dk_peri_a1_4_ipt (reflector)
+bash ci/build.sh --target initiator --preset nrf54l15dk_cent_a1_1_ipt
+bash ci/build.sh --target reflector --preset nrf54l15dk_peri_a1_4_ipt
 ```
 
 `ci/build.sh` finds the west workspace automatically: it checks `NCS_DIR` (if
@@ -96,7 +106,7 @@ which is the manifest project *inside* the workspace — west walks up to the
 parent's `.west/`). An explicit `NCS_DIR` still overrides both fallbacks.
 
 Channel Sounding needs **both** an initiator and a reflector, so build and
-flash one of each. See
+flash a matched pair (one of each, same mode — per above). See
 [docs/flash-quickstart.md](flash-quickstart.md#read-the-ranging-output) for the
 two-board pairing and how to read the COBS ranging output after flashing a
 locally-built image.
@@ -105,14 +115,16 @@ locally-built image.
 
 `--preset` accepts a comma-separated list, and `--release-dir` collects each
 merged `.hex` into a flat output directory. This is exactly how the release
-workflow builds every shipped preset:
+workflow builds every shipped preset — the six RAS presets followed by the five
+`_ipt` presets for each target (see
+[.github/workflows/release.yml](../.github/workflows/release.yml)):
 
 ```bash
 bash ci/build.sh --target initiator \
-  --preset nrf54l15dk_cent_a1_1,ublox_cent_a1_1,ezurio_bl54l15u_cent_a2_4,fanstel_bm15c_cent_a1_1,minew_me54be01_cent_a1_1 \
+  --preset nrf54l15dk_cent_a1_1,nrf54l15tag_cent_a2_4,ublox_cent_a1_1,ezurio_bl54l15u_cent_a2_4,fanstel_bm15c_cent_a1_1,minew_me54be01_cent_a1_1,nrf54l15dk_cent_a1_1_ipt,ublox_cent_a1_1_ipt,ezurio_bl54l15u_cent_a2_4_ipt,fanstel_bm15c_cent_a1_1_ipt,minew_me54be01_cent_a1_1_ipt \
   --release-dir release
 bash ci/build.sh --target reflector \
-  --preset nrf54l15dk_peri_a1_4,ezurio_bl54l15u_peri_a2_4,fanstel_bm15c_peri_a1_4,ublox_peri_a1_4,minew_me54be01_peri_a1_4 \
+  --preset nrf54l15dk_peri_a1_4,nrf54l15tag_peri_a2_4,ezurio_bl54l15u_peri_a2_4,fanstel_bm15c_peri_a1_4,ublox_peri_a1_4,minew_me54be01_peri_a1_4,nrf54l15dk_peri_a1_4_ipt,ezurio_bl54l15u_peri_a2_4_ipt,fanstel_bm15c_peri_a1_4_ipt,ublox_peri_a1_4_ipt,minew_me54be01_peri_a1_4_ipt \
   --release-dir release
 ```
 
