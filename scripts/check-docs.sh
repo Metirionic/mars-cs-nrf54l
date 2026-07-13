@@ -10,10 +10,17 @@
 #      caught.
 #   2. The release-artifact name referenced by docs/flash-quickstart.md must
 #      match the archive .github/workflows/release.yml produces/publishes.
+#   3. The preset names in docs/hardware.md's "### Presets" table must match the
+#      configurePresets in initiator/CMakePresets.json and
+#      reflector/CMakePresets.json — every preset must be listed, and every
+#      listed preset must still exist — so a preset added to the build but left
+#      out of the docs (or dropped from the build but left in the docs) is
+#      caught. The two nRF54L15 DM presets are excluded (deliberately
+#      undocumented; see issue #89).
 #
 # External http(s)/mailto: URLs are deliberately NOT checked (out of scope; they
-# would add network flakiness). Only internal links and the release-artifact
-# cross-reference are validated.
+# would add network flakiness). Only internal links, the release-artifact
+# cross-reference, and the preset-table cross-reference are validated.
 #
 # Only inline [text](href) links are parsed — reference-style links
 # ([text][ref] + [ref]: url) and autolinks (<url>) are not. The repo's docs use
@@ -186,6 +193,121 @@ the archive the release workflow actually produces"
   printf 'release-artifact name consistent across release.yml and docs/flash-quickstart.md: %s\n' "$zip_arg"
 }
 
+# --- preset-table completeness ----------------------------------------------
+
+# preset_names_from_json <file> -> one configurePresets name per line. The only
+# "name" keys in CMakePresets.json are preset names inside configurePresets
+# ("displayName" never matches the quoted "name" key — different case and no
+# leading quote — and no value carries a "name" substring between quotes), so a
+# flat grep suffices and avoids a jq dependency. The trailing `|| true` keeps a
+# missing/unreadable file from aborting under set -e; an empty result is caught
+# by check_preset_table's fail-loud guards.
+preset_names_from_json() {
+  grep -oE '"name"[[:space:]]*:[[:space:]]*"[^"]+"' "$1" 2>/dev/null \
+    | sed -E 's/^"name"[[:space:]]*:[[:space:]]*"//; s/"$//' || true
+}
+
+# preset_names_from_table <md> -> the first-column backticked name of every row
+# in the "### Presets" table. The table is scoped by its unique "| Preset | Mode
+# | ..." header (no other table in hardware.md has a "Preset" first column); the
+# header and separator rows are skipped, and parsing stops at the first
+# non-table line. Only backticked first cells are emitted, so any row without
+# one is silently ignored rather than misparsed.
+preset_names_from_table() {
+  awk '
+    /^\| Preset \|/ { intable=1; next }
+    intable && /^\|[-[:space:]]+\|/ { next }
+    intable && /^\|/ {
+      line=$0
+      sub(/^\|[[:space:]]*/, "", line)
+      if (match(line, /^`[^`]+`/)) print substr(line, 2, RLENGTH-2)
+    }
+    intable && !/^\|/ { intable=0 }
+  ' "$1" || true
+}
+
+# Assert every configurePresets name in initiator/CMakePresets.json and
+# reflector/CMakePresets.json appears in docs/hardware.md's "### Presets" table,
+# and every preset the table names still exists in some CMakePresets.json. This
+# is the gap that let the _ipt presets ship via the release archive while the
+# docs table silently omitted them (see #87). The two nRF54L15 DM presets
+# (nrf54l15dm_*) are deliberately undocumented — a non-purchasable prototype,
+# per #89 — so they are excluded from the "must appear in the table" direction
+# and flagged if they appear in the table at all. Only configurePresets names
+# are read (buildPresets and the other name-bearing arrays are not the docs
+# surface).
+check_preset_table() {
+  local hw="docs/hardware.md"
+  local init_json="initiator/CMakePresets.json"
+  local refl_json="reflector/CMakePresets.json"
+  local before=$errors
+  local init_names refl_names table_presets json_presets p
+
+  # Fail loud per source (mirrors check_release_artifact's fail-loud pattern,
+  # but per-file so one missing CMakePresets.json can't silently degrade the
+  # check to "only the other role's presets matter").
+  if [[ ! -f "$init_json" ]]; then
+    add_error "preset-table check: source '$init_json' not found"
+  fi
+  if [[ ! -f "$refl_json" ]]; then
+    add_error "preset-table check: source '$refl_json' not found"
+  fi
+  if [[ ! -f "$hw" ]]; then
+    add_error "preset-table check: source '$hw' not found"
+  fi
+  if (( errors > before )); then
+    return 0
+  fi
+
+  init_names="$(preset_names_from_json "$init_json")"
+  refl_names="$(preset_names_from_json "$refl_json")"
+  table_presets="$(preset_names_from_table "$hw")"
+
+  if [[ -z "$init_names" ]]; then
+    add_error "preset-table check: no configurePresets parsed from '$init_json' \
+(is the file valid JSON with a non-empty configurePresets array?)"
+  fi
+  if [[ -z "$refl_names" ]]; then
+    add_error "preset-table check: no configurePresets parsed from '$refl_json' \
+(is the file valid JSON with a non-empty configurePresets array?)"
+  fi
+  if [[ -z "$table_presets" ]]; then
+    add_error "preset-table check: no preset rows parsed from the '### Presets' \
+table in '$hw' (expected a header row beginning '| Preset | Mode | Role |')"
+  fi
+  if (( errors > before )); then
+    return 0
+  fi
+
+  json_presets="$(printf '%s\n%s' "$init_names" "$refl_names")"
+
+  # Direction (a): every documented (non-DM) preset must appear in the table.
+  while IFS= read -r p; do
+    [[ "$p" == nrf54l15dm_* ]] && continue
+    if ! grep -qxF "$p" <<< "$table_presets"; then
+      add_error "preset '$p' is defined in a CMakePresets.json but missing from \
+the docs/hardware.md '### Presets' table (add the row or drop the preset)"
+    fi
+  done <<< "$json_presets"
+
+  # Direction (b): every table row must name a preset that still exists, and
+  # must not name a deliberately-undocumented DM preset.
+  while IFS= read -r p; do
+    if [[ "$p" == nrf54l15dm_* ]]; then
+      add_error "preset '$p' is listed in the docs/hardware.md '### Presets' \
+table but is a deliberately-undocumented DM preset (see #89) — remove the row"
+    elif ! grep -qxF "$p" <<< "$json_presets"; then
+      add_error "preset '$p' is listed in the docs/hardware.md '### Presets' \
+table but no longer exists in any CMakePresets.json (drop the row or restore \
+the preset)"
+    fi
+  done <<< "$table_presets"
+
+  if (( errors == before )); then
+    printf 'preset-table consistent: docs/hardware.md Presets table matches configurePresets in both CMakePresets.json (DM presets excluded)\n'
+  fi
+}
+
 # --- main -------------------------------------------------------------------
 
 # Scope per issue #16: README.md + docs/*.md, tracked files only. git ls-files
@@ -240,6 +362,8 @@ done
 
 check_release_artifact
 
+check_preset_table
+
 # --- report -----------------------------------------------------------------
 
 if [[ -n "${GITHUB_STEP_SUMMARY:-}" ]]; then
@@ -251,7 +375,7 @@ if [[ -n "${GITHUB_STEP_SUMMARY:-}" ]]; then
       printf '  - %s\n' "${summary_lines[@]}"
       printf '```\n'
     else
-      printf '**Passed** — all internal links and the release-artifact name are consistent.\n'
+      printf '**Passed** — all internal links, the release-artifact name, and the preset table are consistent.\n'
     fi
   } >> "$GITHUB_STEP_SUMMARY" 2>/dev/null || true
 fi
@@ -260,4 +384,4 @@ if (( errors > 0 )); then
   printf 'docs check failed: %d broken link(s)/reference(s) found (see above)\n' "$errors" >&2
   exit 1
 fi
-printf 'docs check passed: all internal links and the release-artifact name are consistent\n'
+printf 'docs check passed: all internal links, the release-artifact name, and the preset table are consistent\n'
