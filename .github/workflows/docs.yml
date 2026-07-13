@@ -11,10 +11,13 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - name: Check internal doc links and release-artifact name
+      - name: Check internal doc links, release-artifact name, and preset table
         # Validates every internal [text](href) link in README.md and docs/*.md
         # resolves to a tracked file (and a real heading when an #anchor is
-        # present), and that the release-artifact name in flash-quickstart.md
-        # matches the archive produced/published by release.yml.
+        # present), that the release-artifact name in flash-quickstart.md
+        # matches the archive produced/published by release.yml, and that the
+        # preset names in docs/hardware.md's "### Presets" table match the
+        # configurePresets in initiator/CMakePresets.json and
+        # reflector/CMakePresets.json (DM presets excluded).
         # Run locally with `bash scripts/check-docs.sh`.
         run: bash scripts/check-docs.sh
