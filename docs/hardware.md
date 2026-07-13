@@ -186,6 +186,9 @@ initiator, A1 4-path on the reflector, with the Ezurio reflector at A2 4-path).
 | Preset | Mode | Role | Board | Overlay | `EXTRA_CONF_FILE` | Antennas / Paths |
 |--------|------|------|-------|---------|-------------------|------------------|
 | `nrf54l15dk_cent_a1_1` | RAS | initiator | nRF54L15DK | `nrf54l15dk_*.overlay` | `central.overlay;1_path_1_local.conf` | A1 / 1 |
+| `nrf54l15dk_cent_a1_2` | RAS | initiator | nRF54L15DK | `nrf54l15dk_*.overlay` | `central.overlay;2_path_1_local.conf` | A1 / 2 |
+| `nrf54l15dk_cent_a1_4` | RAS | initiator | nRF54L15DK | `nrf54l15dk_*.overlay` | `central.overlay;4_path_1_local.conf` | A1 / 4 |
+| `nrf54l15dk_cent_a4_4` | RAS | initiator | nRF54L15DK | `nrf54l15dk_*.overlay` | `central.overlay;4_path_4_local.conf` | A4 / 4 |
 | `nrf54l15dk_cent_a1_1_ipt` | IPT | initiator | nRF54L15DK | `nrf54l15dk_*.overlay` | `central.overlay;inline_pct_initiator.conf;inline_pct_shared.conf;1_path_1_local.conf` | A1 / 1 |
 | `nrf54l15tag_cent_a2_4` | RAS | initiator | nRF54L15 TAG | `nrf54l15tag_*.overlay` | `central.overlay;4_path_2_local.conf;nrf54l15tag.conf` | A2 / 4 |
 | `ublox_cent_a1_1` | RAS | initiator | U-Blox NINA-B40 | `ublox_*.overlay` | `central.overlay;1_path_1_local.conf` | A1 / 1 |
@@ -197,6 +200,8 @@ initiator, A1 4-path on the reflector, with the Ezurio reflector at A2 4-path).
 | `minew_me54be01_cent_a1_1` | RAS | initiator | Minewsemi ME54BE01 | `minew_me54be01_*.overlay` | `central.overlay;1_path_1_local.conf;minew_me54be01.conf` | A1 / 1 |
 | `minew_me54be01_cent_a1_1_ipt` | IPT | initiator | Minewsemi ME54BE01 | `minew_me54be01_*.overlay` | `central.overlay;inline_pct_initiator.conf;inline_pct_shared.conf;1_path_1_local.conf;minew_me54be01.conf` | A1 / 1 |
 | `nrf54l15dk_peri_a1_4` | RAS | reflector | nRF54L15DK | `nrf54l15dk_*.overlay` | `4_path_1_local.conf` | A1 / 4 |
+| `nrf54l15dk_peri_a2_2` | RAS | reflector | nRF54L15DK | `nrf54l15dk_*.overlay` | `2_path_2_local.conf` | A2 / 2 |
+| `nrf54l15dk_peri_a4_4` | RAS | reflector | nRF54L15DK | `nrf54l15dk_*.overlay` | `4_path_4_local.conf` | A4 / 4 |
 | `nrf54l15dk_peri_a1_4_ipt` | IPT | reflector | nRF54L15DK | `nrf54l15dk_*.overlay` | `inline_pct_reflector.conf;inline_pct_shared.conf;4_path_1_local.conf` | A1 / 4 |
 | `nrf54l15tag_peri_a2_4` | RAS | reflector | nRF54L15 TAG | `nrf54l15tag_*.overlay` | `4_path_2_local.conf;nrf54l15tag.conf` | A2 / 4 |
 | `ezurio_bl54l15u_peri_a2_4` | RAS | reflector | Ezurio BL54L15u | `ezurio_*.overlay` | `4_path_2_local.conf` | A2 / 4 |
@@ -216,9 +221,6 @@ initiator, A1 4-path on the reflector, with the Ezurio reflector at A2 4-path).
   scanning-central Kconfig fragment, mislabeled `.overlay` but a conf fragment)
   in `EXTRA_CONF_FILE`; reflector presets do not. `central.overlay` is a Kconfig
   fragment, not a devicetree overlay.
-- **Unreferenced fragments.** `2_path_1_local.conf`, `2_path_2_local.conf`, and
-  `4_path_4_local.conf` are not used by any preset; they exist for possible
-  future antenna configurations.
 
 ### How a preset composes overlay + fragments
 
