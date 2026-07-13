@@ -240,12 +240,37 @@ selects the carrier. See [docs/build-from-source.md](build-from-source.md) for t
 ### Tone-antenna configuration (supplementary)
 
 The firmware maps the Kconfig counts to a BLE CS tone-antenna configuration
-(`An_Bm`) in `common/antenna.c`. With `paths_per_antenna =
-CONFIG_BT_CTLR_SDC_CS_MAX_ANTENNA_PATHS /
-CONFIG_BT_CTLR_SDC_CS_NUM_ANTENNAS` (integer division), `get_antenna_config()`
-returns `ANTENNA_MAPPING[NUM_ANTENNAS - 1][paths_per_antenna - 1]`. For the
-shipped presets this resolves to: A1 1-path → `A1_B1`; A1 4-path → `A1_B2`; A2
-4-path → `A2_B2`.
+(`An_Bm`) in `common/antenna.c`. The lookup is **role-aware**:
+`antenna_get_config_for_role(role)` first derives a peer antenna count
+`peer = CONFIG_BT_CTLR_SDC_CS_MAX_ANTENNA_PATHS /
+CONFIG_BT_CTLR_SDC_CS_NUM_ANTENNAS` (integer division) — the antennas it
+assumes the peer device has — then indexes `ANTENNA_MAPPING[dev_a - 1][dev_b - 1]`
+with the local and peer counts swapped by role:
+
+- **Initiator** — `antenna_get_config_from_ab(local, peer)`:
+  `ANTENNA_MAPPING[NUM_ANTENNAS - 1][peer - 1]`
+- **Reflector** — `antenna_get_config_from_ab(peer, local)`:
+  `ANTENNA_MAPPING[peer - 1][NUM_ANTENNAS - 1]`
+
+The same `(antennas, paths)` config can therefore resolve to a different `An_Bm`
+depending on which role runs it — the local and peer counts land in opposite
+index slots. For every config the [Presets](#presets) table ships this resolves
+to:
+
+| Antennas / Paths | Initiator `An_Bm` | Reflector `An_Bm` |
+|------------------|-------------------|--------------------|
+| A1 / 1           | `A1_B1`           | —                  |
+| A1 / 2           | `A1_B2`           | —                  |
+| A2 / 2           | —                 | `A1_B2`            |
+| A1 / 4           | `A1_B4`           | `A4_B1`            |
+| A2 / 4           | `A2_B2`           | `A2_B2`            |
+| A4 / 4           | `A4_B1`           | `A1_B4`            |
+
+A `—` marks a role no shipped preset runs in that config (A1 1-path and A1
+2-path ship only as initiator; A2 2-path ships only as reflector). A2 4-path is
+symmetric — `A2_B2` either way. The `ANTENNA_MAPPING` table also carries
+placeholder `A1_B1` entries for index combinations no shipped preset uses (e.g.
+`[1][2]`, `[2][1]`, `[3][1]`); only the six configs above actually ship.
 
 _Supplementary — from `common/antenna.c`, not from presets/fragments._
 
