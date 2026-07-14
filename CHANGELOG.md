@@ -2,6 +2,21 @@
 All notable changes to this project will be documented in this file. See [conventional commits](https://www.conventionalcommits.org/) for commit guidelines.
 
 - - -
+## [v1.6.3](https://github.com/Metirionic/mars-cs-nrf54l/releases/tag/v1.6.3) - 2026-07-14
+#### Bug Fixes
+- Ezurio pin assignments - ([3d76a74](https://github.com/Metirionic/mars-cs-nrf54l/commit/3d76a747caed0427be38f4bab74c23a73e397955)) - Adrian Figueroa
+#### Documentation
+- (**architecture**) fix IPT mermaid render and Kconfig cell - ([263d270](https://github.com/Metirionic/mars-cs-nrf54l/commit/263d2704e57b22cb538acc2abe53a0cb51749a68)) - AttilaRoemer, Claude
+- (**architecture**) document IPT data flow and RAS-vs-IPT contrast - ([b48f136](https://github.com/Metirionic/mars-cs-nrf54l/commit/b48f1363c172b351950b82caba6ceb63b760f6f2)) - AttilaRoemer, Claude
+- (**build-from-source**) present RAS/IPT peer build pairs; mirror release.yml CI preset list - ([c6d0799](https://github.com/Metirionic/mars-cs-nrf54l/commit/c6d07999a5bf0600cfd63beee261eddd2ead06f0)) - AttilaRoemer, Claude
+- (**flash-quickstart**) add IPT pairing with equal billing and fix stale .hex count - ([6c2d0d1](https://github.com/Metirionic/mars-cs-nrf54l/commit/6c2d0d1b13aae061a82995b4ca1ccb7b7df76a96)) - AttilaRoemer, Claude
+- (**hardware**) make tone-antenna section role-aware and complete - ([8391a81](https://github.com/Metirionic/mars-cs-nrf54l/commit/8391a813a72d3741ad19d32d84350526d4246f93)) - AttilaRoemer, Claude
+- (**hardware**) fill missing DK RAS presets; drop false Unreferenced-fragments bullet - ([e833897](https://github.com/Metirionic/mars-cs-nrf54l/commit/e833897e0a2076ca264bfce23df05269b5aaeba7)) - AttilaRoemer, Claude
+- (**hardware**) add IPT presets and inline_pct fragments to the preset table - ([c23dcc8](https://github.com/Metirionic/mars-cs-nrf54l/commit/c23dcc8bfe0e88974693c1df92ad00f604b5149c)) - AttilaRoemer, Claude
+- (**readme**) present RAS and IPT as peer choices with recommended pairs - ([b72154e](https://github.com/Metirionic/mars-cs-nrf54l/commit/b72154e5d07ba4f9f002b11c1ac4c299a4b880d9)) - AttilaRoemer, Claude
+
+- - -
+
 ## [v1.6.2](https://github.com/Metirionic/mars-cs-nrf54l/releases/tag/v1.6.2) - 2026-07-10
 #### Bug Fixes
 - (**ci**) correct zephyr.hex fallback path in build.sh - ([a4fa796](https://github.com/Metirionic/mars-cs-nrf54l/commit/a4fa7960175df0b5210304f88c31f13fe05feaef)) - AttilaRoemer, Claude
