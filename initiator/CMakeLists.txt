@@ -7,7 +7,7 @@ include(FetchContent)
 FetchContent_Declare(
   mars-bluetooth-hci
   GIT_REPOSITORY https://github.com/Metirionic/mars-bluetooth-hci.git
-  GIT_TAG mars-bluetooth-hci@0.10.0)
+  GIT_TAG cd93ae8)
 FetchContent_MakeAvailable(mars-bluetooth-hci)
 
 set(MARS_BT_HCI_RUST_DIR ${mars-bluetooth-hci_SOURCE_DIR}/mars-bluetooth-hci)
