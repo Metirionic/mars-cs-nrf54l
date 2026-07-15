@@ -10,6 +10,8 @@
 
 #include "subevent.h"
 
+#include <string.h>
+
 #include <zephyr/logging/log.h>
 
 #include "cs_step_parse.h"
@@ -85,8 +87,10 @@ void subevent_populate(SubeventResultEvent_t *                p_local_event,
 {
     for (size_t i = 0; i < 160; i++)
     {
-        p_local_event->steps.idx[i].mode = 0;
-        p_peer_event->steps.idx[i].mode  = 0;
+        memset(&p_local_event->steps.idx[i], 0, sizeof(p_local_event->steps.idx[i]));
+        memset(&p_peer_event->steps.idx[i], 0, sizeof(p_peer_event->steps.idx[i]));
+        p_local_event->steps.idx[i].mode = MARS_CS_STEP_MODE_INVALID;
+        p_peer_event->steps.idx[i].mode  = MARS_CS_STEP_MODE_INVALID;
     }
 
 
@@ -132,6 +136,14 @@ void subevent_populate_inline(SubeventResultEvent_t *                p_local_eve
                               enum bt_conn_le_cs_role                role)
 {
     const uint8_t n_ap = p_result->header.num_antenna_paths;
+
+    for (size_t i = 0; i < 160; i++)
+    {
+        memset(&p_local_event->steps.idx[i], 0, sizeof(p_local_event->steps.idx[i]));
+        memset(&p_peer_event->steps.idx[i], 0, sizeof(p_peer_event->steps.idx[i]));
+        p_local_event->steps.idx[i].mode = MARS_CS_STEP_MODE_INVALID;
+        p_peer_event->steps.idx[i].mode  = MARS_CS_STEP_MODE_INVALID;
+    }
 
     fill_subevent_header(p_local_event, ORIGIN_INITIATOR, local_mac, peer_mac, p_result, n_ap);
     fill_subevent_header(p_peer_event, ORIGIN_REFLECTOR, peer_mac, local_mac, p_result, n_ap);

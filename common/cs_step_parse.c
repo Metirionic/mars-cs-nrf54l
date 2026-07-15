@@ -10,6 +10,7 @@
 
 #include "cs_step_parse.h"
 
+#include <math.h>
 #include <string.h>
 #include <zephyr/logging/log.h>
 #include <zephyr/sys/util.h>
@@ -156,6 +157,22 @@ static bool fill_mode2_step(struct cs_step_parse_context *  ctx,
         Mode2_t * p_mode2 = &p_step->info.mode2;
         memset(p_mode2, 0, sizeof(*p_mode2));
         p_mode2->antenna_permutation_index = local_step_data->antenna_permutation_index;
+
+        /* Pre-init every tone slot to invalid sentinels so tones beyond n_ap
+         * (left unwritten by the loop below) carry explicit "no data" markers
+         * instead of the memset-zero value (0.0f, TONE_QUALITY_INDICATOR_RESERVED,
+         * EXTENSION_SLOT_NOT_PRESENT) that downstream consumers cannot
+         * distinguish from a valid zero-phase measurement. The loop below
+         * overwrites the real tones with measured values. */
+        size_t const tone_count =
+            sizeof(p_mode2->phase_correction_terms.idx) / sizeof(p_mode2->phase_correction_terms.idx[0]);
+        for (size_t tone_index = 0; tone_index < tone_count; tone_index++)
+        {
+            p_mode2->phase_correction_terms.idx[tone_index].i = NAN;
+            p_mode2->phase_correction_terms.idx[tone_index].q = NAN;
+            p_mode2->quality_indicators.idx[tone_index]       = TONE_QUALITY_INDICATOR_RESERVED;
+            p_mode2->extension_slots.idx[tone_index]          = EXTENSION_SLOT_RESERVED;
+        }
 
         for (size_t tone_index = 0u; tone_index < n_ap && tone_index < MARS_CS_MAX_TONE_COUNT; tone_index++)
         {

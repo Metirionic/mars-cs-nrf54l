@@ -17,6 +17,18 @@
 
 #include "mars_bluetooth_hci.h"
 
+/** @brief Sentinel mode value marking a step slot as carrying no valid data.
+ *
+ * Written by subevent_populate()/subevent_populate_inline() into every step
+ * slot of the static SubeventResultEvent_t buffers before parsing, so that
+ * slots beyond step_count (never overwritten by fill_mode2_step) carry an
+ * explicit "invalid" marker instead of stale data from a prior procedure.
+ *
+ * Mirrored by mars-bluetooth-hci's step_mode::MODE_INVALID (Rust) — kept in
+ * sync by convention; safer_ffi does not emit Rust pub consts to the C header.
+ */
+#define MARS_CS_STEP_MODE_INVALID 0xFFu
+
 /**
  * @brief Context for step data parsing callbacks.
  */
