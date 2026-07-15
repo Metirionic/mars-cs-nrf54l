@@ -83,6 +83,13 @@ void subevent_populate(SubeventResultEvent_t *                p_local_event,
                        struct net_buf_simple *                p_peer_steps,
                        enum bt_conn_le_cs_role                role)
 {
+    for (size_t i = 0; i < 160; i++)
+    {
+        p_local_event->steps.idx[i].mode = 0;
+        p_peer_event->steps.idx[i].mode  = 0;
+    }
+
+
     /* RAS derives antenna_path_count from the ranging header inside cs_step_parse,
      * so seed both events with 0 here.
      */
