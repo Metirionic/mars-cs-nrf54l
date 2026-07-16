@@ -20,8 +20,8 @@ LOG_MODULE_DECLARE(app_main, LOG_LEVEL_INF);
 
 #include "mars_bluetooth_hci.h"
 
-/** @brief Max serialized size per event pair (160 steps x ~50 bytes + header overhead). */
-#define CHUNK_SIZE 8680u
+/** @brief Max serialized size per event pair (160 steps + header overhead). */
+#define CHUNK_SIZE 13000u
 
 /** @brief TX buffer for COBS-encoded serialized data. Leave margin for log messages. */
 static uint8_t g_serialized[CHUNK_SIZE * 2u + 1000u];
