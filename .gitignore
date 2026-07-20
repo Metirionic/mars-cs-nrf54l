@@ -40,3 +40,6 @@ CLAUDE.md
 .agents/
 docs/agents/
 skills-lock.json
+
+# Capture artifacts (UART CSV captures)
+capture_*.csv
