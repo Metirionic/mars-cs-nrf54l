@@ -18,7 +18,7 @@
 #include <zephyr/net_buf.h>
 
 #include "antenna.h"
-#include "mars_bluetooth_hci.h"
+#include "cs_pct.h"
 
 #if defined(CONFIG_BT_RAS_RREQ) || defined(CONFIG_BT_RAS_RRSP)
 #include <bluetooth/services/ras.h>
@@ -49,9 +49,10 @@
 /** @brief Max tone_info entries per mode-2 step: n_ap paths + 1 extension slot.
  *
  * This is both the IPT local step buffer tone count (see @ref
- * MARS_CS_IPT_MODE_2_MAX_LEN) and the cap on the mode-2 parse loop in
- * cs_step_parse.c, which indexes Mode2_t's idx[] arrays. Kept unsigned to match
- * the former literal `5u` and avoid -Wsign-compare in MIN/MAX/loop usage.
+ * MARS_CS_IPT_MODE_2_MAX_LEN) and the cap on n_ap in cs_step_parse.c (clamped
+ * via MIN/MAX against MARS_CS_MAX_TONE_COUNT) so the per-step data_len guard
+ * does not over-read tone_info past the step's real data_len. Kept unsigned to
+ * match the former literal `5u` and avoid -Wsign-compare in MIN/MAX/loop usage.
  */
 #define MARS_CS_MAX_TONE_COUNT ((unsigned int)(MARS_CS_MAX_ANTENNA_PATHS + 1))
 
@@ -134,19 +135,17 @@ typedef void (*cs_initiator_ranging_data_ready_cb)(struct bt_conn * p_conn, uint
 typedef void (*cs_initiator_config_created_cb)(struct bt_conn_le_cs_config * p_config);
 
 /**
- * @brief Callback type for processing populated SubeventResultEvents (IPT mode).
+ * @brief Callback type for processing a populated cs_pct_procedure (IPT mode).
  *
  * Called from the shared IPT procedure-completion skeleton in cs_initiator.c
- * after the local and peer events have been populated via
- * subevent_populate_inline(). The app does its work here — serialize over
- * UART (COBS initiator), feed into a ranging flow, or nothing (the main loop
- * does the ranging). Called only on a successful, non-empty procedure.
+ * after the local step data has been parsed into a cs_pct_procedure via
+ * cs_pct_populate_inline(). The app does its work here — serialize over UART
+ * (CSV initiator), feed into a ranging flow, or nothing (the main loop does the
+ * ranging). Called only on a successful, non-empty procedure.
  *
- * @param p_local_event  Populated initiator SubeventResultEvent.
- * @param p_peer_event   Populated reflector SubeventResultEvent (identity PCT).
+ * @param proc  Populated procedure (one cs_pct_sample per valid Mode-2 step).
  */
-typedef void (*cs_initiator_process_subevent_cb)(SubeventResultEvent_t * p_local_event,
-                                                 SubeventResultEvent_t * p_peer_event);
+typedef void (*cs_initiator_process_subevent_cb)(struct cs_pct_procedure * proc);
 
 void                                   cs_initiator_set_ranging_data_cb(cs_initiator_ranging_data_cb cb);
 void                                   cs_initiator_set_ranging_data_ready_cb(cs_initiator_ranging_data_ready_cb cb);

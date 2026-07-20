@@ -5,13 +5,13 @@
  */
 
 /** @file
- *  @brief Shared CS step data parsing into SubeventResultEvent structures
+ *  @brief Shared CS step data parsing into a cs_pct_procedure
  */
 
 #include "cs_step_parse.h"
 
-#include <math.h>
-#include <string.h>
+#include <zephyr/bluetooth/cs.h>
+#include <zephyr/bluetooth/hci_types.h>
 #include <zephyr/logging/log.h>
 #include <zephyr/sys/util.h>
 
@@ -21,109 +21,65 @@
 #include <bluetooth/services/ras.h>
 #endif
 
-/**
- * @brief Guard the derived tone count against the external Mode2_t idx[] size.
- *
- * Mode2_t's quality_indicators/extension_slots/phase_correction_terms idx[]
- * arrays are a literal [5] baked into the fetched mars-bluetooth-hci C bindings
- * (not parameterised by any Kconfig). If CONFIG_BT_CTLR_SDC_CS_MAX_ANTENNA_PATHS
- * ever widens past 4, MARS_CS_MAX_TONE_COUNT (n_ap + 1) would exceed that
- * capacity — fail the build here rather than silently overflow / drop tones.
- */
-BUILD_ASSERT(MARS_CS_MAX_TONE_COUNT * sizeof(((Mode2_t *)0)->quality_indicators.idx[0]) <=
-                 sizeof(((Mode2_t *)0)->quality_indicators.idx),
-             "MARS_CS_MAX_TONE_COUNT (n_ap + 1) exceeds Mode2_t idx[] capacity");
-
 LOG_MODULE_DECLARE(app_main, LOG_LEVEL_INF);
 
 /**
- * @brief Convert HCI tone quality pair to ToneQualityIndicator.
+ * @brief Parse a 3-byte PCT to raw int16 I/Q, cast to float.
  *
- * Returns the lower (worse) of the two quality indicators. In IPT mode both
- * args are the local tone's indicator (the reflector contribution is embedded),
- * so the local value is returned unchanged.
- */
-static ToneQualityIndicator_t tone_quality_from_hci(uint8_t local_quality_indicator, uint8_t peer_quality_indicator)
-{
-    static const ToneQualityIndicator_t hci_to_ordinal[] = {
-        [BT_HCI_LE_CS_TONE_QUALITY_UNAVAILABLE] = TONE_QUALITY_INDICATOR_UNAVAILABLE,
-        [BT_HCI_LE_CS_TONE_QUALITY_LOW]         = TONE_QUALITY_INDICATOR_LOW,
-        [BT_HCI_LE_CS_TONE_QUALITY_MED]         = TONE_QUALITY_INDICATOR_MEDIUM,
-        [BT_HCI_LE_CS_TONE_QUALITY_HIGH]        = TONE_QUALITY_INDICATOR_HIGH,
-    };
-
-    ToneQualityIndicator_t local = (local_quality_indicator < ARRAY_SIZE(hci_to_ordinal))
-                                       ? hci_to_ordinal[local_quality_indicator]
-                                       : TONE_QUALITY_INDICATOR_UNAVAILABLE;
-    ToneQualityIndicator_t peer  = (peer_quality_indicator < ARRAY_SIZE(hci_to_ordinal))
-                                       ? hci_to_ordinal[peer_quality_indicator]
-                                       : TONE_QUALITY_INDICATOR_UNAVAILABLE;
-
-    return (local < peer) ? local : peer;
-}
-
-/**
- * @brief Convert HCI extension slot pair to ExtensionSlot.
+ * Uses bt_le_cs_parse_pct() to extract the sign-extended int16 in-phase and
+ * quadrature terms, then casts them to float. The values are left raw (not
+ * normalized); the serializer computes magnitude/phase from them.
  *
- * Returns the most permissive combination of local and peer indicators. In
- * IPT mode both args are the local tone's indicator.
- */
-static ExtensionSlot_t extension_slot_from_hci(uint8_t local_extension_slot, uint8_t peer_extension_slot)
-{
-    if (local_extension_slot == EXTENSION_SLOT_EXPECTED_PRESENT ||
-        peer_extension_slot == EXTENSION_SLOT_EXPECTED_PRESENT)
-    {
-        return EXTENSION_SLOT_EXPECTED_PRESENT;
-    }
-    if (local_extension_slot == EXTENSION_SLOT_NOT_EXPECTED_PRESENT ||
-        peer_extension_slot == EXTENSION_SLOT_NOT_EXPECTED_PRESENT)
-    {
-        return EXTENSION_SLOT_NOT_EXPECTED_PRESENT;
-    }
-    return EXTENSION_SLOT_NOT_PRESENT;
-}
-
-/**
- * @brief Convert Phase Correction Term (PCT) IQ values to normalized floats.
- *
- * Parses the 3-byte PCT via bt_le_cs_parse_pct() and normalizes by 2^15
- * to produce floats in [-1.0, 1.0].
+ * @param pct        3-byte little-endian phase correction term.
+ * @param p_i_value  Output: in-phase component as float.
+ * @param p_q_value  Output: quadrature component as float.
  */
 static void pct_to_float(const uint8_t pct[3], float * p_i_value, float * p_q_value)
 {
-    struct bt_le_cs_iq_sample iq            = bt_le_cs_parse_pct(pct);
-    const float               NORMALIZATION = 32768.0f;
-    *p_i_value                              = (float)iq.i / NORMALIZATION;
-    *p_q_value                              = (float)iq.q / NORMALIZATION;
+    struct bt_le_cs_iq_sample iq = bt_le_cs_parse_pct(pct);
+
+    *p_i_value = (float)iq.i;
+    *p_q_value = (float)iq.q;
 }
 
 /**
- * @brief Fill one Mode-2 step into both the local and peer SubeventResultEvents.
+ * @brief Context for the RAS/IPT step-data parse callbacks.
+ */
+struct cs_step_parse_context
+{
+    struct cs_pct_procedure * proc;       /**< Output: procedure being filled. */
+    uint8_t                   step_index; /**< Current sample index within the procedure. */
+    uint8_t                   n_ap;       /**< Number of antenna paths in current ranging header. */
+};
+
+/**
+ * @brief Fill one Mode-2 step's cs_pct_sample (tone 0, first antenna path).
  *
  * Shared by the RAS path (process_step_data, peer step data available) and the
- * IPT path (inline_process_step_mode2, peer step data is NULL). When
- * @p p_peer_step is NULL the IPT semantics apply: quality/extension are derived
- * from the local tone only (passed as both args), and the peer (reflector)
- * event is filled with a transparent identity PCT (1.0 + 0.0j) since the
- * reflector's phase contribution is already embedded in the local tones.
+ * IPT path (cs_pct_parse_inline, peer step data is NULL). When @p p_peer_step is
+ * NULL the reflector PCT fields are left zero (IPT embeds the reflector phase in
+ * the local tones, so the reflector PCT is not emitted).
  *
  * Guards against truncated step data: if @p p_local_step->data_len is smaller
  * than the mode-2 header plus n_ap tone_info entries, the step is logged and
  * skipped (step_index is not advanced), preventing over-reads when a procedure
  * negotiates fewer antenna paths than the controller's compile-time max.
  *
- * @param p_ctx         Parse context (holds n_ap and the output events).
+ * Only tone_info[0] (the first antenna path) is read; the remaining n_ap-1
+ * antenna paths and the extension slot are ignored.
+ *
+ * @param p_ctx         Parse context (holds n_ap and the output procedure).
  * @param p_local_step  Local (initiator) HCI subevent step (mode-2).
  * @param p_peer_step   Peer (reflector) HCI subevent step, or NULL for IPT.
  *
- * @return true if iteration should continue, false if the step array is full
- *         (step_index >= 160) and the caller should stop walking steps.
+ * @return true if iteration should continue, false if the sample array is full
+ *         (step_index >= CS_PCT_MAX_SAMPLES) and the caller should stop walking.
  */
 static bool fill_mode2_step(struct cs_step_parse_context *  ctx,
                             struct bt_le_cs_subevent_step * p_local_step,
                             struct bt_le_cs_subevent_step * p_peer_step)
 {
-    if (ctx->step_index >= 160)
+    if (ctx->step_index >= CS_PCT_MAX_SAMPLES)
     {
         return false;
     }
@@ -140,85 +96,31 @@ static bool fill_mode2_step(struct cs_step_parse_context *  ctx,
         return true;
     }
 
-    struct bt_hci_le_cs_step_data_mode_2 * local_step_data = (struct bt_hci_le_cs_step_data_mode_2 *)p_local_step->data;
-    struct bt_hci_le_cs_step_data_mode_2 * peer_step_data =
-        (p_peer_step != NULL) ? (struct bt_hci_le_cs_step_data_mode_2 *)p_peer_step->data : NULL;
+    struct bt_hci_le_cs_step_data_mode_2 * local_step_data =
+        (struct bt_hci_le_cs_step_data_mode_2 *)p_local_step->data;
 
-    for (size_t event_index = 0; event_index < 2; event_index++)
+    struct cs_pct_sample * p_sample = &ctx->proc->samples[ctx->step_index];
+    p_sample->channel = p_local_step->channel;
+
+    float i_val;
+    float q_val;
+    pct_to_float(local_step_data->tone_info[0].phase_correction_term, &i_val, &q_val);
+    p_sample->init_i = i_val;
+    p_sample->init_q = q_val;
+
+    if (p_peer_step != NULL)
     {
-        SubeventResultEvent_t * p_event      = (event_index == 0u) ? ctx->p_local_event : ctx->p_peer_event;
-        const bool              is_initiator = (event_index == 0u);
-        Step_t *                p_step       = &p_event->steps.idx[ctx->step_index];
-
-        p_step->mode      = p_local_step->mode;
-        p_step->channel   = p_local_step->channel;
-        p_step->info.kind = MODE_ROLE_SPECIFIC_INFO_KIND_MODE2;
-
-        Mode2_t * p_mode2 = &p_step->info.mode2;
-        memset(p_mode2, 0, sizeof(*p_mode2));
-        p_mode2->antenna_permutation_index = local_step_data->antenna_permutation_index;
-
-        /* Pre-init every tone slot to invalid sentinels so tones beyond n_ap
-         * (left unwritten by the loop below) carry explicit "no data" markers
-         * instead of the memset-zero value (0.0f, TONE_QUALITY_INDICATOR_RESERVED,
-         * EXTENSION_SLOT_NOT_PRESENT) that downstream consumers cannot
-         * distinguish from a valid zero-phase measurement. The loop below
-         * overwrites the real tones with measured values. */
-        size_t const tone_count =
-            sizeof(p_mode2->phase_correction_terms.idx) / sizeof(p_mode2->phase_correction_terms.idx[0]);
-        for (size_t tone_index = 0; tone_index < tone_count; tone_index++)
-        {
-            p_mode2->phase_correction_terms.idx[tone_index].i = NAN;
-            p_mode2->phase_correction_terms.idx[tone_index].q = NAN;
-            p_mode2->quality_indicators.idx[tone_index]       = TONE_QUALITY_INDICATOR_RESERVED;
-            p_mode2->extension_slots.idx[tone_index]          = EXTENSION_SLOT_RESERVED;
-        }
-
-        for (size_t tone_index = 0u; tone_index < n_ap && tone_index < MARS_CS_MAX_TONE_COUNT; tone_index++)
-        {
-            struct bt_hci_le_cs_step_data_tone_info * local_tone = &local_step_data->tone_info[tone_index];
-
-            if (peer_step_data != NULL)
-            {
-                struct bt_hci_le_cs_step_data_tone_info * peer_tone = &peer_step_data->tone_info[tone_index];
-                p_mode2->quality_indicators.idx[tone_index] =
-                    tone_quality_from_hci(local_tone->quality_indicator, peer_tone->quality_indicator);
-                p_mode2->extension_slots.idx[tone_index] =
-                    extension_slot_from_hci(local_tone->extension_indicator, peer_tone->extension_indicator);
-            }
-            else
-            {
-                /* IPT: local tone only for both args. */
-                p_mode2->quality_indicators.idx[tone_index] =
-                    tone_quality_from_hci(local_tone->quality_indicator, local_tone->quality_indicator);
-                p_mode2->extension_slots.idx[tone_index] =
-                    extension_slot_from_hci(local_tone->extension_indicator, local_tone->extension_indicator);
-            }
-
-            float i_val, q_val;
-            if (is_initiator || peer_step_data == NULL)
-            {
-                /* Initiator event always uses the local PCT. In IPT mode the
-                 * reflector event also uses the local PCT's transparent identity
-                 * (1.0 + 0.0j) since the reflector contribution is embedded. */
-                if (peer_step_data == NULL && !is_initiator)
-                {
-                    i_val = 1.0f;
-                    q_val = 0.0f;
-                }
-                else
-                {
-                    pct_to_float(local_tone->phase_correction_term, &i_val, &q_val);
-                }
-            }
-            else
-            {
-                pct_to_float(peer_step_data->tone_info[tone_index].phase_correction_term, &i_val, &q_val);
-            }
-
-            p_mode2->phase_correction_terms.idx[tone_index].i = i_val;
-            p_mode2->phase_correction_terms.idx[tone_index].q = q_val;
-        }
+        struct bt_hci_le_cs_step_data_mode_2 * peer_step_data =
+            (struct bt_hci_le_cs_step_data_mode_2 *)p_peer_step->data;
+        pct_to_float(peer_step_data->tone_info[0].phase_correction_term, &i_val, &q_val);
+        p_sample->refl_i = i_val;
+        p_sample->refl_q = q_val;
+    }
+    else
+    {
+        /* IPT: no reflector PCT (embedded in the local tones). */
+        p_sample->refl_i = 0.0f;
+        p_sample->refl_q = 0.0f;
     }
 
     ctx->step_index++;
@@ -237,13 +139,10 @@ static bool process_ranging_header(struct ras_ranging_header * p_ranging_header,
              ((p_ranging_header->antenna_paths_mask & BIT(2)) >> 2) +
              ((p_ranging_header->antenna_paths_mask & BIT(3)) >> 3)));
 
-    ctx->p_local_event->antenna_path_count = ctx->n_ap;
-    ctx->p_peer_event->antenna_path_count  = ctx->n_ap;
-
     return true;
 }
 
-/** @brief Callback that converts HCI Mode-2 step data into SubeventResultEvent fields. */
+/** @brief Callback that converts an HCI Mode-2 step pair into a cs_pct_sample. */
 static bool process_step_data(struct bt_le_cs_subevent_step * p_local_step,
                               struct bt_le_cs_subevent_step * p_peer_step,
                               void *                          p_user_data)
@@ -258,30 +157,15 @@ static bool process_step_data(struct bt_le_cs_subevent_step * p_local_step,
     return true;
 }
 
-/**
- * @brief Parse HCI step data and populate SubeventResultEvent step fields.
- *
- * Calls bt_ras_rreq_rd_subevent_data_parse with internal callbacks that
- * convert HCI Mode-2 step data into SubeventResultEvent fields.
- * Sets step_count on both events after parsing.
- *
- * @param p_local_event  Output: initiator event to populate step data into.
- * @param p_peer_event   Output: reflector event to populate step data into.
- * @param p_peer_steps   Net buffer containing peer step data.
- * @param p_local_steps  Net buffer containing local step data.
- * @param role         CS role (initiator or reflector).
- */
-void cs_step_parse(SubeventResultEvent_t * p_local_event,
-                   SubeventResultEvent_t * p_peer_event,
-                   struct net_buf_simple * p_peer_steps,
-                   struct net_buf_simple * p_local_steps,
-                   enum bt_conn_le_cs_role role)
+void cs_pct_parse(struct cs_pct_procedure * proc,
+                  struct net_buf_simple *   p_peer_steps,
+                  struct net_buf_simple *   p_local_steps,
+                  enum bt_conn_le_cs_role    role)
 {
     struct cs_step_parse_context ctx = {
-        .p_local_event = p_local_event,
-        .p_peer_event  = p_peer_event,
-        .step_index    = 0,
-        .n_ap          = 0,
+        .proc       = proc,
+        .step_index = 0,
+        .n_ap       = 0,
     };
 
     bt_ras_rreq_rd_subevent_data_parse(p_peer_steps,
@@ -292,66 +176,30 @@ void cs_step_parse(SubeventResultEvent_t * p_local_event,
                                        process_step_data,
                                        &ctx);
 
-    p_local_event->step_count = ctx.step_index;
-    p_peer_event->step_count  = ctx.step_index;
+    proc->count = ctx.step_index;
 }
 #endif /* CONFIG_BT_RAS_RREQ */
 
-/**
- * @brief Number of antenna paths reported by the controller configuration.
- *
- * Used by cs_step_parse_inline() to size the per-step tone loop in IPT mode,
- * where the RAS ranging header (which sets n_ap in the RAS path) is not parsed.
- */
-static inline uint8_t inline_n_ap(void)
+void cs_pct_parse_inline(struct cs_pct_procedure *                proc,
+                         struct bt_conn_le_cs_subevent_result * p_result,
+                         struct net_buf_simple *                 p_local_steps)
 {
-    uint8_t n_ap = CONFIG_BT_CTLR_SDC_CS_MAX_ANTENNA_PATHS;
-    if (n_ap == 0u)
-    {
-        n_ap = 1u;
-    }
-    return MIN(n_ap, MARS_CS_MAX_TONE_COUNT);
-}
-
-/** @brief Fill one Mode-2 step into both events for the inline (IPT) path.
- *
- * Delegates to fill_mode2_step() with a NULL peer step, which applies IPT
- * semantics (local tone for quality/extension via tone_quality_from_hci /
- * extension_slot_from_hci, identity PCT for the peer event).
- */
-static void inline_process_step_mode2(struct cs_step_parse_context * ctx, struct bt_le_cs_subevent_step * local_step)
-{
-    (void)fill_mode2_step(ctx, local_step, NULL);
-}
-
-void cs_step_parse_inline(SubeventResultEvent_t * p_local_event,
-                          SubeventResultEvent_t * p_peer_event,
-                          struct net_buf_simple * p_local_steps,
-                          enum bt_conn_le_cs_role role)
-{
-    ARG_UNUSED(role);
-
-    /* Derive n_ap from the negotiated procedure header (captured in
-     * antenna_path_count by serialize_run from
-     * bt_conn_le_cs_subevent_result.header.num_antenna_paths). Fall back to the
+    /* Derive n_ap from the negotiated procedure header. Fall back to the
      * controller's compile-time max only if the header value was unavailable,
      * so a procedure that negotiates fewer paths than the build max does not
      * over-read tone_info past the step's real data_len.
      */
-    uint8_t n_ap = p_local_event->antenna_path_count;
+    uint8_t n_ap = p_result->header.num_antenna_paths;
     if (n_ap == 0u)
     {
-        n_ap                              = inline_n_ap();
-        p_local_event->antenna_path_count = n_ap;
-        p_peer_event->antenna_path_count  = n_ap;
+        n_ap = MARS_CS_MAX_ANTENNA_PATHS;
     }
     n_ap = MIN(MAX(n_ap, 1u), MARS_CS_MAX_TONE_COUNT);
 
     struct cs_step_parse_context ctx = {
-        .p_local_event = p_local_event,
-        .p_peer_event  = p_peer_event,
-        .step_index    = 0,
-        .n_ap          = n_ap,
+        .proc       = proc,
+        .step_index = 0,
+        .n_ap       = n_ap,
     };
 
     /* The local buffer holds raw HCI subevent steps: mode | channel | data_len | data,
@@ -361,9 +209,9 @@ void cs_step_parse_inline(SubeventResultEvent_t * p_local_event,
     while (p_local_steps->len >= MARS_CS_IPT_STEP_FRAMING_LEN)
     {
         struct bt_le_cs_subevent_step local_step = {0};
-        local_step.mode                          = net_buf_simple_pull_u8(p_local_steps);
-        local_step.channel                       = net_buf_simple_pull_u8(p_local_steps);
-        local_step.data_len                      = net_buf_simple_pull_u8(p_local_steps);
+        local_step.mode                            = net_buf_simple_pull_u8(p_local_steps);
+        local_step.channel                         = net_buf_simple_pull_u8(p_local_steps);
+        local_step.data_len                         = net_buf_simple_pull_u8(p_local_steps);
 
         if (local_step.data_len == 0)
         {
@@ -380,12 +228,11 @@ void cs_step_parse_inline(SubeventResultEvent_t * p_local_event,
 
         if (local_step.mode == BT_HCI_OP_LE_CS_MAIN_MODE_2)
         {
-            inline_process_step_mode2(&ctx, &local_step);
+            (void)fill_mode2_step(&ctx, &local_step, NULL);
         }
 
         net_buf_simple_pull(p_local_steps, local_step.data_len);
     }
 
-    p_local_event->step_count = ctx.step_index;
-    p_peer_event->step_count  = ctx.step_index;
+    proc->count = ctx.step_index;
 }

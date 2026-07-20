@@ -2,8 +2,8 @@
 
 Nordic nRF54L15 Channel Sounding firmware samples. Runs on top of
 [nRF Connect SDK v3.4.0](https://developer.nordicsemi.com/nRF_Connect_SDK/)
-and uses [mars-bluetooth-hci](https://github.com/Metirionic/mars-bluetooth-hci)
-for COBS serialization of CS measurement data.
+and emits CS measurement data as CSV text over UART (no external serialization
+library — the former mars-bluetooth-hci COBS path has been removed).
 
 ## Get started
 
@@ -18,7 +18,7 @@ Each build targets a BLE role and a ranging mode.
 
 | Target | Description |
 |--------|-------------|
-| `initiator` | BLE Central that connects to a CS reflector, collects ranging data, and outputs COBS-encoded binary over UART |
+| `initiator` | BLE Central that connects to a CS reflector, collects ranging data, and outputs CSV over UART |
 | `reflector` | BLE Peripheral that advertises and responds to CS procedures |
 
 The ranging mode is a build-time choice, set by `CONFIG_MARS_CS_INLINE_PCT`:
@@ -28,7 +28,9 @@ The ranging mode is a build-time choice, set by `CONFIG_MARS_CS_INLINE_PCT`:
 - **IPT** (Inline PCT) — the reflector's phase contribution is embedded in
   the local tones, so the initiator uses its own step data only (no GATT service).
 
-Both modes emit the same COBS-encoded ranging stream over UART. See
+Both modes emit the same CSV ranging stream over UART — 3 columns per line in IPT
+(`channel, magnitude, phase`), 5 in RAS (`channel, magnitude, phase, reflector
+magnitude, reflector phase`), sorted by channel ascending per procedure. See
 [docs/architecture.md](docs/architecture.md#ranging-data-flow) for the full
 RAS-vs-IPT contrast and per-mode data flow.
 

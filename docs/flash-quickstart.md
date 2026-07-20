@@ -104,7 +104,7 @@ appear on the host:
 | Virtual COM port | DK UART | Pins | Carries |
 |------------------|---------|------|---------|
 | Serial Port 0 (1st) | uart30 | P0.00 / P0.01 | console / log output |
-| Serial Port 1 (2nd) | uart20 | P1.04 / P1.05 | ranging stream (COBS) |
+| Serial Port 1 (2nd) | uart20 | P1.04 / P1.05 | ranging stream (CSV) |
 
 Open **Serial Port 1** (the second virtual COM port) at **921600 baud, 8N1, no
 flow control**:
@@ -117,16 +117,17 @@ picocom -b 921600 /dev/ttyACM1
 exact device name and number depend on your OS and how many devices are
 connected — pick the second of the two ports the DK enumerates.)
 
-The ranging stream is **COBS-framed binary** — postcard-serialized structs
-wrapped in COBS, produced by the external
-[mars-bluetooth-hci](https://github.com/Metirionic/mars-bluetooth-hci)
-library. A raw terminal shows binary bytes, not readable text. A host
-decoder for this wire format is not yet shipped with this repo and will be
-covered separately; this guide covers capture only.
+The ranging stream is **plain CSV text** — one line per Mode-2 step:
+`channel, magnitude, phase` (IPT) or
+`channel, magnitude, phase, reflector magnitude, reflector phase` (RAS), with
+magnitude `sqrt(i*i + q*q)` and phase `atan2(q, i)` in radians (`%.6f`). Lines
+within a procedure are sorted by channel ascending; a blank line separates
+procedures. It is ASCII, not binary — read it directly in `picocom` or capture
+it to a file for plotting/analysis.
 
 > **nRF54L15 TAG is different.** The quickstart above assumes the DK, which
 > routes both UARTs to its onboard J-Link over the debug USB cable. The TAG has
-> **no onboard USB**, so reading the COBS ranging stream requires an external
+> **no onboard USB**, so reading the ranging stream requires an external
 > UART-to-USB adapter (e.g. FT232R) wired to the COBS UART: `uart20`
 > **TX → P1.13**, **RX → P1.14** (`921600`, 8N1, no flow control) — the pin
 > assignment in the shared `boards/uart20_p1_13_p1_14.dtsi` (included by
@@ -141,8 +142,8 @@ covered separately; this guide covers capture only.
   instead of Serial Port 1 (ranging). Open the second of the two virtual COM
   ports the DK enumerates.
 - **Serial Port 1 is silent (right port, nothing on it)** — only the
-  **initiator** emits the COBS ranging stream; the reflector emits console
-  logs (Serial Port 0) but never writes to the COBS UART. If the board you are
+  **initiator** emits the ranging stream; the reflector emits console
+  logs (Serial Port 0) but never writes to the ranging UART. If the board you are
   reading from is the reflector, flash the initiator hex to it. If you are
   already on the initiator, see *Two boards but no stream* below.
 - **Garbage / wrong bytes** — confirm the baud is 921600, 8N1, and that you

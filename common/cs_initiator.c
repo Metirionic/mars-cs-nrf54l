@@ -265,7 +265,7 @@ static void subevent_result_cb(struct bt_conn * p_conn, struct bt_conn_le_cs_sub
         /* IPT: local steps are complete. The shared skeleton handles the
          * err/empty/populate/wake protocol:
          *   - empty procedure → recover sem_local_steps + wake consumer
-         *   - non-empty → subevent_populate_inline → process callback → reset → wake
+         *   - non-empty → cs_pct_populate_inline → process callback → reset → wake
          */
         if (latest_local_steps.len == 0)
         {
@@ -276,20 +276,15 @@ static void subevent_result_cb(struct bt_conn * p_conn, struct bt_conn_le_cs_sub
         }
         else
         {
-            static SubeventResultEvent_t local_event;
-            static SubeventResultEvent_t peer_event;
+            static struct cs_pct_procedure proc;
 
-            subevent_populate_inline(&local_event,
-                                     &peer_event,
-                                     g_local_mac,
-                                     g_peer_mac,
-                                     &g_latest_subevent_header,
-                                     &latest_local_steps,
-                                     BT_CONN_LE_CS_ROLE_INITIATOR);
+            cs_pct_populate_inline(&proc,
+                                   &g_latest_subevent_header,
+                                   &latest_local_steps);
 
             if (gp_process_subevent_cb)
             {
-                gp_process_subevent_cb(&local_event, &peer_event);
+                gp_process_subevent_cb(&proc);
             }
 
             net_buf_simple_reset(&latest_local_steps);
@@ -529,12 +524,8 @@ int cs_initiator_start(const struct cs_initiator_config * p_config)
 
     struct bt_le_cs_create_config_params config_params = {
         .id = CS_CONFIG_ID,
-#if IS_ENABLED(CONFIG_MARS_CS_INLINE_PCT)
-        /* IPT only applies to PBR tones (Main Mode 2, no sub-mode). */
+        /* Main Mode 2, no sub-mode */
         .mode = BT_CONN_LE_CS_MAIN_MODE_2_NO_SUB_MODE,
-#else   // IS_ENABLED(CONFIG_MARS_CS_INLINE_PCT)
-        .mode = BT_CONN_LE_CS_MAIN_MODE_2_SUB_MODE_1,
-#endif  // IS_ENABLED(CONFIG_MARS_CS_INLINE_PCT)
         .min_main_mode_steps    = 2,
         .max_main_mode_steps    = 5,
         .main_mode_repetition   = 0,

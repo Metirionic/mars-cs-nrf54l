@@ -29,21 +29,21 @@ static struct bt_conn_le_cs_config cs_config;
 
 #if IS_ENABLED(CONFIG_MARS_CS_INLINE_PCT)
 /**
- * @brief Process populated subevent events by serializing them over UART COBS.
+ * @brief Process a populated cs_pct_procedure by serializing it as CSV over UART.
  *
- * Called from the shared IPT skeleton in cs_initiator.c after the local and
- * peer events have been populated via subevent_populate_inline().
+ * Called from the shared IPT skeleton in cs_initiator.c after the local step
+ * data has been parsed into a cs_pct_procedure via cs_pct_populate_inline().
  */
-static void process_subevent_cb(SubeventResultEvent_t * p_local_event, SubeventResultEvent_t * p_peer_event)
+static void process_subevent_cb(struct cs_pct_procedure * proc)
 {
-    serialize_run(p_local_event, p_peer_event);
+    serialize_run(proc);
 }
 #else
 /**
  * @brief Callback for ranging data received from peer (realtime or on-demand).
  *
- * Checks counter match, validates step data, populates SubeventResultEvents
- * via subevent_populate, serializes via UART COBS, and signals the main loop.
+ * Checks counter match, validates step data, populates a cs_pct_procedure via
+ * cs_pct_populate, serializes as CSV over UART, and signals the main loop.
  */
 static void ranging_data_cb(struct bt_conn * p_conn, uint16_t ranging_counter, int err)
 {
@@ -92,19 +92,15 @@ static void ranging_data_cb(struct bt_conn * p_conn, uint16_t ranging_counter, i
         return;
     }
 
-    static SubeventResultEvent_t local_event;
-    static SubeventResultEvent_t peer_event;
+    static struct cs_pct_procedure proc;
 
-    subevent_populate(&local_event,
-                      &peer_event,
-                      cs_initiator_get_local_mac(),
-                      cs_initiator_get_peer_mac(),
-                      cs_initiator_get_latest_subevent_header(),
-                      latest_local_steps,
-                      cs_initiator_get_peer_steps(),
-                      cs_config.role);
+    cs_pct_populate(&proc,
+                    cs_initiator_get_latest_subevent_header(),
+                    latest_local_steps,
+                    cs_initiator_get_peer_steps(),
+                    cs_config.role);
 
-    serialize_run(&local_event, &peer_event);
+    serialize_run(&proc);
 
     net_buf_simple_reset(latest_local_steps);
 

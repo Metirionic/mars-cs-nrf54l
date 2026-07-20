@@ -5,38 +5,41 @@
  */
 
 /** @file
- *  @brief Channel Sounding data serializer
+ *  @brief Channel Sounding CSV serializer
+ *
+ * Replaces the former mars-bluetooth-hci COBS/postcard serializer with a plain
+ * CSV text emitter. A populated cs_pct_procedure is stable-sorted by channel
+ * ascending and written to the cobs-uart UART as one CSV line per Mode-2 step
+ * (channel, magnitude, phase[, reflector magnitude, reflector phase]), with a
+ * blank line separating procedures.
  */
 
 #include "serialize.h"
 
-#include <string.h>
-#include <zephyr/drivers/uart.h>
-#include <zephyr/logging/log.h>
+#include <math.h>
+#include <stdio.h>
 
-#include "subevent.h"
+#include <zephyr/drivers/uart.h>
+#include <zephyr/kernel.h>
+#include <zephyr/logging/log.h>
+#include <zephyr/sys/util.h>
 
 LOG_MODULE_DECLARE(app_main, LOG_LEVEL_INF);
 
-#include "mars_bluetooth_hci.h"
-
-/** @brief Max serialized size per event pair (160 steps + header overhead). */
+/** @brief Size knob for the static TX buffer (CSV worst case ~8.4 KB; ample). */
 #define CHUNK_SIZE 13000u
 
-/** @brief TX buffer for COBS-encoded serialized data. Leave margin for log messages. */
+/** @brief TX buffer for CSV text. Leave margin for log messages. */
 static uint8_t g_serialized[CHUNK_SIZE * 2u + 1000u];
-/** @brief Total bytes written to g_serialized for the current run. */
-static size_t g_total_written_size = 0u;
-/** @brief UART device used for COBS output. */
+/** @brief UART device used for CSV output (DT chosen: cobs_uart). */
 static const struct device * gp_cobs_uart_dev = DEVICE_DT_GET(DT_CHOSEN(cobs_uart));
 
 /** @brief UART TX-done gate: count 1 when no async TX is in progress.
  *
  * Taken before reusing g_serialized; given by the UART async callback on
  * UART_TX_DONE / UART_TX_ABORTED (and on uart_tx() error, since the TX never
- * started in that case). Mirrors the sem_local_steps "buffer available" pattern
- * in common/cs_initiator.c, keeping uart_tx from ever being called while a
- * previous transfer is still DMA-ing out of g_serialized.
+ * started in that case). Keeps uart_tx from ever being called while a previous
+ * transfer is still DMA-ing out of g_serialized.
  */
 static K_SEM_DEFINE(sem_tx_done, 1, 1);
 
@@ -44,76 +47,12 @@ static K_SEM_DEFINE(sem_tx_done, 1, 1);
 static bool g_uart_async_init_done;
 
 /**
- * @brief Append data to the global UART TX buffer.
- *
- * @return 0 on success, -ENOMEM if the data would overflow the buffer.
- */
-static int serialize_cb(void * p_data, size_t size)
-{
-    if (g_total_written_size + size >= sizeof(g_serialized))
-    {
-        LOG_ERR("Serialization buffer overflow: %u + %u >= %u", g_total_written_size, size, sizeof(g_serialized));
-        return -ENOMEM;
-    }
-    memcpy(&g_serialized[g_total_written_size], p_data, size);
-    g_total_written_size += size;
-    return 0;
-}
-
-/** @brief Reset serialization state for a new run. */
-static void serialize_init(void)
-{
-    g_total_written_size = 0u;
-}
-
-/**
- * @brief Serialize a log message and append to the global TX buffer.
- *
- * @return 0 on success, negative errno on error.
- */
-static int serialize_append_log_message(char * p_message)
-{
-    SerializedData_t result = serialize_log_message(p_message, true);
-
-    if (result.p_data != NULL && result.size != 0u)
-    {
-        int err = serialize_cb(result.p_data, result.size);
-        drop_bin(result);
-        return err;
-    }
-
-    drop_bin(result);
-    return 0;
-}
-
-/**
- * @brief Serialize a SubeventResultEvent and append to the global TX buffer.
- *
- * @return 0 on success, negative errno on error.
- */
-static int serialize_append_event(SubeventResultEvent_t * p_event)
-{
-    SerializedData_t result = serialize_subevent_result_event(p_event, true);
-
-    if (result.p_data != NULL && result.size != 0u)
-    {
-        int err = serialize_cb(result.p_data, result.size);
-        drop_bin(result);
-        return err;
-    }
-
-    drop_bin(result);
-    return 0;
-}
-
-/**
  * @brief UART async callback: signals TX completion to release sem_tx_done.
  *
  * TX-only path: only UART_TX_DONE and UART_TX_ABORTED are handled (RX events
  * are unused). k_sem_give() is ISR-safe, so the give from the UARTE ISR cannot
- * deadlock against the k_sem_take() performed in serialize_run() (BT RX
- * workqueue context). UART_TX_ABORTED is not expected in practice (no
- * hardware flow control on the COBS UART overlays and uart_tx() uses
+ * deadlock against the k_sem_take() performed in serialize_run(). UART_TX_ABORTED
+ * is not expected in practice (no hardware flow control and uart_tx() uses
  * SYS_FOREVER_MS), but is handled defensively so the gate never sticks.
  */
 static void cobs_uart_async_cb(const struct device * p_dev, struct uart_event * p_evt, void * p_user_data)
@@ -137,17 +76,20 @@ static void cobs_uart_async_cb(const struct device * p_dev, struct uart_event * 
 }
 
 /**
- * @brief Serialize populated SubeventResultEvents and transmit over UART.
+ * @brief Format a populated cs_pct_procedure as CSV and transmit over UART.
  *
- * COBS-encodes two SubeventResultEvent structures (initiator + reflector)
- * via the Rust FFI and transmits the COBS-encoded binary over the configured
- * UART device. The events must already be populated (via subevent_populate
- * or subevent_populate_inline) before calling this function.
+ * Stable-sorts @p proc's samples by channel ascending (in place; equal channels
+ * keep their original step order), then writes one CSV line per sample into the
+ * static g_serialized[] buffer and transmits it via the cobs-uart UART. Each
+ * line is `channel, init_mag, init_phase` (IPT) or
+ * `channel, init_mag, init_phase, refl_mag, refl_phase` (RAS), with magnitude =
+ * sqrtf(i*i + q*q) and phase = atan2f(q, i) in radians, floats as %.6f. A blank
+ * line follows the block as a procedure separator. An empty procedure (count ==
+ * 0) emits nothing (no lines, no separator).
  *
- * @param p_local_event  Populated initiator SubeventResultEvent.
- * @param p_peer_event   Populated reflector SubeventResultEvent.
+ * @param proc  Populated procedure to serialize.
  */
-void serialize_run(SubeventResultEvent_t * p_local_event, SubeventResultEvent_t * p_peer_event)
+void serialize_run(struct cs_pct_procedure * proc)
 {
     if (!g_uart_async_init_done)
     {
@@ -166,46 +108,81 @@ void serialize_run(SubeventResultEvent_t * p_local_event, SubeventResultEvent_t 
     }
 
     /* Gate: do not reuse g_serialized until the previous async TX completed.
-     * In steady state the prior TX finishes ~1-16 ms before the next procedure
-     * completes, so this returns immediately; under jitter it blocks only for
-     * the brief overshoot, in the quiet gap before the next procedure's first
-     * subevent. The sem is given by cobs_uart_async_cb() from the UARTE ISR.
+     * In steady state the prior TX finishes before the next procedure completes,
+     * so this returns immediately; under jitter it blocks only for the brief
+     * overshoot, in the quiet gap before the next procedure's first subevent.
      */
     k_sem_take(&sem_tx_done, K_FOREVER);
 
-    serialize_init();
+    LOG_INF("Run serialization for procedure %u", proc->procedure_counter);
 
-    LOG_INF("Run serialization for procedure %u", p_local_event->initial_meta.procedure_counter);
-
-    int err;
-
-    err = serialize_append_event(p_local_event);
-    if (err)
+    if (proc->count == 0)
     {
-        LOG_ERR("Failed to serialize local event (err %d)", err);
+        /* Empty/aborted procedure: emit nothing (no data lines, no separator). */
         k_sem_give(&sem_tx_done);
         return;
     }
 
-    err = serialize_append_event(p_peer_event);
-    if (err)
+    /* Stable insertion sort by channel ascending — equal channels keep step
+     * order (insertion sort is stable; do not switch to qsort without a
+     * tiebreak). In-place on the caller's (static) procedure buffer, which is
+     * re-populated each procedure. */
+    for (size_t i = 1; i < proc->count; i++)
     {
-        LOG_ERR("Failed to serialize peer event (err %d)", err);
-        k_sem_give(&sem_tx_done);
-        return;
+        struct cs_pct_sample key = proc->samples[i];
+        size_t                j  = i;
+        while (j > 0 && proc->samples[j - 1].channel > key.channel)
+        {
+            proc->samples[j] = proc->samples[j - 1];
+            j--;
+        }
+        proc->samples[j] = key;
     }
 
-    err = serialize_append_log_message("Processing finished");
-    if (err)
+    size_t off = 0;
+    for (size_t i = 0; i < proc->count; i++)
     {
-        LOG_ERR("Failed to serialize log (err %d)", err);
-        k_sem_give(&sem_tx_done);
-        return;
+        const struct cs_pct_sample * s = &proc->samples[i];
+        float init_mag = sqrtf(s->init_i * s->init_i + s->init_q * s->init_q);
+        float init_phi = atan2f(s->init_q, s->init_i);
+        int   n;
+
+#if IS_ENABLED(CONFIG_BT_RAS_RREQ)
+        float refl_mag = sqrtf(s->refl_i * s->refl_i + s->refl_q * s->refl_q);
+        float refl_phi = atan2f(s->refl_q, s->refl_i);
+        n = snprintf(&g_serialized[off], sizeof(g_serialized) - off,
+                     "%u,%.6f,%.6f,%.6f,%.6f\n",
+                     (unsigned int)s->channel, init_mag, init_phi, refl_mag, refl_phi);
+#else
+        n = snprintf(&g_serialized[off], sizeof(g_serialized) - off,
+                     "%u,%.6f,%.6f\n",
+                     (unsigned int)s->channel, init_mag, init_phi);
+#endif
+        if (n < 0)
+        {
+            LOG_ERR("CSV snprintf failed at step %zu (err %d)", i, n);
+            break;
+        }
+        /* snprintf returns the would-be length; if it would overflow the
+         * remaining buffer, stop (the truncated write is never transmitted). */
+        if ((size_t)n >= sizeof(g_serialized) - off)
+        {
+            LOG_ERR("CSV buffer overflow at step %zu (need %d, have %zu)",
+                    i, n, sizeof(g_serialized) - off);
+            break;
+        }
+        off += (size_t)n;
     }
 
-    err = uart_tx(gp_cobs_uart_dev, g_serialized, g_total_written_size, SYS_FOREVER_MS);
+    /* Blank line separates this procedure's CSV block from the next. */
+    if (off + 1u < sizeof(g_serialized))
+    {
+        g_serialized[off++] = '\n';
+    }
 
-    LOG_INF("Sending %u bytes", g_total_written_size);
+    LOG_INF("Sending %u bytes", (unsigned int)off);
+
+    int err = uart_tx(gp_cobs_uart_dev, g_serialized, off, SYS_FOREVER_MS);
 
     if (err)
     {

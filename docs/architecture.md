@@ -10,9 +10,8 @@ and antenna/path presets, see [docs/hardware.md](hardware.md).
 This document describes how the firmware is built and how ranging data moves
 through it. It does **not** introduce Channel Sounding technology itself — see
 the [Bluetooth SIG Channel Sounding overview](https://www.bluetooth.com/channel-sounding-tech-overview/)
-for that — and it does **not** reproduce the COBS wire format or the
-`mars-bluetooth-hci` API (see the [mars-bluetooth-hci](https://github.com/Metirionic/mars-bluetooth-hci)
-repo) or the preset/board table (see [docs/hardware.md](hardware.md)).
+for that — and it does **not** reproduce the preset/board table (see
+[docs/hardware.md](hardware.md)).
 
 ## Module map
 
@@ -20,8 +19,8 @@ Two firmware roles plus a shared library:
 
 | Target | Role | Description | Build file |
 |--------|------|-------------|------------|
-| `initiator` | BLE Central / CS initiator | Scans for a CS reflector, connects, runs CS procedures, collects ranging data, and outputs COBS-encoded binary over UART | `initiator/CMakeLists.txt` |
-| `reflector` | BLE Peripheral / CS reflector | Advertises the Ranging Service, accepts one connection, and answers CS procedures. Emits no COBS stream. | `reflector/CMakeLists.txt` |
+| `initiator` | BLE Central / CS initiator | Scans for a CS reflector, connects, runs CS procedures, collects ranging data, and outputs CSV over UART | `initiator/CMakeLists.txt` |
+| `reflector` | BLE Peripheral / CS reflector | Advertises the Ranging Service, accepts one connection, and answers CS procedures. Emits no data stream. | `reflector/CMakeLists.txt` |
 | `common` | shared library | The `cs_common` static lib (linked by the initiator) plus selected files pulled in directly by each app | `common/CMakeLists.txt` |
 
 ### initiator
@@ -31,15 +30,13 @@ Two firmware roles plus a shared library:
 | File | Purpose (`@brief`) |
 |------|---------------------|
 | `main.c` | "Channel Sounding initiator with ranging requester sample" — app entry: registers the ranging callbacks (RAS `ranging_data_cb` / `ranging_data_ready_cb`, or IPT `process_subevent_cb`), builds the `cs_initiator_config`, calls `cs_initiator_start`, and runs the main loop. `main()` at `initiator/src/main.c:148`. |
-| `serialize.c` | "Channel Sounding data serializer" — parses local + peer step data into `SubeventResultEvent_t`, calls the Rust COBS serializer, and writes the bytes to the `cobs-uart` UART. |
+| `serialize.c` | "Channel Sounding CSV serializer" — stable-sorts a populated `cs_pct_procedure` by channel, formats each step as a CSV line (channel, magnitude, phase[, reflector magnitude, reflector phase]), and writes it to the `cobs-uart` UART. |
 | `serialize.h` | Prototype for `serialize_run`. |
 
 `initiator/CMakeLists.txt`:
 
-- Fetches the Rust crate `mars-bluetooth-hci@0.10.0` via CMake `FetchContent` (`:6-11`).
-- Builds the shared `common` library as `cs_common` via `add_subdirectory(../common cs_common)` (`:22`).
-- Compiles `src/main.c`, `src/serialize.c`, and `common/rust_callbacks.c` straight into `app` (`:24-25`) — note `common/rust_callbacks.c` is compiled into `app`, not into `cs_common`.
-- Links `cs_common` (`:27`) and the Rust static archive (`:31-32`); exposes the generated Rust header to `cs_common` (`:28-29`).
+- Builds the shared `common` library as `cs_common` via `add_subdirectory(../common cs_common)`.
+- Compiles `src/main.c` and `src/serialize.c` straight into `app` and links `cs_common`. No Rust, no `FetchContent`, no external crate — the CSV serializer is plain C.
 
 ### reflector
 
@@ -63,7 +60,7 @@ without pulling the full Zephyr target (`:14`).
 
 **The `common` code is shared two different ways — call this out, it is not symmetric:**
 
-- The **initiator** links `cs_common` *and* additionally compiles `common/rust_callbacks.c` straight into `app`.
+- The **initiator** links `cs_common`.
 - The **reflector** does **not** link `cs_common` at all — it compiles only `common/antenna.c` into its `app`. It needs just the antenna lookups, none of the initiator-side CS/RAS machinery.
 
 `common/` source files:
@@ -75,62 +72,45 @@ without pulling the full Zephyr target (`:14`).
 | `ble_callbacks.{c,h}` | "Shared BLE connection and Channel Sounding callbacks" — owns the `BT_CONN_CB_DEFINE(conn_cb)` connection-callback table and the connection ref for the initiator; forwards CS subevent-data and config-created events to registered user callbacks; gives five of the setup semaphores. |
 | `ble_scanning.{c,h}` | "BLE scanning and Ranging Service UUID filtering" — `scan_init()` configures `bt_scan` with `connect_if_match` and a filter that selects the peer by **Ranging Service UUID** (RAS) or by **advertised name** (IPT — the reflector does not advertise that UUID, so the initiator matches `CONFIG_BT_DEVICE_NAME` instead). |
 | `cs_initiator.{c,h}` | "Shared Channel Sounding initiator connection and configuration flow" — the heart of the initiator: all setup semaphores, the step-data net buffers, the RAS feature bits, the MACs, and `cs_initiator_start()` which runs the full setup handshake; also defines the local `subevent_result_cb`. |
-| `cs_step_parse.{c,h}` | "Shared CS step data parsing into SubeventResultEvent structures" — `cs_step_parse()` (RAS) converts local + peer HCI Mode-2 step records into the Rust FFI `SubeventResultEvent_t` / `Step_t` / `Mode2_t` fields; `cs_step_parse_inline()` (IPT) parses the local steps only and synthesizes the peer event per step with a transparent identity (1.0 + 0.0j) Phase Correction Term, so the downstream combiner sees a structurally valid `ORIGIN_REFLECTOR` event with a no-op phase rotation. |
-| `subevent.{c,h}` | "CS subevent data parsing into SubeventResultEvent structures" — `subevent_populate()` (RAS) fills the initiator + reflector events from both the local and peer step buffers via `cs_step_parse()`; `subevent_populate_inline()` (IPT) fills them from the local step buffer only via `cs_step_parse_inline()` (the reflector's phase contribution is embedded in the local tones, so there is no peer buffer). Both seed the shared header through `fill_subevent_header()`. |
-| `rust_callbacks.c` | "Shared Rust FFI callback implementations" — the C functions the Rust runtime calls back into (`rust_panic_cb`, `rust_print_cb`). Compiled into the initiator `app` only. |
-| `rust_ffi_types.h` | A re-include shim: `#include "mars_bluetooth_hci.h"` so `cs_step_parse.h` can name the Rust-generated `SubeventResultEvent_t` without depending on the include path setup directly. |
+| `cs_step_parse.{c,h}` | "Shared CS step data parsing into a cs_pct_procedure" — `cs_pct_parse()` (RAS) converts paired local + peer HCI Mode-2 step records into one `cs_pct_sample` per step (channel + first-antenna-path PCT I/Q); `cs_pct_parse_inline()` (IPT) parses the local steps only (the reflector PCT is embedded in the local tones, so the `refl_*` fields are left zero). Non-Mode-2 / truncated steps are skipped. |
+| `subevent.{c,h}` | "CS subevent data parsing into a cs_pct_procedure" — `cs_pct_populate()` (RAS) seeds `procedure_counter` and delegates to `cs_pct_parse()` over the local + peer step buffers; `cs_pct_populate_inline()` (IPT) delegates to `cs_pct_parse_inline()` over the local buffer only. |
+| `cs_pct.h` | Local Phase Correction Term sample types — `cs_pct_sample` (channel + first-antenna-path PCT I/Q for the initiator and, in RAS, the paired reflector) and `cs_pct_procedure` (a procedure's samples + count + procedure_counter), plus the `cs_pct_populate` / `cs_pct_populate_inline` prototypes. Replaces the former Rust-owned `SubeventResultEvent_t` / `Step_t` / `Mode2_t`. |
 
-## The Rust COBS-serializer bridge
+## CSV serializer
 
-The initiator uses [mars-bluetooth-hci](https://github.com/Metirionic/mars-bluetooth-hci)
-for COBS serialization. The reflector does not. This section describes how the
-crate is fetched, built for the ARM target, and linked — the COBS wire format
-itself lives in that external repo and is not reproduced here.
+The initiator emits ranging data as plain CSV text over the `cobs-uart` UART
+(the DT chosen name is retained; the line now carries CSV, not COBS). The
+reflector does not serialize. There is no external serialization library and no
+Rust — the serializer is plain C in `initiator/src/serialize.c` operating on the
+local `cs_pct_procedure` struct (`common/cs_pct.h`).
 
-**Fetch.** The crate is fetched by CMake `FetchContent` in
-`initiator/CMakeLists.txt:6-11` (`GIT_REPOSITORY …/mars-bluetooth-hci.git`,
-`GIT_TAG mars-bluetooth-hci@0.10.0`), then `FetchContent_MakeAvailable`. It is
-**not** a west project — `west.yml` fetches only NCS — and **not** a submodule. A
-clean build clones it from GitHub at CMake-configure time (network needed on the
-first configure; cached under `build/.../_deps` afterward).
-`MARS_BT_HCI_RUST_DIR` is set to the inner crate dir (`:13`) and added to
-`CMAKE_PREFIX_PATH` (`:16`) for `find_package(mars-bluetooth-hci-rust)` (`:17`).
+**Data model.** `cs_pct_parse` / `cs_pct_parse_inline` (RAS / IPT) reduce each
+valid Mode-2 step to a `cs_pct_sample` carrying the step's channel and the
+first-antenna-path (tone-0) PCT I/Q for the initiator (`init_i`, `init_q`) and,
+in RAS only, the paired reflector PCT (`refl_i`, `refl_q`). `cs_pct_populate` /
+`cs_pct_populate_inline` seed `procedure_counter` and `count` and delegate to the
+parse functions. `serialize_run(struct cs_pct_procedure * proc)` consumes it.
 
-**ARM build.** The crate's `mars-bluetooth-hci-rust-config.cmake` runs
-`cargo build --lib --target thumbv8m.main-none-eabihf --release` as the
-`build_mars_bt_hci_rust` custom target (`RUST_TARGET` is set at
-`initiator/CMakeLists.txt:14`). For the firmware build the crate is built with
-`--no-default-features --features libc,alloc,libc-panic,libc-alloc`, producing
-`libmars_bluetooth_hci.a`.
+**Output.** `serialize_run()` stable-sorts `proc->samples[0..count)` by channel
+ascending (insertion sort; equal channels keep step order) and writes one CSV line
+per sample into the static `g_serialized[]` buffer, then transmits it with
+`uart_tx()` followed by a blank-line procedure separator. Each line is
+`channel, init_mag, init_phase` (IPT, the `#else` of
+`#if IS_ENABLED(CONFIG_BT_RAS_RREQ)`) or
+`channel, init_mag, init_phase, refl_mag, refl_phase` (RAS). Magnitude is
+`sqrtf(i*i + q*q)` and phase is `atan2f(q, i)` in radians, floats as `%.6f`, channel
+as `%u`. An empty procedure (`count == 0`) emits nothing (no lines, no separator).
+Float formatting needs `CONFIG_PICOLIBC_IO_FLOAT=y` / `CONFIG_CBPRINTF_FP_SUPPORT=y`
+(both on in the resolved `.config`); the FPU is on (`CONFIG_FPU=y`) for
+`sqrtf` / `atan2f`.
 
-**Linking.** `add_dependencies(app build_mars_bt_hci_rust)` makes the firmware
-build wait on the cargo build, and
-`target_link_libraries(app PRIVATE ${MARS_BT_HCI_RUST_LINK_LIBRARIES})` links the
-imported static archive (`initiator/CMakeLists.txt:31-32`). The generated C header
-reaches the C code through
-`target_include_directories(cs_common PUBLIC ${MARS_BT_HCI_RUST_INCLUDE_DIRECTORIES})`
-(`:28-29`).
-
-**C → Rust entry points (live).** The firmware calls three Rust functions
-declared in the generated `mars_bluetooth_hci.h` (auto-generated by `::safer_ffi`,
-not `cbindgen`):
-
-- `serialize_subevent_result_event(event, use_cobs)` — called with `use_cobs=true` at `initiator/src/serialize.c:96` (inside `serialize_append_event`).
-- `serialize_log_message(msg, use_cobs)` — called with `use_cobs=true` at `initiator/src/serialize.c:76` (inside `serialize_append_log_message`).
-- `drop_bin(SerializedData_t)` — frees the Rust allocation, called after each copy at `initiator/src/serialize.c:81,85,101,105`.
-
-(The generated header also exports `new_dummy_data`, but the firmware does not call it.)
-
-**Rust → C callbacks (by link-time symbol, no runtime registration).** The Rust
-runtime calls back into C by symbol linkage:
-
-- `rust_panic_cb` — defined at `common/rust_callbacks.c:22`, declared and used by the Rust `#[panic_handler]`.
-- `malloc` / `free` — the Rust `#[global_allocator]` links against newlib, enabled by `CONFIG_NEWLIB_LIBC=y` (`initiator/prj.conf:32`).
-
-(`rust_eh_personality` is exported by Rust for the linker's exception-handling support and is not called from C.)
-
-_See [mars-bluetooth-hci](https://github.com/Metirionic/mars-bluetooth-hci) for
-the wire format and the full FFI surface — they are not reproduced here._
+**Transport.** Reused unchanged from the former COBS path: the `cobs-uart` device
+(`DEVICE_DT_GET(DT_CHOSEN(cobs_uart))`), the async `uart_tx()` API
+(`CONFIG_UART_ASYNC_API=y`), the static `g_serialized[]` TX buffer, and the
+`sem_tx_done` TX-complete gate that prevents `uart_tx()` from being called while a
+previous transfer is still DMA-ing out of `g_serialized[]`. COBS byte-stuffing and
+the trailing `0x00` frame delimiter are gone — CSV lines are `\n`-delimited and a
+blank line separates procedures.
 
 ## Ranging-data flow
 
@@ -143,14 +123,14 @@ The firmware has two ranging modes, selected at build time by
   embedded in the local tones, so the initiator uses its own step data only and
   there is no RAS GATT path.
 
-Both modes converge on the same output: a `SubeventResultEvent_t` pair is
-populated, then `serialize_run()` COBS-encodes it via the Rust FFI and writes the
-bytes to the `cobs-uart` UART — the same `mars-bluetooth-hci` wire format either
-way (there is no separate host-decoder story for IPT). The modes differ only in
-the **acquisition** half — how the step data is gathered and when the events are
-populated. RAS is *peer-data-driven* (serialization waits for the peer's RAS
-ranging data to arrive); IPT is *local-data-driven* (serialization runs as soon as
-the local procedure completes).
+Both modes converge on the same output: a `cs_pct_procedure` is populated (one
+`cs_pct_sample` per valid Mode-2 step, tone 0), then `serialize_run()` stable-sorts
+it by channel and writes CSV text to the `cobs-uart` UART — 3 columns in IPT
+(`channel, init_mag, init_phase`), 5 in RAS (`…, refl_mag, refl_phase`). The modes
+differ only in the **acquisition** half — how the step data is gathered and when the
+procedure is populated. RAS is *peer-data-driven* (serialization waits for the
+peer's RAS ranging data to arrive); IPT is *local-data-driven* (serialization runs
+as soon as the local procedure completes).
 
 ### RAS path
 
@@ -185,50 +165,47 @@ End-to-end on the initiator:
    (`common/cs_initiator.c:194`), which accumulates `result->step_data_buf` into
    the `latest_local_steps` net buffer.
 
-3. **Populate and serialize.** `ranging_data_cb` (`initiator/src/main.c:48-118`)
+3. **Populate and serialize.** `ranging_data_cb` (`initiator/src/main.c`)
    validates the peer ranging counter against the local one, drops on mismatch or
    on an all-aborted procedure, and otherwise calls
-   `subevent_populate(&local_event, &peer_event, cs_initiator_get_local_mac(), cs_initiator_get_peer_mac(), cs_initiator_get_latest_subevent_header(), latest_local_steps, cs_initiator_get_peer_steps(), cs_config.role)`
-   (`:98-105`) — `subevent_populate()` (`common/subevent.c:77`) fills both event
-   headers via `fill_subevent_header()` and hands the local + peer step buffers to
-   `cs_step_parse()`, which fills the `steps[]` arrays — then calls
-   `serialize_run(&local_event, &peer_event)` (`:107`). It then resets the net
-   buffers and gives `sem_local_steps` and `sem_data_ready` (`:116-117`).
-   `cs_config.role` was saved earlier by `config_create_hook`
-   (`initiator/src/main.c:143-146`).
+   `cs_pct_populate(&proc, cs_initiator_get_latest_subevent_header(), latest_local_steps, cs_initiator_get_peer_steps(), cs_config.role)`
+   — `cs_pct_populate()` (`common/subevent.c`) seeds `procedure_counter` and
+   delegates to `cs_pct_parse()`, which walks the paired local + peer step buffers
+   via the RAS parser and fills one `cs_pct_sample` per valid Mode-2 step (tone 0)
+   — then calls `serialize_run(&proc)`. It then resets the net buffers and gives
+   `sem_local_steps` and `sem_data_ready`. `cs_config.role` was saved earlier by
+   `config_create_hook`.
 
-4. **Serialize + COBS over UART.** `serialize_run()` (`initiator/src/serialize.c:150-216`)
-   gates on the `sem_tx_done` TX-complete handshake, then `serialize_append_event()`
-   calls `serialize_subevent_result_event(p_event, true)` (Rust FFI, COBS on,
-   `:96`) for each of the local and peer events; the returned `SerializedData_t` is
-   copied into the static `g_serialized[]` buffer by `serialize_cb()` and freed
-   with `drop_bin()`, followed by a `serialize_log_message("Processing finished")`.
-   Finally `uart_tx(gp_cobs_uart_dev, g_serialized, g_total_written_size, SYS_FOREVER_MS)`
-   (`:206`) writes the COBS-encoded bytes to the UART. The UART device is acquired
-   once at init: `gp_cobs_uart_dev = DEVICE_DT_GET(DT_CHOSEN(cobs_uart))` (`:31`).
-   The async UART API is enabled (`CONFIG_UART_ASYNC_API=y`, `initiator/prj.conf:26`);
-   `g_serialized` is `18360` bytes (`CHUNK_SIZE*2 + 1000`, `:24,27`).
+4. **Serialize CSV over UART.** `serialize_run()` (`initiator/src/serialize.c`)
+   gates on the `sem_tx_done` TX-complete handshake, stable-sorts `proc->samples`
+   by channel ascending, formats each sample as a CSV line
+   (`channel, init_mag, init_phase, refl_mag, refl_phase` — RAS uses the 5-column
+   `#if IS_ENABLED(CONFIG_BT_RAS_RREQ)` branch) with `snprintf("%.6f")` into the
+   static `g_serialized[]` buffer, appends a blank-line procedure separator, and
+   calls `uart_tx(gp_cobs_uart_dev, g_serialized, off, SYS_FOREVER_MS)`. The UART
+   device is acquired once at init:
+   `gp_cobs_uart_dev = DEVICE_DT_GET(DT_CHOSEN(cobs_uart))`. The async UART API is
+   enabled (`CONFIG_UART_ASYNC_API=y`, `initiator/prj.conf`); `g_serialized` is
+   `CHUNK_SIZE*2 + 1000` bytes (`CHUNK_SIZE = 13000`, ample for the ~8.4 KB CSV
+   worst case).
 
 ```mermaid
 sequenceDiagram
     participant CTRL as Nordic CS controller
     participant ACC as subevent_result_cb
     participant RAS as ranging_data_cb
-    participant POP as subevent_populate
+    participant POP as cs_pct_populate
     participant SER as serialize_run
-    participant RUST as Rust COBS (mars-bluetooth-hci)
     participant UART as cobs-uart
     CTRL->>ACC: subevent_data_available (step_data_buf)
     ACC->>ACC: accumulate step_data_buf into latest_local_steps
     Note over ACC: guarded by sem_local_steps (taken K_NO_WAIT)
     Note over ACC,RAS: realtime RD pushes peer steps<br/>on-demand RD pulls peer steps via CP
-    RAS->>POP: subevent_populate(local + peer steps, MACs, role)
-    POP-->>RAS: populated local_event + peer_event
-    RAS->>SER: serialize_run(local_event, peer_event)
-    SER->>RUST: serialize_subevent_result_event(event, use_cobs=true)
-    RUST-->>SER: SerializedData_t (COBS-encoded bytes)
-    SER->>SER: copy into g_serialized then drop_bin (free Rust alloc)
-    SER->>UART: uart_tx(g_serialized, len, SYS_FOREVER_MS)
+    RAS->>POP: cs_pct_populate(proc, header, local + peer steps, role)
+    POP-->>RAS: populated cs_pct_procedure
+    RAS->>SER: serialize_run(proc)
+    SER->>SER: stable-sort samples by channel; snprintf CSV into g_serialized
+    SER->>UART: uart_tx(g_serialized, off, SYS_FOREVER_MS)
     RAS->>RAS: give sem_local_steps and sem_data_ready
     Note over RAS: main loop wakes on sem_data_ready
 ```
@@ -266,46 +243,42 @@ setup.
    `:205`), and there is no `latest_peer_steps` buffer.
 
 3. **Populate and serialize.** On procedure complete
-   (`BT_CONN_LE_CS_PROCEDURE_COMPLETE`, `:260`), `subevent_result_cb` itself calls
-   `subevent_populate_inline(&local_event, &peer_event, g_local_mac, g_peer_mac, &g_latest_subevent_header, &latest_local_steps, BT_CONN_LE_CS_ROLE_INITIATOR)`
-   (`:282-288`). `subevent_populate_inline()` (`common/subevent.c:119`) fills both
-   event headers and, via `cs_step_parse_inline()`, parses the **local** steps only
-   — the peer (reflector) event is synthesized per step with a transparent identity
-   (1.0 + 0.0j) Phase Correction Term, so the downstream combiner sees a structurally
-   valid `ORIGIN_REFLECTOR` event with a no-op phase rotation. The shared skeleton
-   then calls the app's `process_subevent_cb` (`:290-292`), which calls
-   `serialize_run(&local_event, &peer_event)` (`initiator/src/main.c:37-40`). An
-   empty procedure recovers `sem_local_steps` and wakes the main loop without
-   serializing (`:270-276`); an aborted procedure resets the buffer and does **not**
-   wake the consumer, mirroring the RAS error path (`:301-311`).
+   (`BT_CONN_LE_CS_PROCEDURE_COMPLETE`), `subevent_result_cb` itself calls
+   `cs_pct_populate_inline(&proc, &g_latest_subevent_header, &latest_local_steps)`.
+   `cs_pct_populate_inline()` (`common/subevent.c`) seeds `procedure_counter` and
+   delegates to `cs_pct_parse_inline()`, which parses the **local** steps only —
+   the reflector PCT is embedded in the local tones, so the `refl_*` fields are
+   left zero and the 3-column CSV branch is used. The shared skeleton then calls the
+   app's `process_subevent_cb`, which calls `serialize_run(&proc)`
+   (`initiator/src/main.c`). An empty procedure recovers `sem_local_steps` and wakes
+   the main loop without serializing; an aborted procedure resets the buffer and
+   does **not** wake the consumer, mirroring the RAS error path.
 
-4. **Serialize + COBS over UART.** Identical to RAS — `serialize_run()` takes the
-   already-populated events, COBS-encodes them via the Rust FFI, and writes the
-   bytes to `cobs-uart`. Same wire format, same `mars-bluetooth-hci` output; there
-   is no separate host-decoder story.
+4. **Serialize CSV over UART.** Identical mechanism to RAS — `serialize_run()`
+   takes the already-populated `cs_pct_procedure`, stable-sorts and formats it as
+   CSV, and writes the text to `cobs-uart`. The only difference is the column
+   count: IPT emits the 3-column `#else` branch
+   (`channel, init_mag, init_phase`); RAS emits 5.
 
 ```mermaid
 sequenceDiagram
     participant CTRL as Nordic CS controller
     participant ACC as subevent_result_cb
-    participant POP as subevent_populate_inline
+    participant POP as cs_pct_populate_inline
     participant CB as process_subevent_cb
     participant SER as serialize_run
-    participant RUST as Rust COBS (mars-bluetooth-hci)
     participant UART as cobs-uart
     CTRL->>ACC: subevent_data_available (step_data_buf)
     ACC->>ACC: accumulate step_data_buf into latest_local_steps
     Note over ACC: guarded by sem_local_steps (taken K_NO_WAIT)
     Note over ACC: no RAS — procedure counter used directly (no ranging-counter indirection)
-    ACC->>POP: subevent_populate_inline(local steps, MACs, role) (on procedure complete)
-    Note over POP: peer event synthesized with identity PCT (1.0 + 0.0j)
-    POP-->>ACC: populated local_event + peer_event
-    ACC->>CB: process_subevent_cb(local_event, peer_event)
-    CB->>SER: serialize_run(local_event, peer_event)
-    SER->>RUST: serialize_subevent_result_event(event, use_cobs=true)
-    RUST-->>SER: SerializedData_t (COBS-encoded bytes)
-    SER->>SER: copy into g_serialized then drop_bin (free Rust alloc)
-    SER->>UART: uart_tx(g_serialized, len, SYS_FOREVER_MS)
+    ACC->>POP: cs_pct_populate_inline(proc, header, local steps) (on procedure complete)
+    Note over POP: reflector PCT left zero (embedded in local tones)
+    POP-->>ACC: populated cs_pct_procedure
+    ACC->>CB: process_subevent_cb(proc)
+    CB->>SER: serialize_run(proc)
+    SER->>SER: stable-sort samples by channel; snprintf CSV (3 cols) into g_serialized
+    SER->>UART: uart_tx(g_serialized, off, SYS_FOREVER_MS)
     ACC->>ACC: give sem_local_steps and sem_data_ready
     Note over ACC: main loop wakes on sem_data_ready
 ```
@@ -431,10 +404,11 @@ explain the module asymmetry above:
 | `CONFIG_BT_RAS_RREQ` (RAS Requester — pulls ranging data) | `:24` | — | initiator pulls peer ranging data |
 | `CONFIG_BT_RAS_RRSP` (RAS Responder — serves ranging data) | — | `:41` | reflector serves ranging data |
 | `CONFIG_BT_CENTRAL` / `CONFIG_BT_SCAN` | `:17-20` (also `central.overlay`) | — | initiator scans; reflector advertises (`CONFIG_BT_PERIPHERAL`, `:11`) |
-| `CONFIG_UART_ASYNC_API` | `:26` | — | COBS TX path (async `uart_tx`) |
-| `CONFIG_NEWLIB_LIBC` | `:32` | — | provides `malloc`/`free` for the Rust allocator |
-| `CONFIG_FPU` / `CONFIG_FPU_SHARING` | `:56-57` | — | the parser writes `float` PCT values into the Rust structs |
-| `CONFIG_HEAP_MEM_POOL_SIZE=32768` / `CONFIG_MAIN_STACK_SIZE=10000` | `:59-60` | — | Rust allocator + serialize stack headroom |
+| `CONFIG_UART_ASYNC_API` | `:26` | — | CSV TX path (async `uart_tx`) |
+| `CONFIG_NEWLIB_LIBC` | `:32` | — | vestigial — the build resolves to picolibc (`CONFIG_PICOLIBC=y`); retained from the Rust-allocator era, no longer required |
+| `CONFIG_FPU` / `CONFIG_FPU_SHARING` | `:56-57` | — | the serializer computes `float` magnitude/phase (`sqrtf` / `atan2f`) |
+| `CONFIG_HEAP_MEM_POOL_SIZE=32768` / `CONFIG_MAIN_STACK_SIZE=10000` | `:59-60` | — | serialize stack headroom (the Rust allocator is gone; the heap could be shrunk) |
+| `CONFIG_CBPRINTF_FP_SUPPORT` | `:61` | — | `snprintf("%.6f")` for the CSV magnitude/phase fields |
 
 **IPT overrides (`boards/inline_pct_*.conf`).** The IPT presets layer
 `inline_pct_shared.conf` + `inline_pct_initiator.conf` (or `inline_pct_reflector.conf`)
@@ -463,30 +437,26 @@ IPT table above). The antenna/path counts themselves come from the
   registers a `uart_callback_set` handler that signals `UART_TX_DONE` /
   `UART_TX_ABORTED` via the `sem_tx_done` semaphore, and takes that semaphore
   before reusing the static `g_serialized[]` buffer, so `uart_tx()` is never
-  called while a previous transfer is still DMA-ing out of it (no on-wire
-  COBS corruption, no `-EBUSY`) (`initiator/src/serialize.c`). The procedure
+  called while a previous transfer is still DMA-ing out of it (no garbled CSV /
+  buffer reuse, no `-EBUSY`) (`initiator/src/serialize.c`). The procedure
   cadence is `min/max_procedure_interval = 10/10` connection events (200 ms at
-  the 20 ms connection interval, `initiator/src/main.c:182-183`); in steady
-  state the prior TX finishes before the next procedure completes, so the gate
-  returns immediately, and under jitter it blocks only for the brief overshoot
-  in the quiet gap between procedures. Keep this in mind before changing the
-  serialize path or the procedure cadence.
-- **`mars_bluetooth_hci.h` is checked into the crate, not regenerated during the
-  firmware build.** The crate's CMake runs only `cargo build --lib`, not the
-  header-generator bin, so the firmware consumes the pre-generated header.
-  Changing the Rust FFI surface requires regenerating the header separately before
-  the C side sees it.
-- **`rust_print_cb` is defined but currently unused by the Rust crates.**
-  `common/rust_callbacks.c:34` defines it, but only `rust_panic_cb` is declared and
-  called by the Rust side. Do not expect Rust log output to route through
-  `rust_print_cb`.
+  the 20 ms connection interval, `initiator/src/main.c`); in steady state the
+  prior TX finishes before the next procedure completes, so the gate returns
+  immediately, and under jitter it blocks only for the brief overshoot in the
+  quiet gap between procedures. Keep this in mind before changing the serialize
+  path or the procedure cadence.
+- **CSV is plain text — no framing library.** The output is `snprintf`-formatted
+  CSV (`%.6f` floats, comma-separated, `\n`-terminated, blank line between
+  procedures) written straight to `g_serialized[]` and `uart_tx()`-ed. There is
+  no COBS, no postcard, no Rust, and no external wire-format contract; a receiver
+  splits the stream on blank lines (one procedure per block) and parses each line
+  as `channel, init_mag, init_phase[, refl_mag, refl_phase]`. Float formatting
+  depends on `CONFIG_CBPRINTF_FP_SUPPORT=y` / `CONFIG_PICOLIBC_IO_FLOAT=y`.
 
 ## Out of scope
 
 - An introduction to Channel Sounding technology itself (see the
   [Bluetooth SIG Channel Sounding overview](https://www.bluetooth.com/channel-sounding-tech-overview/)).
-- Reproducing the COBS wire format or the `mars-bluetooth-hci` API (see the
-  [mars-bluetooth-hci](https://github.com/Metirionic/mars-bluetooth-hci) repo).
 - The board / preset / fragment table (see [docs/hardware.md](hardware.md)).
 - Physical antenna wiring, RF placement, and tuning (see `docs/hardware.md`).
 - The NCS-owned `cs_antenna_switch` binding internals.
@@ -500,7 +470,5 @@ IPT table above). The antenna/path counts themselves come from the
 - [Bluetooth Channel Sounding — technology overview](https://www.bluetooth.com/channel-sounding-tech-overview/)
   — what Channel Sounding is (authoritative background; the firmware implements
   CS, this doc does not re-explain the technology).
-- [mars-bluetooth-hci](https://github.com/Metirionic/mars-bluetooth-hci) — COBS
-  serialization library (authoritative wire-format source).
 - [nRF Connect SDK](https://developer.nordicsemi.com/nRF_Connect_SDK/) — the
   `bt_le_cs_*` / `bt_ras_rreq_*` APIs and the controller-owned antenna switch.
