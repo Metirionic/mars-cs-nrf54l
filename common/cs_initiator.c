@@ -51,6 +51,22 @@ static uint32_t ras_feature_bits;
 
 static struct bt_conn_le_cs_subevent_result g_latest_subevent_header;
 
+/* Saved CS configuration and procedure-enable parameters, captured at config
+ * creation / procedure enable so the CSV serializer can emit them as the
+ * per-procedure metadata block (config + configured timing). */
+static struct bt_conn_le_cs_config                    g_cs_config;
+static struct bt_conn_le_cs_procedure_enable_complete g_proc_enable;
+
+/* Actual subevent counts for the procedure whose local step data is currently
+ * being processed, accumulated in subevent_result_cb. The sem_local_steps
+ * gating keeps these stable for the RAS path through ranging_data_cb: the next
+ * procedure's first subevent is dropped (cannot take sem_local_steps, which
+ * ranging_data_cb releases only after serialization), so these retain the
+ * just-completed procedure's values through serialization. Same gating that
+ * already protects g_latest_subevent_header. */
+static uint8_t g_subevents_total;
+static uint8_t g_subevents_aborted;
+
 static uint64_t g_local_mac;
 static uint64_t g_peer_mac;
 
@@ -111,6 +127,31 @@ int32_t cs_initiator_get_local_ranging_counter(void)
 struct bt_conn_le_cs_subevent_result * cs_initiator_get_latest_subevent_header(void)
 {
     return &g_latest_subevent_header;
+}
+
+/** @brief Access the negotiated CS configuration saved at config creation. */
+const struct bt_conn_le_cs_config * cs_initiator_get_cs_config(void)
+{
+    return &g_cs_config;
+}
+
+/** @brief Access the negotiated procedure-enable parameters saved at procedure enable. */
+const struct bt_conn_le_cs_procedure_enable_complete * cs_initiator_get_procedure_enable_complete(void)
+{
+    return &g_proc_enable;
+}
+
+/** @brief Read the subevent counts for the procedure currently being processed. */
+void cs_initiator_get_subevent_counts(uint8_t * p_total, uint8_t * p_aborted)
+{
+    if (p_total != NULL)
+    {
+        *p_total = g_subevents_total;
+    }
+    if (p_aborted != NULL)
+    {
+        *p_aborted = g_subevents_aborted;
+    }
 }
 
 /** @brief Give the sem_local_steps semaphore (signal that local data buffer is available). */
@@ -190,6 +231,28 @@ static void ras_features_read_cb(struct bt_conn * p_conn, uint32_t feature_bits,
 }
 #endif  // CONFIG_BT_RAS_RREQ
 
+/** @brief Forwarder for CS config creation — saves a copy, then invokes the app hook.
+ *
+ * Wraps the app-registered config-created callback so cs_initiator.c keeps its
+ * own copy of the negotiated config (for the serializer's metadata block) in
+ * addition to whatever the app (main.c) saves via the hook.
+ */
+static void config_created_forwarder(struct bt_conn_le_cs_config * p_config)
+{
+    g_cs_config = *p_config;
+
+    if (gp_config_created_cb)
+    {
+        gp_config_created_cb(p_config);
+    }
+}
+
+/** @brief Handler for CS procedure enable — saves the negotiated timing params. */
+static void procedure_enable_handler(struct bt_conn_le_cs_procedure_enable_complete * p_params)
+{
+    g_proc_enable = *p_params;
+}
+
 /** @brief Callback for local CS subevent results — accumulates step data into net buffers. */
 static void subevent_result_cb(struct bt_conn * p_conn, struct bt_conn_le_cs_subevent_result * result)
 {
@@ -222,6 +285,19 @@ static void subevent_result_cb(struct bt_conn * p_conn, struct bt_conn_le_cs_sub
             LOG_DBG("Dropped subevent results due to unfinished ranging data request.");
             return;
         }
+
+        /* New procedure: reset the per-procedure subevent counters. */
+        g_subevents_total   = 0;
+        g_subevents_aborted = 0;
+    }
+
+    /* Count this subevent toward the current procedure's totals. Aborted
+     * subevents still fire the callback (their step data is skipped below) and
+     * are tracked separately so completed = total - aborted. */
+    g_subevents_total++;
+    if (result->header.subevent_done_status == BT_CONN_LE_CS_SUBEVENT_ABORTED)
+    {
+        g_subevents_aborted++;
     }
 
     g_latest_subevent_header.header        = result->header;
@@ -281,6 +357,9 @@ static void subevent_result_cb(struct bt_conn * p_conn, struct bt_conn_le_cs_sub
             cs_pct_populate_inline(&proc,
                                    &g_latest_subevent_header,
                                    &latest_local_steps);
+
+            proc.subevents_total   = g_subevents_total;
+            proc.subevents_aborted = g_subevents_aborted;
 
             if (gp_process_subevent_cb)
             {
@@ -395,7 +474,8 @@ int cs_initiator_start(const struct cs_initiator_config * p_config)
                            &sem_config_created,
                            &sem_cs_security_enabled);
     ble_callbacks_set_subevent_data_cb(subevent_result_cb);
-    ble_callbacks_set_config_created_cb(gp_config_created_cb);
+    ble_callbacks_set_config_created_cb(config_created_forwarder);
+    ble_callbacks_set_procedure_enable_cb(procedure_enable_handler);
 
     err = scan_init();
     if (err)
@@ -540,6 +620,8 @@ int cs_initiator_start(const struct cs_initiator_config * p_config)
 #if IS_ENABLED(CONFIG_MARS_CS_INLINE_PCT)
         /* Enable inline PCT transfer. */
         .cs_enhancements_1 = 1,
+#else
+        .cs_enhancements_1 = 0,
 #endif  // IS_ENABLED(CONFIG_MARS_CS_INLINE_PCT)
     };
 

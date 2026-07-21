@@ -31,6 +31,15 @@ typedef void (*bt_le_cs_subevent_data_available_cb)(struct bt_conn *            
  */
 typedef void (*bt_le_cs_config_created_cb)(struct bt_conn_le_cs_config * p_config);
 
+/**
+ * @brief Callback type for CS procedure enable notifications.
+ *
+ * Called with the negotiated procedure-enable parameters after CS procedures are
+ * enabled. Allows the caller to save the configured timing/subevent parameters
+ * for later use (e.g. emitting them alongside per-procedure results).
+ */
+typedef void (*bt_le_cs_procedure_enable_cb)(struct bt_conn_le_cs_procedure_enable_complete * p_params);
+
 void ble_callbacks_register(struct k_sem * p_sem_connected,
                             struct k_sem * p_sem_security,
                             struct k_sem * p_sem_remote_capabilities_obtained,
@@ -40,5 +49,7 @@ void ble_callbacks_register(struct k_sem * p_sem_connected,
 void ble_callbacks_set_subevent_data_cb(bt_le_cs_subevent_data_available_cb p_cb);
 
 void ble_callbacks_set_config_created_cb(bt_le_cs_config_created_cb p_cb);
+
+void ble_callbacks_set_procedure_enable_cb(bt_le_cs_procedure_enable_cb p_cb);
 
 #endif /* BLE_CALLBACKS_H */

@@ -160,6 +160,44 @@ struct net_buf_simple *                cs_initiator_get_local_steps(void);
 struct net_buf_simple *                cs_initiator_get_peer_steps(void);
 int32_t                                cs_initiator_get_local_ranging_counter(void);
 struct bt_conn_le_cs_subevent_result * cs_initiator_get_latest_subevent_header(void);
+
+/**
+ * @brief Access the negotiated CS configuration saved at config creation.
+ *
+ * Returns the config captured by the config-created forwarder in
+ * cs_initiator.c (a copy of the @ref bt_conn_le_cs_config delivered to
+ * config_create_cb). Used by the CSV serializer to emit the per-procedure
+ * config metadata block. Valid after CS config creation completes.
+ *
+ * @return Pointer to the saved CS config (owned by cs_initiator.c; do not free).
+ */
+const struct bt_conn_le_cs_config * cs_initiator_get_cs_config(void);
+
+/**
+ * @brief Access the negotiated procedure-enable parameters saved at procedure enable.
+ *
+ * Returns the @ref bt_conn_le_cs_procedure_enable_complete captured by the
+ * procedure-enable handler in cs_initiator.c. Used by the CSV serializer to emit
+ * the per-procedure configured-timing metadata block. Valid after CS procedures
+ * are enabled.
+ *
+ * @return Pointer to the saved procedure-enable params (owned by cs_initiator.c).
+ */
+const struct bt_conn_le_cs_procedure_enable_complete * cs_initiator_get_procedure_enable_complete(void);
+
+/**
+ * @brief Read the subevent counts for the most recently completed procedure.
+ *
+ * Returns the total and aborted subevent counts accumulated in subevent_result_cb
+ * for the procedure whose local step data is currently being processed. Safe to
+ * call from the RAS ranging-data callback (the sem_local_steps gating keeps these
+ * values stable through serialization) and from the IPT procedure-complete path.
+ *
+ * @param p_total   Output: total subevents (incl. aborted) in the procedure.
+ * @param p_aborted Output: subevents with subevent_done_status == ABORTED.
+ */
+void cs_initiator_get_subevent_counts(uint8_t * p_total, uint8_t * p_aborted);
+
 void                                   cs_initiator_give_sem_local_steps(void);
 void                                   cs_initiator_give_sem_data_ready(void);
 void                                   cs_initiator_take_sem_data_ready(void);

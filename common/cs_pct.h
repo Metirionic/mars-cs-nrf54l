@@ -52,12 +52,18 @@ struct cs_pct_sample
  * Populated by @ref cs_pct_populate (RAS) or @ref cs_pct_populate_inline (IPT);
  * consumed by @ref serialize_run. @ref count is the number of valid entries in
  * @ref samples (non-Mode-2 / invalid / truncated steps are never added).
+ *
+ * @ref subevents_total / @ref subevents_aborted carry the actual subevent count
+ * for the procedure (set by the shared subevent-result handler in cs_initiator.c
+ * from the per-subevent callbacks) and are emitted in the CSV metadata block.
  */
 struct cs_pct_procedure
 {
     struct cs_pct_sample samples[CS_PCT_MAX_SAMPLES]; /**< Valid samples, [0..count). */
     uint8_t              count;                        /**< Number of valid samples. */
     uint16_t             procedure_counter;            /**< CS procedure counter (LOG_INF only; not emitted). */
+    uint8_t              subevents_total;              /**< Total subevents in the procedure (incl. aborted). */
+    uint8_t              subevents_aborted;            /**< Subevents with subevent_done_status == ABORTED. */
 };
 
 /**

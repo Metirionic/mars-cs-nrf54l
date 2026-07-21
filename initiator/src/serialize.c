@@ -22,7 +22,10 @@
 #include <zephyr/drivers/uart.h>
 #include <zephyr/kernel.h>
 #include <zephyr/logging/log.h>
+#include <zephyr/sys/byteorder.h>
 #include <zephyr/sys/util.h>
+
+#include "cs_initiator.h"
 
 LOG_MODULE_DECLARE(app_main, LOG_LEVEL_INF);
 
@@ -75,6 +78,101 @@ static void cobs_uart_async_cb(const struct device * p_dev, struct uart_event * 
     }
 }
 
+/* Human-readable labels for the CS config enum fields, emitted in the CSV
+ * metadata block. Compact (no spaces) so each value is a single token for
+ * downstream parsing. Index-clamping mirrors config_create_cb in
+ * ble_callbacks.c. */
+static const char * mode_str[5]       = {"Unused", "1(RTT)", "2(PBR)", "3(RTT+PBR)", "Invalid"};
+static const char * role_str[3]       = {"Initiator", "Reflector", "Invalid"};
+static const char * rtt_type_str[8]   = {"AA_only", "32bit_sounding", "96bit_sounding",
+                                         "32bit_random", "64bit_random", "96bit_random",
+                                         "128bit_random", "Invalid"};
+static const char * phy_str[4]        = {"Invalid", "1M", "2M", "2M_2BT"};
+static const char * chsel_type_str[3] = {"3b", "3c", "Invalid"};
+static const char * ch3c_shape_str[3] = {"Hat", "X", "Invalid"};
+
+/**
+ * @brief Write the per-procedure CSV metadata block (4 #-prefixed lines).
+ *
+ * Emits the negotiated CS config, the configured procedure timing, and the
+ * per-procedure result (subevent counts, steps, antenna paths) as #-prefixed
+ * key=value lines ahead of this procedure's PCT data, so each captured
+ * procedure is self-describing. The config and timing come from the saved
+ * copies in cs_initiator.c (set at config creation / procedure enable); the
+ * subevent counts and antenna paths come from the shared subevent-result
+ * handler / latest subevent header.
+ *
+ * @param buf  Output buffer (g_serialized).
+ * @param cap  Capacity of @p buf.
+ * @param proc Populated procedure (procedure_counter, count, subevent counts).
+ * @return Bytes written (the offset at which the caller appends data). 0 on
+ *         snprintf failure/truncation (no metadata; caller writes from 0).
+ */
+static size_t format_procedure_metadata(uint8_t *                        buf,
+                                        size_t                          cap,
+                                        const struct cs_pct_procedure * proc)
+{
+    const struct bt_conn_le_cs_config *                    cfg = cs_initiator_get_cs_config();
+    const struct bt_conn_le_cs_procedure_enable_complete * prm = cs_initiator_get_procedure_enable_complete();
+    const struct bt_conn_le_cs_subevent_result *           hdr = cs_initiator_get_latest_subevent_header();
+
+    uint8_t mode_idx       = cfg->mode > 0 && cfg->mode < 4 ? (uint8_t)cfg->mode : 4;
+    uint8_t role_idx       = MIN(cfg->role, 2);
+    uint8_t rtt_type_idx   = MIN(cfg->rtt_type, 7);
+    uint8_t phy_idx        = cfg->cs_sync_phy > 0 && cfg->cs_sync_phy < 4 ? (uint8_t)cfg->cs_sync_phy : 0;
+    uint8_t chsel_type_idx = MIN(cfg->channel_selection_type, 2);
+    uint8_t ch3c_shape_idx = MIN(cfg->ch3c_shape, 2);
+
+    int n = snprintf((char *)buf, cap,
+        "# procedure=%u config_id=%u\n"
+        "# config: mode=%s min_main_mode_steps=%u max_main_mode_steps=%u main_mode_repetition=%u mode_0_steps=%u role=%s rtt_type=%s cs_sync_phy=%s channel_map_repetition=%u channel_selection_type=%s ch3c_shape=%s ch3c_jump=%u cs_enhancements_1=%u t_ip1_us=%u t_ip2_us=%u t_fcs_us=%u t_pm_us=%u channel_map=0x%08X%08X%04X\n"
+        "# timing: config_id=%u tone_antenna_config_selection=%u selected_tx_power=%d subevent_len_us=%u subevents_per_event=%u subevent_interval=%u event_interval=%u procedure_interval=%u procedure_count=%u max_procedure_len=%u\n"
+        "# result: subevents_total=%u subevents_aborted=%u steps=%u num_antenna_paths=%u\n",
+        (unsigned)proc->procedure_counter,
+        (unsigned)cfg->id,
+        mode_str[mode_idx],
+        (unsigned)cfg->min_main_mode_steps,
+        (unsigned)cfg->max_main_mode_steps,
+        (unsigned)cfg->main_mode_repetition,
+        (unsigned)cfg->mode_0_steps,
+        role_str[role_idx],
+        rtt_type_str[rtt_type_idx],
+        phy_str[phy_idx],
+        (unsigned)cfg->channel_map_repetition,
+        chsel_type_str[chsel_type_idx],
+        ch3c_shape_str[ch3c_shape_idx],
+        (unsigned)cfg->ch3c_jump,
+        (unsigned)cfg->cs_enhancements_1,
+        (unsigned)cfg->t_ip1_time_us,
+        (unsigned)cfg->t_ip2_time_us,
+        (unsigned)cfg->t_fcs_time_us,
+        (unsigned)cfg->t_pm_time_us,
+        (unsigned)sys_get_le32(&cfg->channel_map[6]),
+        (unsigned)sys_get_le32(&cfg->channel_map[2]),
+        (unsigned)sys_get_le16(&cfg->channel_map[0]),
+        (unsigned)prm->config_id,
+        (unsigned)prm->tone_antenna_config_selection,
+        (int)prm->selected_tx_power,
+        (unsigned)prm->subevent_len,
+        (unsigned)prm->subevents_per_event,
+        (unsigned)prm->subevent_interval,
+        (unsigned)prm->event_interval,
+        (unsigned)prm->procedure_interval,
+        (unsigned)prm->procedure_count,
+        (unsigned)prm->max_procedure_len,
+        (unsigned)proc->subevents_total,
+        (unsigned)proc->subevents_aborted,
+        (unsigned)proc->count,
+        (unsigned)hdr->header.num_antenna_paths);
+
+    if (n < 0 || (size_t)n >= cap)
+    {
+        /* snprintf failure or truncation: emit no metadata, start data at 0. */
+        return 0;
+    }
+    return (size_t)n;
+}
+
 /**
  * @brief Format a populated cs_pct_procedure as CSV and transmit over UART.
  *
@@ -86,6 +184,12 @@ static void cobs_uart_async_cb(const struct device * p_dev, struct uart_event * 
  * sqrtf(i*i + q*q) and phase = atan2f(q, i) in radians, floats as %.6f. A blank
  * line follows the block as a procedure separator. An empty procedure (count ==
  * 0) emits nothing (no lines, no separator).
+ *
+ * Ahead of each non-empty procedure's data lines, format_procedure_metadata()
+ * writes 4 #-prefixed lines (procedure header, CS config, configured timing,
+ * per-procedure result incl. subevent counts) so each captured procedure block
+ * is self-describing. A reader can recover the original pure-numeric CSV with
+ * `grep -v '^#'`.
  *
  * @param proc  Populated procedure to serialize.
  */
@@ -139,7 +243,9 @@ void serialize_run(struct cs_pct_procedure * proc)
         proc->samples[j] = key;
     }
 
-    size_t off = 0;
+    /* Per-procedure metadata block (#-prefixed) ahead of the PCT data lines. */
+    size_t off = format_procedure_metadata(g_serialized, sizeof(g_serialized), proc);
+
     for (size_t i = 0; i < proc->count; i++)
     {
         const struct cs_pct_sample * s = &proc->samples[i];

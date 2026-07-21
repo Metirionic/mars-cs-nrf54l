@@ -30,6 +30,7 @@ static struct k_sem * gp_sem_cs_security_enabled;
 
 static bt_le_cs_subevent_data_available_cb gp_subevent_data_cb;
 static bt_le_cs_config_created_cb          gp_config_created_cb;
+static bt_le_cs_procedure_enable_cb        gp_procedure_enable_cb;
 
 /**
  * @brief Get the current BLE connection reference.
@@ -79,6 +80,16 @@ void ble_callbacks_set_subevent_data_cb(bt_le_cs_subevent_data_available_cb p_cb
 void ble_callbacks_set_config_created_cb(bt_le_cs_config_created_cb p_cb)
 {
     gp_config_created_cb = p_cb;
+}
+
+/**
+ * @brief Set the callback for CS procedure enable notifications.
+ *
+ * @param p_cb  Callback function pointer.
+ */
+void ble_callbacks_set_procedure_enable_cb(bt_le_cs_procedure_enable_cb p_cb)
+{
+    gp_procedure_enable_cb = p_cb;
 }
 
 /**
@@ -276,6 +287,11 @@ static void procedure_enable_cb(struct bt_conn *                                
                 params->procedure_interval,
                 params->procedure_count,
                 params->max_procedure_len);
+
+            if (gp_procedure_enable_cb)
+            {
+                gp_procedure_enable_cb(params);
+            }
         }
         else
         {

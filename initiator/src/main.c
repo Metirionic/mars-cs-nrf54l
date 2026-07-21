@@ -100,6 +100,8 @@ static void ranging_data_cb(struct bt_conn * p_conn, uint16_t ranging_counter, i
                     cs_initiator_get_peer_steps(),
                     cs_config.role);
 
+    cs_initiator_get_subevent_counts(&proc.subevents_total, &proc.subevents_aborted);
+
     serialize_run(&proc);
 
     net_buf_simple_reset(latest_local_steps);
@@ -169,16 +171,18 @@ int main(void)
          * It supersedes the prior RAS-only defaults (procedure_phy=1M,
          * min/max_procedure_interval=20/50, max_procedure_len=1000); any
          * RAS fixture/calibration/range baseline assuming those must be
-         * re-baselined. Values match the Nordic ras_initiator sample:
-         * procedure_interval=10, subevent=16000, max_procedure_len =
-         * acl_interval_units * (interval - 1) = 0x10 * 9 = 144.
+         * re-baselined. Values match the Nordic ras_initiator sample, except
+         * subevent_len is raised to 50000 (from the sample's 16000) so all 72
+         * steps fit in a single subevent (at 16000 the controller splits into
+         * 2 subevents): procedure_interval=10, subevent=50000,
+         * max_procedure_len = acl_interval_units * (interval - 1) = 0x10 * 9 = 144.
          */
         .cs_sync_phy            = BT_CONN_LE_CS_SYNC_1M_PHY,
         .procedure_phy          = BT_LE_CS_PROCEDURE_PHY_2M,
         .min_procedure_interval = 10,
         .max_procedure_interval = 10,
-        .min_subevent_len       = 16000,
-        .max_subevent_len       = 16000,
+        .min_subevent_len       = 50000,
+        .max_subevent_len       = 50000,
         .max_procedure_len      = 144,
     };
 
