@@ -36,7 +36,7 @@ Two firmware roles plus a shared library:
 
 `initiator/CMakeLists.txt`:
 
-- Fetches the Rust crate `mars-bluetooth-hci@0.8.0` via CMake `FetchContent` (`:6-11`).
+- Fetches the Rust crate `mars-bluetooth-hci@0.12.0` via CMake `FetchContent` (`:6-11`).
 - Builds the shared `common` library as `cs_common` via `add_subdirectory(../common cs_common)` (`:22`).
 - Compiles `src/main.c`, `src/serialize.c`, and `common/rust_callbacks.c` straight into `app` (`:24-25`) — note `common/rust_callbacks.c` is compiled into `app`, not into `cs_common`.
 - Links `cs_common` (`:27`) and the Rust static archive (`:31-32`); exposes the generated Rust header to `cs_common` (`:28-29`).
@@ -89,7 +89,7 @@ itself lives in that external repo and is not reproduced here.
 
 **Fetch.** The crate is fetched by CMake `FetchContent` in
 `initiator/CMakeLists.txt:6-11` (`GIT_REPOSITORY …/mars-bluetooth-hci.git`,
-`GIT_TAG mars-bluetooth-hci@0.8.0`), then `FetchContent_MakeAvailable`. It is
+`GIT_TAG mars-bluetooth-hci@0.12.0`), then `FetchContent_MakeAvailable`. It is
 **not** a west project — `west.yml` fetches only NCS — and **not** a submodule. A
 clean build clones it from GitHub at CMake-configure time (network needed on the
 first configure; cached under `build/.../_deps` afterward).
