@@ -2,6 +2,14 @@
 All notable changes to this project will be documented in this file. See [conventional commits](https://www.conventionalcommits.org/) for commit guidelines.
 
 - - -
+## [v1.7.0](https://github.com/Metirionic/mars-cs-nrf54l/releases/tag/v1.7.0) - 2026-07-21
+#### Features
+- (**cs**) single subevent and MAIN_MODE_2_NO_SUB_MODE for RAS - ([b3a64a3](https://github.com/Metirionic/mars-cs-nrf54l/commit/b3a64a3b308dd9e869e5e1cd3ab2a44e197e92ef)) - AttilaRoemer
+#### Style
+- clang-format config_params initializer - ([d4f3316](https://github.com/Metirionic/mars-cs-nrf54l/commit/d4f3316f3c26558019575f3a26f36b31bac7afd8)) - AttilaRoemer
+
+- - -
+
 ## [v1.6.3](https://github.com/Metirionic/mars-cs-nrf54l/releases/tag/v1.6.3) - 2026-07-14
 #### Bug Fixes
 - Ezurio pin assignments - ([3d76a74](https://github.com/Metirionic/mars-cs-nrf54l/commit/3d76a747caed0427be38f4bab74c23a73e397955)) - Adrian Figueroa
