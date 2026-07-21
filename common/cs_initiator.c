@@ -529,12 +529,7 @@ int cs_initiator_start(const struct cs_initiator_config * p_config)
 
     struct bt_le_cs_create_config_params config_params = {
         .id = CS_CONFIG_ID,
-#if IS_ENABLED(CONFIG_MARS_CS_INLINE_PCT)
-        /* IPT only applies to PBR tones (Main Mode 2, no sub-mode). */
         .mode = BT_CONN_LE_CS_MAIN_MODE_2_NO_SUB_MODE,
-#else   // IS_ENABLED(CONFIG_MARS_CS_INLINE_PCT)
-        .mode = BT_CONN_LE_CS_MAIN_MODE_2_SUB_MODE_1,
-#endif  // IS_ENABLED(CONFIG_MARS_CS_INLINE_PCT)
         .min_main_mode_steps    = 2,
         .max_main_mode_steps    = 5,
         .main_mode_repetition   = 0,
