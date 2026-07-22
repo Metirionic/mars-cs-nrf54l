@@ -2,6 +2,12 @@
 All notable changes to this project will be documented in this file. See [conventional commits](https://www.conventionalcommits.org/) for commit guidelines.
 
 - - -
+## [v1.7.1](https://github.com/Metirionic/mars-cs-nrf54l/releases/tag/v1.7.1) - 2026-07-22
+#### Bug Fixes
+- (**serialize**) size g_serialized for mars-bluetooth-hci 0.12.0 mode1 growth - ([c7c69fb](https://github.com/Metirionic/mars-cs-nrf54l/commit/c7c69fb347cab38997b61a806da43213f2beefac)) - AttilaRoemer
+
+- - -
+
 ## [v1.7.0](https://github.com/Metirionic/mars-cs-nrf54l/releases/tag/v1.7.0) - 2026-07-21
 #### Features
 - (**cs**) single subevent and MAIN_MODE_2_NO_SUB_MODE for RAS - ([b3a64a3](https://github.com/Metirionic/mars-cs-nrf54l/commit/b3a64a3b308dd9e869e5e1cd3ab2a44e197e92ef)) - AttilaRoemer
