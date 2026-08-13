@@ -4,6 +4,16 @@ All notable changes to this project will be documented in this file. See [conven
 - - -
 ## [v1.8.0](https://github.com/Metirionic/mars-cs-nrf54l/releases/tag/v1.8.0) - 2026-08-13
 #### Features
+- add rf pwr config - ([8fbc71f](https://github.com/Metirionic/mars-cs-nrf54l/commit/8fbc71f08c5bc61ed38642353ee4fe927e6ada03)) - Yan Wu
+#### Bug Fixes
+- (**initiator**) recover the data path on RAS on-demand RD errors - ([510c937](https://github.com/Metirionic/mars-cs-nrf54l/commit/510c9379adea9d1c41040d54fdc5ee911787acd0)) - AttilaRoemer
+#### Style
+- clang-format include block in initiator main.c - ([fb67f25](https://github.com/Metirionic/mars-cs-nrf54l/commit/fb67f25564605913c1e14c902ead38fd18a13b46)) - AttilaRoemer
+
+- - -
+
+## [v1.8.0](https://github.com/Metirionic/mars-cs-nrf54l/releases/tag/v1.8.0) - 2026-08-13
+#### Features
 - add rf pwr config - ([d2d19d2](https://github.com/Metirionic/mars-cs-nrf54l/commit/d2d19d2017ae04583d0cde84c838385c3374d7ee)) - Yan Wu
 #### Bug Fixes
 - (**initiator**) recover the data path on RAS on-demand RD errors - ([1a9b906](https://github.com/Metirionic/mars-cs-nrf54l/commit/1a9b906fb5db5b3971e15aad909949e82703de3c)) - AttilaRoemer
