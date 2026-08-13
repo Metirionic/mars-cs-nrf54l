@@ -81,9 +81,9 @@ static void serialize_init(void)
  *
  * @return 0 on success, negative errno on error.
  */
-static int serialize_append_log_message(char * p_message)
+static int serialize_append_log_message(const char * p_message)
 {
-    SerializedData_t result = serialize_log_message(p_message, true);
+    SerializedData_t result = serialize_log_message((int8_t const *)p_message, true);
 
     if (result.p_data != NULL && result.size != 0u)
     {
@@ -147,6 +147,83 @@ static void cobs_uart_async_cb(const struct device * p_dev, struct uart_event * 
 }
 
 /**
+ * @brief Register the async UART callback once, on first use.
+ *
+ * @return 0 on success, negative errno on error.
+ */
+static int serialize_uart_init(void)
+{
+    if (g_uart_async_init_done)
+    {
+        return 0;
+    }
+
+    if (!device_is_ready(gp_cobs_uart_dev))
+    {
+        LOG_ERR("COBS UART device not ready");
+        return -ENODEV;
+    }
+
+    int cb_err = uart_callback_set(gp_cobs_uart_dev, cobs_uart_async_cb, NULL);
+    if (cb_err)
+    {
+        LOG_ERR("uart_callback_set failed (err %d)", cb_err);
+        return cb_err;
+    }
+
+    g_uart_async_init_done = true;
+    return 0;
+}
+
+/**
+ * @brief Replace the in-flight buffer with a single log frame and transmit.
+ *
+ * Called while the TX gate is held (from serialize_run's failure paths).
+ * The buffer may hold an unusable partial frame, so it is reset before
+ * appending the marker. Returns the uart_tx result: on success the UART ISR
+ * releases the gate; on failure the caller must.
+ */
+static int serialize_send_log_message_locked(const char * p_message)
+{
+    serialize_init();
+    (void)serialize_append_log_message(p_message);
+    return uart_tx(gp_cobs_uart_dev, g_serialized, g_total_written_size, SYS_FOREVER_MS);
+}
+
+int serialize_send_log_message(const char * p_message)
+{
+    int err = serialize_uart_init();
+    if (err)
+    {
+        return err;
+    }
+
+    /* Gate: same buffer-protection rule as serialize_run — do not reuse
+     * g_serialized until the previous async TX completed. In the normal
+     * fault case no transfer is in flight and this returns immediately.
+     */
+    k_sem_take(&sem_tx_done, K_FOREVER);
+
+    serialize_init();
+
+    err = serialize_append_log_message(p_message);
+    if (err)
+    {
+        k_sem_give(&sem_tx_done);
+        return err;
+    }
+
+    err = uart_tx(gp_cobs_uart_dev, g_serialized, g_total_written_size, SYS_FOREVER_MS);
+    if (err)
+    {
+        /* TX never started: release the gate so the next run does not hang. */
+        k_sem_give(&sem_tx_done);
+    }
+
+    return err;
+}
+
+/**
  * @brief Serialize populated SubeventResultEvents and transmit over UART.
  *
  * COBS-encodes two SubeventResultEvent structures (initiator + reflector)
@@ -159,20 +236,9 @@ static void cobs_uart_async_cb(const struct device * p_dev, struct uart_event * 
  */
 void serialize_run(SubeventResultEvent_t * p_local_event, SubeventResultEvent_t * p_peer_event)
 {
-    if (!g_uart_async_init_done)
+    if (serialize_uart_init())
     {
-        if (!device_is_ready(gp_cobs_uart_dev))
-        {
-            LOG_ERR("COBS UART device not ready");
-            return;
-        }
-        int cb_err = uart_callback_set(gp_cobs_uart_dev, cobs_uart_async_cb, NULL);
-        if (cb_err)
-        {
-            LOG_ERR("uart_callback_set failed (err %d)", cb_err);
-            return;
-        }
-        g_uart_async_init_done = true;
+        return;
     }
 
     /* Gate: do not reuse g_serialized until the previous async TX completed.
@@ -193,7 +259,14 @@ void serialize_run(SubeventResultEvent_t * p_local_event, SubeventResultEvent_t 
     if (err)
     {
         LOG_ERR("Failed to serialize local event (err %d)", err);
-        k_sem_give(&sem_tx_done);
+        /* Fault-path diagnostic: the buffer holds a partial event frame
+         * that would not decode on the host, so replace it with a standalone
+         * log frame (e.g. the -12 overflow from a wire-format size mismatch).
+         */
+        if (serialize_send_log_message_locked("Serialize error: local event") < 0)
+        {
+            k_sem_give(&sem_tx_done);
+        }
         return;
     }
 
@@ -201,7 +274,10 @@ void serialize_run(SubeventResultEvent_t * p_local_event, SubeventResultEvent_t 
     if (err)
     {
         LOG_ERR("Failed to serialize peer event (err %d)", err);
-        k_sem_give(&sem_tx_done);
+        if (serialize_send_log_message_locked("Serialize error: peer event") < 0)
+        {
+            k_sem_give(&sem_tx_done);
+        }
         return;
     }
 
@@ -209,7 +285,10 @@ void serialize_run(SubeventResultEvent_t * p_local_event, SubeventResultEvent_t 
     if (err)
     {
         LOG_ERR("Failed to serialize log (err %d)", err);
-        k_sem_give(&sem_tx_done);
+        if (serialize_send_log_message_locked("Serialize error: log") < 0)
+        {
+            k_sem_give(&sem_tx_done);
+        }
         return;
     }
 
@@ -220,7 +299,15 @@ void serialize_run(SubeventResultEvent_t * p_local_event, SubeventResultEvent_t 
     if (err)
     {
         LOG_ERR("UART TX failed (err %d)", err);
-        /* TX never started: release the gate so the next run does not hang. */
-        k_sem_give(&sem_tx_done);
+        /* TX never started: the buffer still holds valid frames — append a
+         * failure marker and retry once so the host sees the cause instead
+         * of a silent gap. */
+        (void)serialize_append_log_message("UART TX error");
+        err = uart_tx(gp_cobs_uart_dev, g_serialized, g_total_written_size, SYS_FOREVER_MS);
+        if (err)
+        {
+            /* Second failure: release the gate so the next run does not hang. */
+            k_sem_give(&sem_tx_done);
+        }
     }
 }
