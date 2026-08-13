@@ -9,7 +9,6 @@
  */
 
 #include <stdio.h>
-
 #include <zephyr/bluetooth/cs.h>
 #include <zephyr/drivers/gpio.h>
 #include <zephyr/kernel.h>
