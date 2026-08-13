@@ -8,6 +8,8 @@
  *  @brief Channel Sounding initiator with ranging requester sample
  */
 
+#include <stdio.h>
+
 #include <zephyr/bluetooth/cs.h>
 #include <zephyr/drivers/gpio.h>
 #include <zephyr/kernel.h>
@@ -53,6 +55,25 @@ static void ranging_data_cb(struct bt_conn * p_conn, uint16_t ranging_counter, i
     if (err)
     {
         LOG_ERR("Error when receiving ranging data with ranging counter %d (err %d)", ranging_counter, err);
+        /* Fault-path diagnostic: make the stall trigger visible on the COBS
+         * UART — the host's only window into the initiator. */
+        char msg[64];
+
+        snprintf(msg, sizeof(msg), "RD error: counter %u, err %d", ranging_counter, err);
+        (void)serialize_send_log_message(msg);
+
+        /* Mirror the mismatch/aborted recovery below: the sem was taken at
+         * the new-procedure gate in cs_initiator.c, and without this give
+         * every subsequent procedure drops at the gate — the data path (and
+         * COBS stream) stalls permanently (see #109). */
+        net_buf_simple_reset(cs_initiator_get_local_steps());
+
+        if (!(cs_initiator_get_ras_feature_bits() & RAS_FEAT_REALTIME_RD))
+        {
+            net_buf_simple_reset(cs_initiator_get_peer_steps());
+        }
+
+        cs_initiator_give_sem_local_steps();
         return;
     }
 
@@ -65,6 +86,12 @@ static void ranging_data_cb(struct bt_conn * p_conn, uint16_t ranging_counter, i
             "data counter. (peer: %u, local: %u)",
             ranging_counter,
             local_ranging_counter);
+
+        char msg[64];
+
+        snprintf(msg, sizeof(msg), "RD dropped: peer %u, local %u", ranging_counter, local_ranging_counter);
+        (void)serialize_send_log_message(msg);
+
         net_buf_simple_reset(cs_initiator_get_local_steps());
 
         if (!(cs_initiator_get_ras_feature_bits() & RAS_FEAT_REALTIME_RD))
@@ -83,6 +110,12 @@ static void ranging_data_cb(struct bt_conn * p_conn, uint16_t ranging_counter, i
     if (latest_local_steps->len == 0)
     {
         LOG_WRN("All subevents in ranging counter %u were aborted", local_ranging_counter);
+
+        char msg[64];
+
+        snprintf(msg, sizeof(msg), "All subevents aborted: counter %u", local_ranging_counter);
+        (void)serialize_send_log_message(msg);
+
         net_buf_simple_reset(latest_local_steps);
         cs_initiator_give_sem_local_steps();
 
