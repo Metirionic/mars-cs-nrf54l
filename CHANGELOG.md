@@ -4,6 +4,16 @@ All notable changes to this project will be documented in this file. See [conven
 - - -
 ## [v1.9.0](https://github.com/Metirionic/mars-cs-nrf54l/releases/tag/v1.9.0) - 2026-08-14
 #### Features
+- (**cs**) liveness watchdog — recover from abort-storms (#116) - ([aac72dd](https://github.com/Metirionic/mars-cs-nrf54l/commit/aac72dd2b2e110e4f106d6a8b0036eea02cf639c)) - AttilaRoemer
+#### Bug Fixes
+- (**cs**) TEST_NO_PET hook arms once on first pet - ([8f174c7](https://github.com/Metirionic/mars-cs-nrf54l/commit/8f174c70201dfd9711f231ed81a83d1fdd67fffe)) - AttilaRoemer
+#### Style
+- (**cs**) clang-format + cmake-format reflector - ([e070670](https://github.com/Metirionic/mars-cs-nrf54l/commit/e070670a3e52adf10b5697b97669d7cf74c02070)) - AttilaRoemer
+
+- - -
+
+## [v1.9.0](https://github.com/Metirionic/mars-cs-nrf54l/releases/tag/v1.9.0) - 2026-08-14
+#### Features
 - (**cs**) liveness watchdog — recover from abort-storms - ([afdedaa](https://github.com/Metirionic/mars-cs-nrf54l/commit/afdedaa8d5c57ef5e436e3d778a8c9b8adb46e89)) - AttilaRoemer
 
 - - -
