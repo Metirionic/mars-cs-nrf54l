@@ -276,18 +276,18 @@ static void cs_watchdog_subevent_cb(struct bt_conn * conn, struct bt_conn_le_cs_
     {
         /* Desk observability for the #116 root-cause follow-up: the LL abort
          * reasons (NO_CS_SYNC vs SCHED_CONFLICT) are invisible on the rig. */
-        LOG_WRN("CS subevent aborted: proc=%u sub_abort_reason=%u proc_abort_reason=%u "
-                "nsteps=%u abort_step=%u",
-                result->header.procedure_counter,
-                result->header.subevent_abort_reason,
-                result->header.procedure_abort_reason,
-                result->header.num_steps_reported,
-                result->header.abort_step);
+        LOG_WRN(
+            "CS subevent aborted: proc=%u sub_abort_reason=%u proc_abort_reason=%u "
+            "nsteps=%u abort_step=%u",
+            result->header.procedure_counter,
+            result->header.subevent_abort_reason,
+            result->header.procedure_abort_reason,
+            result->header.num_steps_reported,
+            result->header.abort_step);
         return;
     }
 
-    if (result->header.subevent_done_status == BT_CONN_LE_CS_SUBEVENT_COMPLETE &&
-        result->header.num_steps_reported > 0)
+    if (result->header.subevent_done_status == BT_CONN_LE_CS_SUBEVENT_COMPLETE && result->header.num_steps_reported > 0)
     {
         cs_watchdog_pet();
     }
