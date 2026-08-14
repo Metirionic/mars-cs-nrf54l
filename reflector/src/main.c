@@ -23,6 +23,7 @@
 #include <zephyr/sys/reboot.h>
 
 #include "antenna.h"
+#include "cs_watchdog.h"
 
 LOG_MODULE_REGISTER(app_main, LOG_LEVEL_INF);
 
@@ -249,6 +250,72 @@ BT_CONN_CB_DEFINE(conn_cb) = {
     .le_cs_procedure_enable_complete         = procedure_enable_cb,
 };
 
+/** @brief Fallback reboot if the watchdog's forced disconnect never completes. */
+static void reboot_fallback_handler(struct k_timer * timer)
+{
+    ARG_UNUSED(timer);
+
+    sys_reboot(SYS_REBOOT_COLD);
+}
+
+static K_TIMER_DEFINE(reboot_fallback, reboot_fallback_handler, NULL);
+
+/**
+ * @brief CS liveness watchdog pet source (#116).
+ *
+ * Pets only on subevents that COMPLETED with step data — the mirror of the
+ * initiator's step accumulation (aborted subevents are discarded there). The
+ * RRSP's RD-ready notify is NOT a liveness signal: it fires on procedures
+ * whose subevents all aborted, which is exactly the storm signature.
+ */
+static void cs_watchdog_subevent_cb(struct bt_conn * conn, struct bt_conn_le_cs_subevent_result * result)
+{
+    ARG_UNUSED(conn);
+
+    if (result->header.subevent_done_status == BT_CONN_LE_CS_SUBEVENT_ABORTED)
+    {
+        /* Desk observability for the #116 root-cause follow-up: the LL abort
+         * reasons (NO_CS_SYNC vs SCHED_CONFLICT) are invisible on the rig. */
+        LOG_WRN("CS subevent aborted: proc=%u sub_abort_reason=%u proc_abort_reason=%u "
+                "nsteps=%u abort_step=%u",
+                result->header.procedure_counter,
+                result->header.subevent_abort_reason,
+                result->header.procedure_abort_reason,
+                result->header.num_steps_reported,
+                result->header.abort_step);
+        return;
+    }
+
+    if (result->header.subevent_done_status == BT_CONN_LE_CS_SUBEVENT_COMPLETE &&
+        result->header.num_steps_reported > 0)
+    {
+        cs_watchdog_pet();
+    }
+}
+
+BT_CONN_CB_DEFINE(cs_watchdog_conn_cb) = {
+    .le_cs_subevent_data_available = cs_watchdog_subevent_cb,
+};
+
+/**
+ * @brief Watchdog recovery: force disconnect (reboots both boards) or reboot.
+ *
+ * Runs on the system workqueue. A successful disconnect lets the existing
+ * disconnected_cb -> sys_reboot path recover the pair; the 2 s fallback timer
+ * covers a wedged controller that never completes the HCI disconnect command
+ * (bt_hci_disconnect has no timeout).
+ */
+static void cs_watchdog_recovery_cb(void)
+{
+    if (gp_connection != NULL && bt_conn_disconnect(gp_connection, BT_HCI_ERR_LOCALHOST_TERM_CONN) == 0)
+    {
+        k_timer_start(&reboot_fallback, K_MSEC(2000), K_NO_WAIT);
+        return;
+    }
+
+    sys_reboot(SYS_REBOOT_COLD);
+}
+
 int main(void)
 {
     int err;
@@ -263,6 +330,10 @@ int main(void)
         LOG_ERR("Bluetooth init failed (err %d)", err);
         return 0;
     }
+
+    /* CS liveness watchdog (#116): inert until the first completed subevent
+     * with step data pets it, so the handshake never false-triggers it. */
+    cs_watchdog_init(cs_watchdog_recovery_cb);
 
     if (IS_ENABLED(CONFIG_BT_SETTINGS))
     {

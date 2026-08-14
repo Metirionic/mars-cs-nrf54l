@@ -8,6 +8,7 @@ add_library(
   ble_scanning.c
   cs_initiator.c
   cs_step_parse.c
+  cs_watchdog.c
   subevent.c
   addr_utils.c)
 target_include_directories(cs_common PUBLIC ${CMAKE_CURRENT_SOURCE_DIR})
