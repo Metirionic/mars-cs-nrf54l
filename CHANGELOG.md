@@ -2,6 +2,12 @@
 All notable changes to this project will be documented in this file. See [conventional commits](https://www.conventionalcommits.org/) for commit guidelines.
 
 - - -
+## [v1.9.0](https://github.com/Metirionic/mars-cs-nrf54l/releases/tag/v1.9.0) - 2026-08-14
+#### Features
+- (**cs**) liveness watchdog — recover from abort-storms - ([afdedaa](https://github.com/Metirionic/mars-cs-nrf54l/commit/afdedaa8d5c57ef5e436e3d778a8c9b8adb46e89)) - AttilaRoemer
+
+- - -
+
 ## [v1.8.0](https://github.com/Metirionic/mars-cs-nrf54l/releases/tag/v1.8.0) - 2026-08-13
 #### Features
 - add rf pwr config - ([8fbc71f](https://github.com/Metirionic/mars-cs-nrf54l/commit/8fbc71f08c5bc61ed38642353ee4fe927e6ada03)) - Yan Wu
