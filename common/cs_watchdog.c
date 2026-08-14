@@ -51,8 +51,16 @@ void cs_watchdog_pet(void)
 
     if (IS_ENABLED(CONFIG_MARS_CS_LIVENESS_WATCHDOG_TEST_NO_PET))
     {
-        /* Test hook (#116 desk bring-up): never pet, so the watchdog fires
-         * deterministically ~timeout after the first healthy procedure. */
+        /* Test hook (#116 desk bring-up): arm once on the first pet, never
+         * re-arm — the watchdog fires ~timeout after the first healthy
+         * procedure, deterministically exercising the recovery loop. */
+        static bool armed;
+
+        if (!armed)
+        {
+            armed = true;
+            k_timer_start(&watchdog_timer, K_MSEC(CONFIG_MARS_CS_LIVENESS_WATCHDOG_TIMEOUT_MS), K_NO_WAIT);
+        }
         return;
     }
 
