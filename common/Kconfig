@@ -25,4 +25,38 @@ config MARS_CS_INLINE_PCT
 	  configuration is forced to BT_CONN_LE_CS_MAIN_MODE_2_NO_SUB_MODE
 	  in this mode.
 
+config MARS_CS_LIVENESS_WATCHDOG
+	bool "Enable CS liveness watchdog (forced disconnect + reboot on stall)"
+	default y
+	depends on BT_CHANNEL_SOUNDING
+	help
+	  Recover from permanent CS abort-storms (#116) where every procedure's
+	  subevents abort at the LL while BLE + RAS stay healthy (empty Ranging
+	  Data frames keep flowing, so frame flow is not a liveness signal).
+	  The watchdog is petted once per completed procedure WITH step data
+	  (RAS: ranging_data_cb healthy path; IPT: process_subevent_cb;
+	  reflector: COMPLETE subevents with steps). On timeout it logs a
+	  banner and forces a disconnect via the registered recovery callback,
+	  which reboots both boards through the existing reboot-on-disconnect
+	  path and re-runs the full handshake.
+
+config MARS_CS_LIVENESS_WATCHDOG_TIMEOUT_MS
+	int "CS liveness watchdog timeout in ms"
+	default 5000
+	depends on MARS_CS_LIVENESS_WATCHDOG
+	help
+	  Maximum time without a completed procedure with step data before the
+	  watchdog forces recovery. The healthy procedure cadence is ~200 ms
+	  (25x headroom at the default); the watchdog is inert until the first
+	  pet, so handshake gaps never false-trigger it.
+
+config MARS_CS_LIVENESS_WATCHDOG_TEST_NO_PET
+	bool "Never pet the CS liveness watchdog (test hook)"
+	default n
+	depends on MARS_CS_LIVENESS_WATCHDOG
+	help
+	  Deterministic recovery-loop test for desk bring-up: the watchdog
+	  never pets and fires ~timeout after the first healthy procedure.
+	  Do not enable in production builds.
+
 endmenu

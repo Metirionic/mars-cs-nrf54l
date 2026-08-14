@@ -13,6 +13,7 @@
 #include <zephyr/drivers/gpio.h>
 #include <zephyr/kernel.h>
 #include <zephyr/logging/log.h>
+#include <zephyr/sys/reboot.h>
 
 #if !defined(CONFIG_MARS_CS_INLINE_PCT)
 #include <bluetooth/services/ras.h>
@@ -20,7 +21,9 @@
 
 #include "addr_utils.h"
 #include "antenna.h"
+#include "ble_callbacks.h"
 #include "cs_initiator.h"
+#include "cs_watchdog.h"
 #include "serialize.h"
 #include "subevent.h"
 
@@ -38,6 +41,10 @@ static struct bt_conn_le_cs_config cs_config;
  */
 static void process_subevent_cb(SubeventResultEvent_t * p_local_event, SubeventResultEvent_t * p_peer_event)
 {
+    /* CS liveness watchdog (#116): the shared skeleton only calls this on
+     * procedures with step data, so this is the IPT "completed procedure". */
+    cs_watchdog_pet();
+
     serialize_run(p_local_event, p_peer_event);
 }
 #else
@@ -125,6 +132,11 @@ static void ranging_data_cb(struct bt_conn * p_conn, uint16_t ranging_counter, i
         return;
     }
 
+    /* CS liveness watchdog (#116): this is the "completed procedure with step
+     * data" signal. The len==0 branch above deliberately does NOT pet — during
+     * the abort-storm RDs keep arriving at 5/s but never reach this point. */
+    cs_watchdog_pet();
+
     static SubeventResultEvent_t local_event;
     static SubeventResultEvent_t peer_event;
 
@@ -178,6 +190,40 @@ static void config_create_hook(struct bt_conn_le_cs_config * config)
     cs_config = *config;
 }
 
+/** @brief Fallback reboot if the watchdog's forced disconnect never completes. */
+static void reboot_fallback_handler(struct k_timer * timer)
+{
+    ARG_UNUSED(timer);
+
+    sys_reboot(SYS_REBOOT_COLD);
+}
+
+static K_TIMER_DEFINE(reboot_fallback, reboot_fallback_handler, NULL);
+
+/**
+ * @brief CS liveness watchdog recovery (#116) — runs on the system workqueue.
+ *
+ * Emits a COBS banner (the host's only window into the initiator), then
+ * forces a disconnect so the existing disconnected_cb -> sys_reboot path
+ * recovers both boards. The 2 s fallback timer covers a wedged controller
+ * that never completes the HCI disconnect command (bt_hci_disconnect has no
+ * timeout); a failed disconnect means the link is already gone, so reboot.
+ */
+static void cs_watchdog_recovery_cb(void)
+{
+    (void)serialize_send_log_message("CS watchdog: no completed procedure, forcing disconnect");
+
+    struct bt_conn * conn = ble_callbacks_get_connection();
+
+    if (conn != NULL && bt_conn_disconnect(conn, BT_HCI_ERR_LOCALHOST_TERM_CONN) == 0)
+    {
+        k_timer_start(&reboot_fallback, K_MSEC(2000), K_NO_WAIT);
+        return;
+    }
+
+    sys_reboot(SYS_REBOOT_COLD);
+}
+
 #define RF_SWITCH_SUPPLY_GPIO_NODE DT_NODELABEL(gpio2)
 #define RF_SWITCH_SUPPLY_GPIO_PIN  5
 
@@ -207,6 +253,10 @@ int main(void)
         LOG_ERR("Bluetooth init failed (err %d)", err);
         return 0;
     }
+
+    /* CS liveness watchdog (#116): inert until the first completed procedure
+     * with step data pets it, so the handshake never false-triggers it. */
+    cs_watchdog_init(cs_watchdog_recovery_cb);
 
 #if IS_ENABLED(CONFIG_MARS_CS_INLINE_PCT)
     cs_initiator_set_process_subevent_cb(process_subevent_cb);
