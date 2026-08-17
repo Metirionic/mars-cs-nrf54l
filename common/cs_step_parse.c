@@ -208,6 +208,108 @@ static bool fill_mode2_step(struct cs_step_parse_context *  ctx,
     return true;
 }
 
+/**
+ * @brief Fill one Mode-0 step into both the local and peer SubeventResultEvents.
+ *
+ * Mirrors fill_mode2_step() for the calibration steps that precede a
+ * subevent's ranging steps. The controller reports Mode-0 step data in one of
+ * two HCI formats selected by role, distinguished by data_len: the 5-byte
+ * initiator format (adds the measured frequency offset) or the 3-byte
+ * reflector format. Each event's kind is derived from the data_len of its own
+ * step data, so the function is role-agnostic on the RAS path (local
+ * initiator format, peer reflector format when the local role is initiator).
+ *
+ * When @p p_peer_step is NULL the IPT semantics apply: the peer (reflector)
+ * event is synthesized as a zeroed Mode-0 reflector step. The reflector
+ * carries no frequency offset on the wire, and in IPT mode no peer packet
+ * quality is measured, so a zeroed struct mirrors the wire shape of a real
+ * reflector without inventing data (consistent with fill_mode2_step()'s
+ * identity-PCT synthesis for the peer).
+ *
+ * Guards against malformed step data: a data_len that matches neither HCI
+ * format is logged and skipped (step_index is not advanced).
+ *
+ * @param p_ctx         Parse context (holds the output events).
+ * @param p_local_step  Local (initiator) HCI subevent step (mode-0).
+ * @param p_peer_step   Peer (reflector) HCI subevent step, or NULL for IPT.
+ *
+ * @return true if iteration should continue, false if the step array is full
+ *         (step_index >= 160) and the caller should stop walking steps.
+ */
+static bool fill_mode0_step(struct cs_step_parse_context *  ctx,
+                            struct bt_le_cs_subevent_step * p_local_step,
+                            struct bt_le_cs_subevent_step * p_peer_step)
+{
+    if (ctx->step_index >= 160)
+    {
+        return false;
+    }
+
+    const size_t local_data_len = p_local_step->data_len;
+    if (local_data_len != sizeof(struct bt_hci_le_cs_step_data_mode_0_initiator) &&
+        local_data_len != sizeof(struct bt_hci_le_cs_step_data_mode_0_reflector))
+    {
+        LOG_WRN("Mode-0 step data truncated: data_len=%u (expected %zu or %zu)",
+                (unsigned int)local_data_len,
+                sizeof(struct bt_hci_le_cs_step_data_mode_0_initiator),
+                sizeof(struct bt_hci_le_cs_step_data_mode_0_reflector));
+        return true;
+    }
+
+    for (size_t event_index = 0; event_index < 2; event_index++)
+    {
+        SubeventResultEvent_t *               p_event    = (event_index == 0u) ? ctx->p_local_event : ctx->p_peer_event;
+        const struct bt_le_cs_subevent_step * p_src_step = (event_index == 0u) ? p_local_step : p_peer_step;
+        Step_t *                              p_step     = &p_event->steps.idx[ctx->step_index];
+
+        p_step->mode    = p_local_step->mode;
+        p_step->channel = p_local_step->channel;
+
+        Mode0Data_t * p_mode0 = &p_step->info.mode0;
+        memset(p_mode0, 0, sizeof(*p_mode0));
+
+        if (p_src_step != NULL && p_src_step->data_len == sizeof(struct bt_hci_le_cs_step_data_mode_0_initiator))
+        {
+            /* Real initiator-format step data (RAS path: the local event, or
+             * the peer event when the local role is reflector). */
+            p_step->info.kind = MODE_ROLE_SPECIFIC_INFO_KIND_MODE0_INITIATOR;
+
+            const struct bt_hci_le_cs_step_data_mode_0_initiator * step_data =
+                (const struct bt_hci_le_cs_step_data_mode_0_initiator *)p_src_step->data;
+
+            p_mode0->packet_quality.access_address_check_result = step_data->packet_quality_aa_check;
+            p_mode0->packet_quality.payload_bit_error_count     = step_data->packet_quality_bit_errors;
+            p_mode0->packet_received_signal_strength_indicator  = (int8_t)step_data->packet_rssi;
+            p_mode0->packet_antenna                             = step_data->packet_antenna;
+            /* Passed through raw: the 0xC000 "not available" sentinel is a
+             * decode-side concern (the crate's to_ppm() maps it). */
+            p_mode0->measured_freq_offset = step_data->measured_freq_offset;
+        }
+        else if (p_src_step != NULL && p_src_step->data_len == sizeof(struct bt_hci_le_cs_step_data_mode_0_reflector))
+        {
+            /* Real reflector-format step data (RAS path: the peer event when
+             * the local role is initiator). No frequency offset on the wire. */
+            p_step->info.kind = MODE_ROLE_SPECIFIC_INFO_KIND_MODE0_REFLECTOR;
+
+            const struct bt_hci_le_cs_step_data_mode_0_reflector * step_data =
+                (const struct bt_hci_le_cs_step_data_mode_0_reflector *)p_src_step->data;
+
+            p_mode0->packet_quality.access_address_check_result = step_data->packet_quality_aa_check;
+            p_mode0->packet_quality.payload_bit_error_count     = step_data->packet_quality_bit_errors;
+            p_mode0->packet_received_signal_strength_indicator  = (int8_t)step_data->packet_rssi;
+            p_mode0->packet_antenna                             = step_data->packet_antenna;
+        }
+        else
+        {
+            /* IPT: synthesize a zeroed reflector step (no peer packet data). */
+            p_step->info.kind = MODE_ROLE_SPECIFIC_INFO_KIND_MODE0_REFLECTOR;
+        }
+    }
+
+    ctx->step_index++;
+    return true;
+}
+
 #if IS_ENABLED(CONFIG_BT_RAS_RREQ)
 /** @brief Callback that extracts the antenna path count from the ranging header. */
 static bool process_ranging_header(struct ras_ranging_header * p_ranging_header, void * p_user_data)
@@ -226,7 +328,7 @@ static bool process_ranging_header(struct ras_ranging_header * p_ranging_header,
     return true;
 }
 
-/** @brief Callback that converts HCI Mode-2 step data into SubeventResultEvent fields. */
+/** @brief Callback that converts HCI Mode-2 and Mode-0 step data into SubeventResultEvent fields. */
 static bool process_step_data(struct bt_le_cs_subevent_step * p_local_step,
                               struct bt_le_cs_subevent_step * p_peer_step,
                               void *                          p_user_data)
@@ -237,6 +339,12 @@ static bool process_step_data(struct bt_le_cs_subevent_step * p_local_step,
     {
         return fill_mode2_step(p_context, p_local_step, p_peer_step);
     }
+    /* Mode-0 calibration steps. Zephyr defines no BT_HCI_OP_LE_CS_MAIN_MODE_0;
+     * the HCI step mode byte is 0x00 for Mode 0. */
+    if (p_local_step->mode == 0)
+    {
+        return fill_mode0_step(p_context, p_local_step, p_peer_step);
+    }
 
     return true;
 }
@@ -245,7 +353,7 @@ static bool process_step_data(struct bt_le_cs_subevent_step * p_local_step,
  * @brief Parse HCI step data and populate SubeventResultEvent step fields.
  *
  * Calls bt_ras_rreq_rd_subevent_data_parse with internal callbacks that
- * convert HCI Mode-2 step data into SubeventResultEvent fields.
+ * convert HCI Mode-2 and Mode-0 step data into SubeventResultEvent fields.
  * Sets step_count on both events after parsing.
  *
  * @param p_local_event  Output: initiator event to populate step data into.
@@ -307,6 +415,17 @@ static void inline_process_step_mode2(struct cs_step_parse_context * ctx, struct
     (void)fill_mode2_step(ctx, local_step, NULL);
 }
 
+/** @brief Fill one Mode-0 step into both events for the inline (IPT) path.
+ *
+ * Delegates to fill_mode0_step() with a NULL peer step, which applies IPT
+ * semantics (real initiator fields on the local event, a zeroed reflector
+ * step synthesized on the peer event).
+ */
+static void inline_process_step_mode0(struct cs_step_parse_context * ctx, struct bt_le_cs_subevent_step * local_step)
+{
+    (void)fill_mode0_step(ctx, local_step, NULL);
+}
+
 void cs_step_parse_inline(SubeventResultEvent_t * p_local_event,
                           SubeventResultEvent_t * p_peer_event,
                           struct net_buf_simple * p_local_steps,
@@ -364,6 +483,12 @@ void cs_step_parse_inline(SubeventResultEvent_t * p_local_event,
         if (local_step.mode == BT_HCI_OP_LE_CS_MAIN_MODE_2)
         {
             inline_process_step_mode2(&ctx, &local_step);
+        }
+        else if (local_step.mode == 0)
+        {
+            /* Mode-0 calibration step (HCI mode byte 0x00; Zephyr has no
+             * BT_HCI_OP_LE_CS_MAIN_MODE_0 define). */
+            inline_process_step_mode0(&ctx, &local_step);
         }
 
         net_buf_simple_pull(p_local_steps, local_step.data_len);
