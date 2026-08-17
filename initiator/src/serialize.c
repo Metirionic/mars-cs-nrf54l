@@ -22,16 +22,19 @@ LOG_MODULE_DECLARE(app_main, LOG_LEVEL_INF);
 
 /** @brief Max COBS-serialized size of ONE SubeventResultEvent (160 steps).
  *
- * Sized for mars-bluetooth-hci 0.12.0: ModeRoleSpecificInfo gained a mode1
- * field (~24 B/step: 16 B of fixed-f32 packet phase-correction terms + a
- * RoundTripTime packet/timing/bool) that postcard serializes for every step
- * even when kind == Mode2 (left zeroed by the firmware, which only fills
- * mode2). Measured per-event COBS size = 12,502 B (host harness, 160 zeroed
- * Mode-2 steps); 13,500 B adds margin for real (non-zero) step data. 0.8.0 was
- * ~8,640 B/event with no mode1 field. g_serialized below holds two events
- * plus a log message plus 1 KB margin.
+ * Sized for mars-bluetooth-hci 0.13.2: ModeRoleSpecificInfo serializes a
+ * mode0 field (quality, RSSI, antenna, measured_freq_offset u16) on EVERY
+ * step alongside the mode1/mode2 fields, so sizes now depend on values
+ * (postcard varints: the freq offset is 1 B when 0, 3 B for the 0xC000
+ * sentinel). Measured per-event COBS sizes (host harness, 160 steps):
+ *   13,302 B  zeroed (lower bound)
+ *   13,955 B  realistic FW population (real MACs, populated mode0 + mode2)
+ *   13,968 B  worst case (every varint maximized)
+ * 14,000 B keeps headroom over the measured worst case; g_serialized below
+ * holds two events plus a log message plus ~1 KB margin. 0.8.0 was ~8,640
+ * B/event with no mode1 field; 0.12.0 was 12,502 B/event zeroed.
  */
-#define CHUNK_SIZE 13500u
+#define CHUNK_SIZE 14000u
 
 /** @brief TX buffer for COBS-encoded serialized data. Leave margin for log messages. */
 static uint8_t g_serialized[CHUNK_SIZE * 2u + 1000u];

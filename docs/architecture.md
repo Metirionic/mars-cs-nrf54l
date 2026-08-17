@@ -207,7 +207,7 @@ End-to-end on the initiator:
    (`:206`) writes the COBS-encoded bytes to the UART. The UART device is acquired
    once at init: `gp_cobs_uart_dev = DEVICE_DT_GET(DT_CHOSEN(cobs_uart))` (`:31`).
    The async UART API is enabled (`CONFIG_UART_ASYNC_API=y`, `initiator/prj.conf:26`);
-   `g_serialized` is `18360` bytes (`CHUNK_SIZE*2 + 1000`, `:24,27`).
+   `g_serialized` is `29000` bytes (`CHUNK_SIZE*2 + 1000`, `serialize.c:37,40`).
 
 ```mermaid
 sequenceDiagram
