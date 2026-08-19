@@ -2,6 +2,14 @@
 All notable changes to this project will be documented in this file. See [conventional commits](https://www.conventionalcommits.org/) for commit guidelines.
 
 - - -
+## [v1.10.0](https://github.com/Metirionic/mars-cs-nrf54l/releases/tag/v1.10.0) - 2026-08-19
+#### Features
+- (**cs**) populate Mode-0 steps in cs_step_parse (RAS + IPT) - ([5d81119](https://github.com/Metirionic/mars-cs-nrf54l/commit/5d8111915fcda69031bc41f4c5a2af1759720481)) - AttilaRoemer
+#### Bug Fixes
+- (**serialize**) size g_serialized for mars-bluetooth-hci 0.13.2 mode0 growth - ([87c2176](https://github.com/Metirionic/mars-cs-nrf54l/commit/87c2176dae681735775a6e4350ede40604572101)) - AttilaRoemer
+
+- - -
+
 ## [v1.9.0](https://github.com/Metirionic/mars-cs-nrf54l/releases/tag/v1.9.0) - 2026-08-14
 #### Features
 - (**cs**) liveness watchdog — recover from abort-storms (#116) - ([aac72dd](https://github.com/Metirionic/mars-cs-nrf54l/commit/aac72dd2b2e110e4f106d6a8b0036eea02cf639c)) - AttilaRoemer
