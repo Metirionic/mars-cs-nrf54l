@@ -2,6 +2,12 @@
 All notable changes to this project will be documented in this file. See [conventional commits](https://www.conventionalcommits.org/) for commit guidelines.
 
 - - -
+## [v1.10.1](https://github.com/Metirionic/mars-cs-nrf54l/releases/tag/v1.10.1) - 2026-08-20
+#### Bug Fixes
+- (**initiator**) widen connection interval to 30 ms to stop CS NO_CS_SYNC abort storm - ([058beb1](https://github.com/Metirionic/mars-cs-nrf54l/commit/058beb1ff7b4f0be3ec52866fd54ebd5f28dc7a3)) - AttilaRoemer
+
+- - -
+
 ## [v1.10.0](https://github.com/Metirionic/mars-cs-nrf54l/releases/tag/v1.10.0) - 2026-08-19
 #### Features
 - (**cs**) populate Mode-0 steps in cs_step_parse (RAS + IPT) - ([5d81119](https://github.com/Metirionic/mars-cs-nrf54l/commit/5d8111915fcda69031bc41f4c5a2af1759720481)) - AttilaRoemer
