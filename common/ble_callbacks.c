@@ -16,6 +16,8 @@
 #include <zephyr/sys/byteorder.h>
 #include <zephyr/sys/reboot.h>
 
+#include "antenna.h"
+
 #define CON_STATUS_LED DK_LED1
 
 LOG_MODULE_DECLARE(app_main, LOG_LEVEL_INF);
@@ -132,11 +134,11 @@ static void disconnected_cb(struct bt_conn * p_conn, uint8_t reason)
 static void remote_capabilities_cb(struct bt_conn * p_conn, uint8_t status, struct bt_conn_le_cs_capabilities * params)
 {
     ARG_UNUSED(p_conn);
-    ARG_UNUSED(params);
 
     if (status == BT_HCI_ERR_SUCCESS)
     {
-        LOG_INF("CS capability exchange completed.");
+        antenna_set_peer_count(params->num_antennas_supported);
+        LOG_INF("CS capability exchange completed. (peer antennas: %u)", params->num_antennas_supported);
         k_sem_give(gp_sem_remote_capabilities_obtained);
     }
     else

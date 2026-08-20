@@ -239,18 +239,28 @@ selects the carrier. See [docs/build-from-source.md](build-from-source.md) for t
 
 ### Tone-antenna configuration (supplementary)
 
-The firmware maps the Kconfig counts to a BLE CS tone-antenna configuration
+The firmware maps the antenna counts to a BLE CS tone-antenna configuration
 (`An_Bm`) in `common/antenna.c`. The lookup is **role-aware**:
-`antenna_get_config_for_role(role)` first derives a peer antenna count
-`peer = CONFIG_BT_CTLR_SDC_CS_MAX_ANTENNA_PATHS /
-CONFIG_BT_CTLR_SDC_CS_NUM_ANTENNAS` (integer division) — the antennas it
-assumes the peer device has — then indexes `ANTENNA_MAPPING[dev_a - 1][dev_b - 1]`
-with the local and peer counts swapped by role:
+`antenna_get_config_for_role(role)` takes the local antenna count from
+`CONFIG_BT_CTLR_SDC_CS_NUM_ANTENNAS` and the peer count from the CS
+capabilities exchange — `remote_capabilities_cb` stores the peer's
+`num_antennas_supported` via `antenna_set_peer_count()` — then indexes
+`ANTENNA_MAPPING[dev_a - 1][dev_b - 1]` with the local and peer counts swapped
+by role:
 
 - **Initiator** — `antenna_get_config_from_ab(local, peer)`:
   `ANTENNA_MAPPING[NUM_ANTENNAS - 1][peer - 1]`
 - **Reflector** — `antenna_get_config_from_ab(peer, local)`:
   `ANTENNA_MAPPING[peer - 1][NUM_ANTENNAS - 1]`
+
+Before the capabilities exchange completes (or if it fails), the peer count
+falls back to the heuristic `peer = CONFIG_BT_CTLR_SDC_CS_MAX_ANTENNA_PATHS /
+CONFIG_BT_CTLR_SDC_CS_NUM_ANTENNAS` (integer division). For a **matched** pair
+the negotiated count equals the heuristic, so the table below still holds; for
+a **mismatched** pair the negotiated count wins — e.g. an Ezurio A2/4
+initiator paired with a DK A1/4 reflector negotiates `A2_B1` on both sides
+(initiator `preferred_peer_antenna = 1`, reflector `= 3`), not the heuristic's
+`A2_B2` / `A4_B1` (which the controller rejects with `0x0d`).
 
 The same `(antennas, paths)` config can therefore resolve to a different `An_Bm`
 depending on which role runs it — the local and peer counts land in opposite

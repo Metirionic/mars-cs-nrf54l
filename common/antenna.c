@@ -30,13 +30,38 @@ static const uint8_t ANTENNA_MAPPING[4][4] = {
      BT_LE_CS_TONE_ANTENNA_CONFIGURATION_A1_B1},
 };
 
+/** @brief Peer antenna count from the CS capabilities exchange; 0 = not yet negotiated. */
+static uint8_t g_peer_antenna_count;
+
+/**
+ * @brief Store the peer antenna count negotiated via the CS capabilities exchange.
+ *
+ * Values outside the valid 1..4 range are ignored, leaving the heuristic
+ * fallback in effect.
+ *
+ * @param peer_antenna_count Number of antennas on the peer device.
+ */
+void antenna_set_peer_count(uint8_t peer_antenna_count)
+{
+    if (peer_antenna_count >= 1 && peer_antenna_count <= 4)
+    {
+        g_peer_antenna_count = peer_antenna_count;
+    }
+}
+
 /**
  * @brief Get the number of antennas expected on the peer device.
  *
- * @return Peer antenna count derived from the configured antenna paths.
+ * @return Negotiated peer antenna count, or the configured antenna paths
+ *         heuristic when the capabilities exchange has not completed.
  */
 static uint8_t antenna_get_peer_count(void)
 {
+    if (g_peer_antenna_count != 0)
+    {
+        return g_peer_antenna_count;
+    }
+
     return CONFIG_BT_CTLR_SDC_CS_MAX_ANTENNA_PATHS / CONFIG_BT_CTLR_SDC_CS_NUM_ANTENNAS;
 }
 

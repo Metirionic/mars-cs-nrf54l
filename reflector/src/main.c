@@ -92,11 +92,11 @@ static void disconnected_cb(struct bt_conn * conn, uint8_t reason)
 static void remote_capabilities_cb(struct bt_conn * conn, uint8_t status, struct bt_conn_le_cs_capabilities * params)
 {
     ARG_UNUSED(conn);
-    ARG_UNUSED(params);
 
     if (status == BT_HCI_ERR_SUCCESS)
     {
-        LOG_INF("CS capability exchange completed.");
+        antenna_set_peer_count(params->num_antennas_supported);
+        LOG_INF("CS capability exchange completed. (peer antennas: %u)", params->num_antennas_supported);
     }
     else
     {
