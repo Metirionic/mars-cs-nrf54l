@@ -2,6 +2,12 @@
 All notable changes to this project will be documented in this file. See [conventional commits](https://www.conventionalcommits.org/) for commit guidelines.
 
 - - -
+## [v1.10.2](https://github.com/Metirionic/mars-cs-nrf54l/releases/tag/v1.10.2) - 2026-08-20
+#### Bug Fixes
+- (**cs**) use negotiated peer antenna count for CS antenna config (#105) - ([cd2bd97](https://github.com/Metirionic/mars-cs-nrf54l/commit/cd2bd972fc38a8a641fa2d707072f201358bbc56)) - AttilaRoemer
+
+- - -
+
 ## [v1.10.1](https://github.com/Metirionic/mars-cs-nrf54l/releases/tag/v1.10.1) - 2026-08-20
 #### Bug Fixes
 - (**initiator**) widen connection interval to 30 ms to stop CS NO_CS_SYNC abort storm - ([058beb1](https://github.com/Metirionic/mars-cs-nrf54l/commit/058beb1ff7b4f0be3ec52866fd54ebd5f28dc7a3)) - AttilaRoemer
