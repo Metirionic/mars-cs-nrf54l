@@ -71,7 +71,7 @@ int scan_init(void)
 {
     int err;
 
-    const struct bt_le_conn_param conn_param = BT_LE_CONN_PARAM_INIT(0x10, 0x10, 0, BT_GAP_MS_TO_CONN_TIMEOUT(4000));
+    const struct bt_le_conn_param conn_param = BT_LE_CONN_PARAM_INIT(0x18, 0x18, 0, BT_GAP_MS_TO_CONN_TIMEOUT(4000));
 
     struct bt_scan_init_param param = {.scan_param = NULL, .conn_param = &conn_param, .connect_if_match = 1};
 
