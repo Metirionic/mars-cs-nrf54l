@@ -2,6 +2,12 @@
 All notable changes to this project will be documented in this file. See [conventional commits](https://www.conventionalcommits.org/) for commit guidelines.
 
 - - -
+## [v1.12.0](https://github.com/Metirionic/mars-cs-nrf54l/releases/tag/v1.12.0) - 2026-08-26
+#### Features
+- (**cs**) size CS timing dynamically from negotiated capabilities - ([b751b3d](https://github.com/Metirionic/mars-cs-nrf54l/commit/b751b3d1f83076828142b2ebaa6c2798d65eec69)) - AttilaRoemer
+
+- - -
+
 ## [v1.11.0](https://github.com/Metirionic/mars-cs-nrf54l/releases/tag/v1.11.0) - 2026-08-26
 #### Features
 - (**ci**) ship nRF54L15 TAG IPT presets in builds and releases - ([2f6a401](https://github.com/Metirionic/mars-cs-nrf54l/commit/2f6a401b0182892eeb9dd3f3e2c2959237364534)) - AttilaRoemer
