@@ -59,6 +59,38 @@ static cs_initiator_ranging_data_ready_cb gp_ranging_data_ready_cb;
 static cs_initiator_config_created_cb     gp_config_created_cb;
 static cs_initiator_process_subevent_cb   gp_process_subevent_cb;
 
+/* Dynamic timing constants (see cs_initiator_start): the step duration is
+ * computed from the negotiated config timings (the SDC reports the minimums
+ * it supports) plus a margin; the connection interval is then sized to fit
+ * the CS event plus the ACL event and a margin. T_SW is the SDC's fixed
+ * antenna-switching time. */
+#define CS_T_SW_US 10U
+
+/** @brief Per-step timing margin for a single antenna path (us).
+ *
+ * A mode-2 step performs one tone measurement per antenna path (P = N_AP
+ * phase measurement periods), so a step's real duration grows with the path
+ * count: ~133 us measured for a single-path step (Nordic DevZone reports)
+ * and 290 us on a 4-path A2_B2 link. CS_STEP_MARGIN_BASE_US plus
+ * CS_STEP_MARGIN_PER_PATH_US per extra path lands the 4-path budget on the
+ * measured 290 us (within ±10 us, conservatively over). Underestimation is
+ * the dangerous direction: an under-budgeted subevent makes the SDC truncate
+ * steps silently. */
+#define CS_STEP_MARGIN_BASE_US 80U
+/** @brief Additional per-step margin (us) per antenna path beyond the first. */
+#define CS_STEP_MARGIN_PER_PATH_US 23U
+/** @brief Upper clamp for the path-scaled step margin (us). */
+#define CS_STEP_MARGIN_MAX_US 160U
+#define CS_ACL_EVENT_US       7500U
+#define CS_INTERVAL_MARGIN_US 5000U
+/** @brief Max CS steps a single subevent may carry (Bluetooth Core spec limit). */
+#define CS_MAX_STEPS_PER_SUBEVENT 160U
+/** @brief Extra margin on the SDC's CS event scheduling window. */
+#define CS_EVENT_MARGIN_US 3000U
+
+/** @brief Negotiated CS config (timings) captured from the config-created event. */
+static struct bt_conn_le_cs_config g_created_config;
+
 /** @brief Get the current BLE connection reference. */
 struct bt_conn * cs_initiator_get_connection(void)
 {
@@ -147,6 +179,17 @@ void cs_initiator_set_ranging_data_ready_cb(cs_initiator_ranging_data_ready_cb p
 void cs_initiator_set_config_created_cb(cs_initiator_config_created_cb p_cb)
 {
     gp_config_created_cb = p_cb;
+}
+
+/** @brief Captures the negotiated config timings, then forwards to the app hook. */
+static void config_created_forwarder(struct bt_conn_le_cs_config * config)
+{
+    g_created_config = *config;
+
+    if (gp_config_created_cb)
+    {
+        gp_config_created_cb(config);
+    }
 }
 
 /** @brief Register callback invoked to process populated subevent events (IPT mode). */
@@ -400,7 +443,7 @@ int cs_initiator_start(const struct cs_initiator_config * p_config)
                            &sem_config_created,
                            &sem_cs_security_enabled);
     ble_callbacks_set_subevent_data_cb(subevent_result_cb);
-    ble_callbacks_set_config_created_cb(gp_config_created_cb);
+    ble_callbacks_set_config_created_cb(config_created_forwarder);
 
     err = scan_init();
     if (err)
@@ -578,14 +621,74 @@ int cs_initiator_start(const struct cs_initiator_config * p_config)
             ANTENNA_CONFIG,
             PREFERRED_PEER_ANTENNA);
 
+    /* Dynamic timing: compute the step duration from the negotiated config
+     * timings (the SDC reports the minimums it supports), then size the
+     * subevent and the connection interval:
+     *
+     * - Every mode-2 step carries one tone measurement per antenna path
+     *   (P = N_AP phase measurement periods per step; the step's HCI data
+     *   holds N_AP PCT slots with per-path quality indicators, all reported
+     *   High on a 4-path link), so covering every (channel, path) pair takes
+     *   exactly `channels` main-mode steps. The per-step time grows with the
+     *   path count, hence the path-scaled margin (CS_STEP_MARGIN_*).
+     * - A subevent may carry at most CS_MAX_STEPS_PER_SUBEVENT steps (spec
+     *   cap). The procedure needs channels x channel_map_repetition
+     *   main-mode steps, plus mode-0 steps. With repetition 1 a 72-channel
+     *   map is 75 steps — always one subevent. channel_map_repetition only
+     *   re-sweeps the map for redundancy; it is kept at 1 because the SDC
+     *   never grows a procedure beyond a single subevent anyway (verified
+     *   empirically: it truncates steps silently past the subevent budget,
+     *   even with an enlarged CS event window via the vendor CS_PARAMS_SET
+     *   command), so surplus steps would just be lost.
+     * - The connection interval must hold the subevent plus the ACL event
+     *   and a margin. */
+    const uint8_t  antenna_paths    = CONFIG_BT_CTLR_SDC_CS_NUM_ANTENNAS * __builtin_popcount(antenna_get_peer_mask());
+    const uint32_t step_margin_us   = CLAMP(CS_STEP_MARGIN_BASE_US + (antenna_paths - 1U) * CS_STEP_MARGIN_PER_PATH_US,
+                                            CS_STEP_MARGIN_BASE_US,
+                                            CS_STEP_MARGIN_MAX_US);
+    const uint32_t step_duration_us = g_created_config.t_pm_time_us + g_created_config.t_ip1_time_us +
+                                      g_created_config.t_fcs_time_us + g_created_config.t_ip2_time_us +
+                                      g_created_config.t_pm_time_us + CS_T_SW_US + step_margin_us;
+
+    uint32_t channels = 0;
+    for (size_t i = 0; i < sizeof(g_created_config.channel_map); i++)
+    {
+        channels += __builtin_popcount(g_created_config.channel_map[i]);
+    }
+
+    const uint32_t main_steps          = channels * g_created_config.channel_map_repetition;
+    const uint32_t steps_per_subevent  = MIN(main_steps + g_created_config.mode_0_steps, CS_MAX_STEPS_PER_SUBEVENT);
+    const uint32_t subevent_len_us     = steps_per_subevent * step_duration_us;
+    const uint32_t cs_event_len_us     = subevent_len_us + CS_EVENT_MARGIN_US;
+    const uint32_t min_interval_us     = cs_event_len_us + CS_ACL_EVENT_US + CS_INTERVAL_MARGIN_US;
+    const uint16_t min_interval_units  = (uint16_t)DIV_ROUND_UP(min_interval_us, 1250U);
+    const uint16_t max_procedure_units = (uint16_t)MIN(DIV_ROUND_UP(cs_event_len_us, 625U), UINT16_MAX);
+
+    LOG_INF("Dynamic timing: step %u us, %u paths, %u steps, subevent %u us, interval %u us (%u units)",
+            step_duration_us,
+            antenna_paths,
+            steps_per_subevent,
+            subevent_len_us,
+            min_interval_us,
+            min_interval_units);
+
+    if (main_steps + g_created_config.mode_0_steps > CS_MAX_STEPS_PER_SUBEVENT)
+    {
+        LOG_WRN(
+            "Procedure needs %u steps but a subevent caps at %u on this SDC (no multi-subevent "
+            "procedures); surplus steps are truncated",
+            main_steps + g_created_config.mode_0_steps,
+            CS_MAX_STEPS_PER_SUBEVENT);
+    }
+
     const struct bt_le_cs_set_procedure_parameters_param procedure_params = {
         .config_id                     = CS_CONFIG_ID,
-        .max_procedure_len             = p_config->max_procedure_len,
+        .max_procedure_len             = max_procedure_units,
         .min_procedure_interval        = p_config->min_procedure_interval,
         .max_procedure_interval        = p_config->max_procedure_interval,
         .max_procedure_count           = 0,
-        .min_subevent_len              = p_config->min_subevent_len,
-        .max_subevent_len              = p_config->max_subevent_len,
+        .min_subevent_len              = subevent_len_us,
+        .max_subevent_len              = subevent_len_us,
         .tone_antenna_config_selection = ANTENNA_CONFIG,
         .phy                           = p_config->procedure_phy,
         .tx_power_delta                = 0x80,
@@ -599,6 +702,21 @@ int cs_initiator_start(const struct cs_initiator_config * p_config)
     {
         LOG_ERR("Failed to set procedure parameters (err %d)", err);
         return err;
+    }
+
+    /* Shrink the connection interval to the computed minimum. The central
+     * sends the HCI LE Connection Update, which the peer's controller
+     * applies directly; the subevent already fits both the current and the
+     * target interval, so procedures can start before the update lands. */
+    const struct bt_le_conn_param conn_param =
+        BT_LE_CONN_PARAM_INIT(min_interval_units,
+                              min_interval_units,
+                              0,
+                              BT_GAP_MS_TO_CONN_TIMEOUT(MARS_CONN_SUPERVISION_TIMEOUT_MS));
+    err = bt_conn_le_param_update(ble_callbacks_get_connection(), &conn_param);
+    if (err)
+    {
+        LOG_WRN("Conn param update to %u ms failed (err %d)", min_interval_units * 1250U / 1000U, err);
     }
 
     struct bt_le_cs_procedure_enable_param params = {

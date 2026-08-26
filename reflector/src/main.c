@@ -387,13 +387,18 @@ int main(void)
                 ANTENNA_CONFIG,
                 PREFERRED_PEER_ANTENNA);
 
+        /* The subevent length suggestions deliberately span the full usable
+         * spec range (1250–75000 us; 1250 is the HCI-specified floor, see
+         * zephyr/include/zephyr/bluetooth/cs.h) so that any subevent length
+         * the initiator computes from its negotiated config intersects this
+         * window. */
         const struct bt_le_cs_set_procedure_parameters_param procedure_params = {
             .config_id                     = 0,
             .max_procedure_len             = 1000,
             .min_procedure_interval        = 1,
             .max_procedure_interval        = 100,
             .max_procedure_count           = 0,
-            .min_subevent_len              = 10000,
+            .min_subevent_len              = 1250,
             .max_subevent_len              = 75000,
             .tone_antenna_config_selection = ANTENNA_CONFIG,
             .phy                           = BT_LE_CS_PROCEDURE_PHY_2M,
