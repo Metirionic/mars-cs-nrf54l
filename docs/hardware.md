@@ -179,9 +179,9 @@ Each preset is either **RAS** (Ranging Service) or **IPT** (Inline PCT); the
 Mode column marks which. The two are peer choices — see
 [docs/architecture.md](architecture.md) for the RAS-vs-IPT contrast and the IPT
 data flow. RAS and IPT share the same board overlays and path-local fragments;
-IPT presets additionally pull the `inline_pct_*.conf` fragments above. There is
-no TAG IPT preset — IPT covers the five carrier boards below (A1/A2 on the
-initiator, A1 4-path on the reflector, with the Ezurio reflector at A2 4-path).
+IPT presets additionally pull the `inline_pct_*.conf` fragments above. IPT
+covers all six carrier boards — A1/A2 on the initiator, A1 4-path on the
+reflector, with the TAG and the Ezurio reflector at A2 4-path.
 
 | Preset | Mode | Role | Board | Overlay | `EXTRA_CONF_FILE` | Antennas / Paths |
 |--------|------|------|-------|---------|-------------------|------------------|
@@ -191,6 +191,7 @@ initiator, A1 4-path on the reflector, with the Ezurio reflector at A2 4-path).
 | `nrf54l15dk_cent_a4_4` | RAS | initiator | nRF54L15DK | `nrf54l15dk_*.overlay` | `central.overlay;4_path_4_local.conf` | A4 / 4 |
 | `nrf54l15dk_cent_a1_1_ipt` | IPT | initiator | nRF54L15DK | `nrf54l15dk_*.overlay` | `central.overlay;inline_pct_initiator.conf;inline_pct_shared.conf;1_path_1_local.conf` | A1 / 1 |
 | `nrf54l15tag_cent_a2_4` | RAS | initiator | nRF54L15 TAG | `nrf54l15tag_*.overlay` | `central.overlay;4_path_2_local.conf;nrf54l15tag.conf` | A2 / 4 |
+| `nrf54l15tag_cent_a2_4_ipt` | IPT | initiator | nRF54L15 TAG | `nrf54l15tag_*.overlay` | `central.overlay;inline_pct_initiator.conf;inline_pct_shared.conf;4_path_2_local.conf;nrf54l15tag.conf` | A2 / 4 |
 | `ublox_cent_a1_1` | RAS | initiator | U-Blox NINA-B40 | `ublox_*.overlay` | `central.overlay;1_path_1_local.conf` | A1 / 1 |
 | `ublox_cent_a1_1_ipt` | IPT | initiator | U-Blox NINA-B40 | `ublox_*.overlay` | `central.overlay;inline_pct_initiator.conf;inline_pct_shared.conf;1_path_1_local.conf` | A1 / 1 |
 | `ezurio_bl54l15u_cent_a2_4` | RAS | initiator | Ezurio BL54L15u | `ezurio_*.overlay` | `central.overlay;4_path_2_local.conf` | A2 / 4 |
@@ -204,6 +205,7 @@ initiator, A1 4-path on the reflector, with the Ezurio reflector at A2 4-path).
 | `nrf54l15dk_peri_a4_4` | RAS | reflector | nRF54L15DK | `nrf54l15dk_*.overlay` | `4_path_4_local.conf` | A4 / 4 |
 | `nrf54l15dk_peri_a1_4_ipt` | IPT | reflector | nRF54L15DK | `nrf54l15dk_*.overlay` | `inline_pct_reflector.conf;inline_pct_shared.conf;4_path_1_local.conf` | A1 / 4 |
 | `nrf54l15tag_peri_a2_4` | RAS | reflector | nRF54L15 TAG | `nrf54l15tag_*.overlay` | `4_path_2_local.conf;nrf54l15tag.conf` | A2 / 4 |
+| `nrf54l15tag_peri_a2_4_ipt` | IPT | reflector | nRF54L15 TAG | `nrf54l15tag_*.overlay` | `inline_pct_reflector.conf;inline_pct_shared.conf;4_path_2_local.conf;nrf54l15tag.conf` | A2 / 4 |
 | `ezurio_bl54l15u_peri_a2_4` | RAS | reflector | Ezurio BL54L15u | `ezurio_*.overlay` | `4_path_2_local.conf` | A2 / 4 |
 | `ezurio_bl54l15u_peri_a2_4_ipt` | IPT | reflector | Ezurio BL54L15u | `ezurio_*.overlay` | `inline_pct_reflector.conf;inline_pct_shared.conf;4_path_2_local.conf` | A2 / 4 |
 | `fanstel_bm15c_peri_a1_4` | RAS | reflector | Fanstel BM15C | `fanstel_*.overlay` | `4_path_1_local.conf` | A1 / 4 |
