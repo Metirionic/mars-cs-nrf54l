@@ -92,8 +92,10 @@
 /**
  * @brief Target-specific CS initiator configuration parameters.
  *
- * Passed to cs_initiator_start() to control PHY selection, timing,
- * and subevent sizing. Values differ between test_rack and ranging targets.
+ * Passed to cs_initiator_start() to control PHY selection and procedure
+ * cadence. Subevent length, CS event length, and connection interval are
+ * computed dynamically from the negotiated capabilities (antenna paths,
+ * timings, channel map) and are no longer configured here.
  */
 struct cs_initiator_config
 {
@@ -101,9 +103,6 @@ struct cs_initiator_config
     uint8_t  procedure_phy;          /**< Procedure PHY (e.g. BT_LE_CS_PROCEDURE_PHY_2M). */
     uint32_t min_procedure_interval; /**< Minimum interval between CS procedures (in connection events). */
     uint32_t max_procedure_interval; /**< Maximum interval between CS procedures (in connection events). */
-    uint32_t min_subevent_len;       /**< Minimum subevent length in microseconds. */
-    uint32_t max_subevent_len;       /**< Maximum subevent length in microseconds. */
-    uint16_t max_procedure_len;      /**< Maximum procedure length in microseconds. */
 };
 
 /**

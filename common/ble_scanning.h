@@ -13,6 +13,9 @@
 
 #include <zephyr/bluetooth/conn.h>
 
+/** @brief Supervision timeout (ms) for the connect-time connection parameters. */
+#define MARS_CONN_SUPERVISION_TIMEOUT_MS 4000U
+
 int scan_init(void);
 
 #endif /* BLE_SCANNING_H */

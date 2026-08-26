@@ -71,7 +71,12 @@ int scan_init(void)
 {
     int err;
 
-    const struct bt_le_conn_param conn_param = BT_LE_CONN_PARAM_INIT(0x18, 0x18, 0, BT_GAP_MS_TO_CONN_TIMEOUT(4000));
+    /* Conservative starting interval: symmetric, zero slave latency, and a
+     * long supervision timeout. It must already hold a full CS subevent
+     * (72-channel sweep, ~22 ms) plus the ACL event, so procedures that
+     * start before the link is re-timed are not truncated. */
+    const struct bt_le_conn_param conn_param =
+        BT_LE_CONN_PARAM_INIT(0x40, 0x40, 0, BT_GAP_MS_TO_CONN_TIMEOUT(MARS_CONN_SUPERVISION_TIMEOUT_MS));
 
     struct bt_scan_init_param param = {.scan_param = NULL, .conn_param = &conn_param, .connect_if_match = 1};
 
