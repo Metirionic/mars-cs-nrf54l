@@ -2,6 +2,12 @@
 All notable changes to this project will be documented in this file. See [conventional commits](https://www.conventionalcommits.org/) for commit guidelines.
 
 - - -
+## [v1.11.0](https://github.com/Metirionic/mars-cs-nrf54l/releases/tag/v1.11.0) - 2026-08-26
+#### Features
+- (**ci**) ship nRF54L15 TAG IPT presets in builds and releases - ([2f6a401](https://github.com/Metirionic/mars-cs-nrf54l/commit/2f6a401b0182892eeb9dd3f3e2c2959237364534)) - AttilaRoemer
+
+- - -
+
 ## [v1.10.3](https://github.com/Metirionic/mars-cs-nrf54l/releases/tag/v1.10.3) - 2026-08-26
 #### Bug Fixes
 - (**board**) trim nRF54L15 TAG HFXO load cap to 16 pF - ([c767583](https://github.com/Metirionic/mars-cs-nrf54l/commit/c767583b449cceacbf482a3b17479157597acde5)) - AttilaRoemer
