@@ -2,6 +2,12 @@
 All notable changes to this project will be documented in this file. See [conventional commits](https://www.conventionalcommits.org/) for commit guidelines.
 
 - - -
+## [v1.10.3](https://github.com/Metirionic/mars-cs-nrf54l/releases/tag/v1.10.3) - 2026-08-26
+#### Bug Fixes
+- (**board**) trim nRF54L15 TAG HFXO load cap to 16 pF - ([c767583](https://github.com/Metirionic/mars-cs-nrf54l/commit/c767583b449cceacbf482a3b17479157597acde5)) - AttilaRoemer
+
+- - -
+
 ## [v1.10.2](https://github.com/Metirionic/mars-cs-nrf54l/releases/tag/v1.10.2) - 2026-08-20
 #### Bug Fixes
 - (**cs**) use negotiated peer antenna count for CS antenna config (#105) - ([cd2bd97](https://github.com/Metirionic/mars-cs-nrf54l/commit/cd2bd972fc38a8a641fa2d707072f201358bbc56)) - AttilaRoemer
