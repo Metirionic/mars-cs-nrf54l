@@ -6,6 +6,20 @@
 
 #include "uart20_p1_13_p1_14.dtsi"
 
+/*
+ * Trim the HFXO internal load capacitance to match the TAG's 32 MHz crystal.
+ * The nrf54l15tag base DTS defaults to 8 pF, but the crystal's natural load is
+ * ~16 pF; the mismatch left the oscillator ~+90 ppm off (measured via CS
+ * frequency_compensation), failing the < 20 ppm board-qualification threshold
+ * used for the cable-cart ranging campaign. 16 pF measures +0.18 ppm on
+ * hardware (issue #127). NCS exposes the trim only through the hfxo node
+ * (programs XOSC32M.CONFIG.INTCAP at boot).
+ */
+&hfxo {
+    load-capacitors = "internal";
+    load-capacitance-femtofarad = <16000>;
+};
+
 / {
     chosen {
         cobs-uart = &uart20;
