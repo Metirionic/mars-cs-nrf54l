@@ -148,6 +148,26 @@ jobs:
         with:
           ref: ${{ needs.version-bump.outputs.tag || github.event.inputs.tag }}
 
+      - name: Prepare per-tag release body
+        id: notes
+        env:
+          TAG: ${{ needs.version-bump.outputs.tag || github.event.inputs.tag }}
+        run: |
+          set -euo pipefail
+          # A notes file checked in at the tag (.github/release-notes/<tag>.md)
+          # becomes the release body; the GitHub API prepends that body to the
+          # auto-generated "What's Changed" notes (generate_release_notes),
+          # which is how hand-written sections -- known issues, rename
+          # callouts -- land above the PR list. No file for the tag -> no
+          # body_path output -> softprops skips the body entirely (truthiness
+          # check in releaseBody), byte-identical to the pre-v1.13.0 behavior.
+          if [ -f ".github/release-notes/${TAG}.md" ]; then
+            echo "path=.github/release-notes/${TAG}.md" >> "$GITHUB_OUTPUT"
+            echo "Per-tag release notes found: .github/release-notes/${TAG}.md"
+          else
+            echo "No .github/release-notes/${TAG}.md; release body is the auto-generated notes only."
+          fi
+
       - name: Check for existing release
         id: check_release
         env:
@@ -221,5 +241,6 @@ jobs:
         uses: softprops/action-gh-release@v2
         with:
           tag_name: ${{ needs.version-bump.outputs.tag || github.event.inputs.tag }}
+          body_path: ${{ steps.notes.outputs.path }}
           files: cs-ranging-firmware.zip
           generate_release_notes: true
