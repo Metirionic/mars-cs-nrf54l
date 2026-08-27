@@ -134,12 +134,12 @@ is no NCS board def for the ME54BE01) — the overlay selects the carrier.
 
 ## Antenna and path presets
 
-### What "A1 1-path" and "A2 4-path" mean
+### What "A1 2-path" and "A2 4-path" mean
 
 "A1" / "A2" is the antenna count, set by `CONFIG_BT_CTLR_SDC_CS_NUM_ANTENNAS`.
-"1-path" / "4-path" is the antenna-path count, set by
+"2-path" / "4-path" is the antenna-path count, set by
 `CONFIG_BT_CTLR_SDC_CS_MAX_ANTENNA_PATHS` (mirrored on the host side by
-`CONFIG_BT_RAS_MAX_ANTENNA_PATHS`). So "A1 1-path" means 1 antenna, 1 path;
+`CONFIG_BT_RAS_MAX_ANTENNA_PATHS`). So "A1 2-path" means 1 antenna, 2 paths;
 "A2 4-path" means 2 antennas, 4 paths.
 
 ### Kconfig fragments
@@ -152,7 +152,6 @@ lines setting the same three symbols:
 
 | Fragment | `RAS_MAX_ANTENNA_PATHS` | `SDC_CS_MAX_ANTENNA_PATHS` | `SDC_CS_NUM_ANTENNAS` | Antennas / Paths |
 |----------|------------------------|----------------------------|------------------------|------------------|
-| `1_path_1_local.conf` | 1 | 1 | 1 | A1 / 1-path |
 | `2_path_1_local.conf` | 2 | 2 | 1 | A1 / 2-path |
 | `2_path_2_local.conf` | 2 | 2 | 2 | A2 / 2-path |
 | `4_path_1_local.conf` | 4 | 4 | 1 | A1 / 4-path |
@@ -180,26 +179,25 @@ Mode column marks which. The two are peer choices — see
 [docs/architecture.md](architecture.md) for the RAS-vs-IPT contrast and the IPT
 data flow. RAS and IPT share the same board overlays and path-local fragments;
 IPT presets additionally pull the `inline_pct_*.conf` fragments above. IPT
-covers all six carrier boards — A1/A2 on the initiator, A1 4-path on the
+covers all six carrier boards — A1/A2 4-path on the initiator, A1 4-path on the
 reflector, with the TAG and the Ezurio reflector at A2 4-path.
 
 | Preset | Mode | Role | Board | Overlay | `EXTRA_CONF_FILE` | Antennas / Paths |
 |--------|------|------|-------|---------|-------------------|------------------|
-| `nrf54l15dk_cent_a1_1` | RAS | initiator | nRF54L15DK | `nrf54l15dk_*.overlay` | `central.overlay;1_path_1_local.conf` | A1 / 1 |
 | `nrf54l15dk_cent_a1_2` | RAS | initiator | nRF54L15DK | `nrf54l15dk_*.overlay` | `central.overlay;2_path_1_local.conf` | A1 / 2 |
 | `nrf54l15dk_cent_a1_4` | RAS | initiator | nRF54L15DK | `nrf54l15dk_*.overlay` | `central.overlay;4_path_1_local.conf` | A1 / 4 |
 | `nrf54l15dk_cent_a4_4` | RAS | initiator | nRF54L15DK | `nrf54l15dk_*.overlay` | `central.overlay;4_path_4_local.conf` | A4 / 4 |
-| `nrf54l15dk_cent_a1_1_ipt` | IPT | initiator | nRF54L15DK | `nrf54l15dk_*.overlay` | `central.overlay;inline_pct_initiator.conf;inline_pct_shared.conf;1_path_1_local.conf` | A1 / 1 |
+| `nrf54l15dk_cent_a1_4_ipt` | IPT | initiator | nRF54L15DK | `nrf54l15dk_*.overlay` | `central.overlay;inline_pct_initiator.conf;inline_pct_shared.conf;4_path_1_local.conf` | A1 / 4 |
 | `nrf54l15tag_cent_a2_4` | RAS | initiator | nRF54L15 TAG | `nrf54l15tag_*.overlay` | `central.overlay;4_path_2_local.conf;nrf54l15tag.conf` | A2 / 4 |
 | `nrf54l15tag_cent_a2_4_ipt` | IPT | initiator | nRF54L15 TAG | `nrf54l15tag_*.overlay` | `central.overlay;inline_pct_initiator.conf;inline_pct_shared.conf;4_path_2_local.conf;nrf54l15tag.conf` | A2 / 4 |
-| `ublox_cent_a1_1` | RAS | initiator | U-Blox NINA-B40 | `ublox_*.overlay` | `central.overlay;1_path_1_local.conf` | A1 / 1 |
-| `ublox_cent_a1_1_ipt` | IPT | initiator | U-Blox NINA-B40 | `ublox_*.overlay` | `central.overlay;inline_pct_initiator.conf;inline_pct_shared.conf;1_path_1_local.conf` | A1 / 1 |
+| `ublox_cent_a1_4` | RAS | initiator | U-Blox NINA-B40 | `ublox_*.overlay` | `central.overlay;4_path_1_local.conf` | A1 / 4 |
+| `ublox_cent_a1_4_ipt` | IPT | initiator | U-Blox NINA-B40 | `ublox_*.overlay` | `central.overlay;inline_pct_initiator.conf;inline_pct_shared.conf;4_path_1_local.conf` | A1 / 4 |
 | `ezurio_bl54l15u_cent_a2_4` | RAS | initiator | Ezurio BL54L15u | `ezurio_*.overlay` | `central.overlay;4_path_2_local.conf` | A2 / 4 |
 | `ezurio_bl54l15u_cent_a2_4_ipt` | IPT | initiator | Ezurio BL54L15u | `ezurio_*.overlay` | `central.overlay;inline_pct_initiator.conf;inline_pct_shared.conf;4_path_2_local.conf` | A2 / 4 |
-| `fanstel_bm15c_cent_a1_1` | RAS | initiator | Fanstel BM15C | `fanstel_*.overlay` | `central.overlay;1_path_1_local.conf` | A1 / 1 |
-| `fanstel_bm15c_cent_a1_1_ipt` | IPT | initiator | Fanstel BM15C | `fanstel_*.overlay` | `central.overlay;inline_pct_initiator.conf;inline_pct_shared.conf;1_path_1_local.conf` | A1 / 1 |
-| `minew_me54be01_cent_a1_1` | RAS | initiator | Minewsemi ME54BE01 | `minew_me54be01_*.overlay` | `central.overlay;1_path_1_local.conf;minew_me54be01.conf` | A1 / 1 |
-| `minew_me54be01_cent_a1_1_ipt` | IPT | initiator | Minewsemi ME54BE01 | `minew_me54be01_*.overlay` | `central.overlay;inline_pct_initiator.conf;inline_pct_shared.conf;1_path_1_local.conf;minew_me54be01.conf` | A1 / 1 |
+| `fanstel_bm15c_cent_a1_4` | RAS | initiator | Fanstel BM15C | `fanstel_*.overlay` | `central.overlay;4_path_1_local.conf` | A1 / 4 |
+| `fanstel_bm15c_cent_a1_4_ipt` | IPT | initiator | Fanstel BM15C | `fanstel_*.overlay` | `central.overlay;inline_pct_initiator.conf;inline_pct_shared.conf;4_path_1_local.conf` | A1 / 4 |
+| `minew_me54be01_cent_a1_4` | RAS | initiator | Minewsemi ME54BE01 | `minew_me54be01_*.overlay` | `central.overlay;4_path_1_local.conf;minew_me54be01.conf` | A1 / 4 |
+| `minew_me54be01_cent_a1_4_ipt` | IPT | initiator | Minewsemi ME54BE01 | `minew_me54be01_*.overlay` | `central.overlay;inline_pct_initiator.conf;inline_pct_shared.conf;4_path_1_local.conf;minew_me54be01.conf` | A1 / 4 |
 | `nrf54l15dk_peri_a1_4` | RAS | reflector | nRF54L15DK | `nrf54l15dk_*.overlay` | `4_path_1_local.conf` | A1 / 4 |
 | `nrf54l15dk_peri_a2_2` | RAS | reflector | nRF54L15DK | `nrf54l15dk_*.overlay` | `2_path_2_local.conf` | A2 / 2 |
 | `nrf54l15dk_peri_a4_4` | RAS | reflector | nRF54L15DK | `nrf54l15dk_*.overlay` | `4_path_4_local.conf` | A4 / 4 |
@@ -271,18 +269,17 @@ to:
 
 | Antennas / Paths | Initiator `An_Bm` | Reflector `An_Bm` |
 |------------------|-------------------|--------------------|
-| A1 / 1           | `A1_B1`           | —                  |
 | A1 / 2           | `A1_B2`           | —                  |
 | A2 / 2           | —                 | `A1_B2`            |
 | A1 / 4           | `A1_B4`           | `A4_B1`            |
 | A2 / 4           | `A2_B2`           | `A2_B2`            |
 | A4 / 4           | `A4_B1`           | `A1_B4`            |
 
-A `—` marks a role no shipped preset runs in that config (A1 1-path and A1
-2-path ship only as initiator; A2 2-path ships only as reflector). A2 4-path is
-symmetric — `A2_B2` either way. The `ANTENNA_MAPPING` table also carries
-placeholder `A1_B1` entries for index combinations no shipped preset uses (e.g.
-`[1][2]`, `[2][1]`, `[3][1]`); only the six configs above actually ship.
+A `—` marks a role no shipped preset runs in that config (A1 2-path ships only
+as initiator; A2 2-path only as reflector). A2 4-path is symmetric — `A2_B2`
+either way. The `ANTENNA_MAPPING` table also carries placeholder `A1_B1` entries
+for index combinations no shipped preset uses (e.g. `[1][2]`, `[2][1]`, `[3][1]`);
+only the five configs above actually ship.
 
 _Supplementary — from `common/antenna.c`, not from presets/fragments._
 
