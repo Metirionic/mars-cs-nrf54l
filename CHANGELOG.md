@@ -2,6 +2,16 @@
 All notable changes to this project will be documented in this file. See [conventional commits](https://www.conventionalcommits.org/) for commit guidelines.
 
 - - -
+## [v1.13.0](https://github.com/Metirionic/mars-cs-nrf54l/releases/tag/v1.13.0) - 2026-08-27
+#### Features
+- (**initiator**) support asymmetric pairs — rename a1_1 initiator presets to a1_4 - ([54acb72](https://github.com/Metirionic/mars-cs-nrf54l/commit/54acb72782b7f086c938ae2ef89a77d92e3ed8ab)) - AttilaRoemer
+#### Documentation
+- (**contributing**) state the CI build jobs' five-preset matrices - ([c8034ae](https://github.com/Metirionic/mars-cs-nrf54l/commit/c8034ae3b6a14a94f3ee8c6665754507d421e826)) - AttilaRoemer
+- (**hardware**) document a1_4 initiator presets for asymmetric pairs - ([2074f74](https://github.com/Metirionic/mars-cs-nrf54l/commit/2074f7467a2fb9fc9a60a9d4870413668b59850b)) - AttilaRoemer
+- point quickstart and build guides at the a1_4 initiator presets - ([553bd31](https://github.com/Metirionic/mars-cs-nrf54l/commit/553bd316390d8a8a24c50ffa1a7aad6ea0661aea)) - AttilaRoemer
+
+- - -
+
 ## [v1.12.0](https://github.com/Metirionic/mars-cs-nrf54l/releases/tag/v1.12.0) - 2026-08-26
 #### Features
 - (**cs**) size CS timing dynamically from negotiated capabilities - ([b751b3d](https://github.com/Metirionic/mars-cs-nrf54l/commit/b751b3d1f83076828142b2ebaa6c2798d65eec69)) - AttilaRoemer
