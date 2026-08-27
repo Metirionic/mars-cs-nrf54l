@@ -72,9 +72,9 @@ jobs:
           west init -l . --mf west.yml
           west update -o=--depth=1 -n
 
-      - name: Build initiator (nrf54l15dk central A1 1-path + nrf54l15tag central A2 4-path + minew_me54be01 central A1 1-path + IPT)
+      - name: Build initiator (nrf54l15dk central A1 4-path + nrf54l15tag central A2 4-path + minew_me54be01 central A1 4-path + IPT)
         run: |
-          bash ci/build.sh --target initiator --preset nrf54l15dk_cent_a1_1,nrf54l15tag_cent_a2_4,minew_me54be01_cent_a1_1,nrf54l15dk_cent_a1_1_ipt,nrf54l15tag_cent_a2_4_ipt
+          bash ci/build.sh --target initiator --preset nrf54l15dk_cent_a1_4,nrf54l15tag_cent_a2_4,minew_me54be01_cent_a1_4,nrf54l15dk_cent_a1_4_ipt,nrf54l15tag_cent_a2_4_ipt
 
   build-reflector:
     name: Build reflector
@@ -192,7 +192,7 @@ jobs:
           path: release/reflector_*.hex
           if-no-files-found: error
 
-      - name: Build initiator (nrf54l15dk central A1 1-path)
+      - name: Build initiator (nrf54l15dk central A1 4-path)
         # The install script provisions rustup into ~/.cargo, but its
         # `source ~/.cargo/env` does not persist to this step (Actions runs
         # bash --noprofile --norc), so cargo must be put on PATH here for
@@ -200,7 +200,7 @@ jobs:
         run: |
           source "$HOME/.ncs-venv/bin/activate"
           source "$HOME/.cargo/env"
-          bash ci/build.sh --target initiator --preset nrf54l15dk_cent_a1_1 --release-dir release
+          bash ci/build.sh --target initiator --preset nrf54l15dk_cent_a1_4 --release-dir release
 
       - name: Upload initiator merged firmware
         uses: actions/upload-artifact@v4
