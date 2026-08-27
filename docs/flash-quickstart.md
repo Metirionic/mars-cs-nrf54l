@@ -28,9 +28,9 @@ with each other:
 
 | Mode | Role | Preset | Antennas | Paths |
 |------|------|--------|----------|-------|
-| RAS | Initiator (BLE Central) | `nrf54l15dk_cent_a1_1` | 1 | 1 |
+| RAS | Initiator (BLE Central) | `nrf54l15dk_cent_a1_4` | 1 | 4 |
 | RAS | Reflector (BLE Peripheral) | `nrf54l15dk_peri_a1_4` | 1 | 4 |
-| IPT | Initiator (BLE Central) | `nrf54l15dk_cent_a1_1_ipt` | 1 | 1 |
+| IPT | Initiator (BLE Central) | `nrf54l15dk_cent_a1_4_ipt` | 1 | 4 |
 | IPT | Reflector (BLE Peripheral) | `nrf54l15dk_peri_a1_4_ipt` | 1 | 4 |
 
 Preset names follow `<board>_<cent|peri>_a<antennas>_<paths>`, with an `_ipt`
@@ -47,9 +47,9 @@ boards ship in the same archive; see the [preset table](hardware.md#presets).
    role (12 initiator + 12 reflector); no build step is needed.
 3. Locate the two files for your chosen pair. IPT files use the same
    `<role>_<preset>.hex` name with an `_ipt` suffix before `.hex`:
-   - **RAS pair** — `initiator_nrf54l15dk_cent_a1_1.hex` +
+   - **RAS pair** — `initiator_nrf54l15dk_cent_a1_4.hex` +
      `reflector_nrf54l15dk_peri_a1_4.hex`
-   - **IPT pair** — `initiator_nrf54l15dk_cent_a1_1_ipt.hex` +
+   - **IPT pair** — `initiator_nrf54l15dk_cent_a1_4_ipt.hex` +
      `reflector_nrf54l15dk_peri_a1_4_ipt.hex`
 
 The repo ships no prebuilt `.hex` files itself — the release archive is the
@@ -69,7 +69,7 @@ each DK by USB (its onboard J-Link), then use either path below.
    drop-down.
 3. Click **Add file** and choose the matching `.hex` for your chosen pair —
    the initiator file for the initiator board, the reflector file for the
-   reflector board (e.g. `initiator_nrf54l15dk_cent_a1_1.hex` and
+   reflector board (e.g. `initiator_nrf54l15dk_cent_a1_4.hex` and
    `reflector_nrf54l15dk_peri_a1_4.hex` for RAS; the same names with `_ipt`
    for IPT).
 4. Click **Erase & write** to flash. Repeat on the second board with its file.
@@ -78,11 +78,11 @@ each DK by USB (its onboard J-Link), then use either path below.
 
 ```bash
 # RAS pair — initiator board, then reflector board:
-nrfjprog --program initiator_nrf54l15dk_cent_a1_1.hex --verify --reset
+nrfjprog --program initiator_nrf54l15dk_cent_a1_4.hex --verify --reset
 nrfjprog --program reflector_nrf54l15dk_peri_a1_4.hex --verify --reset
 
 # IPT pair — same names with the _ipt suffix:
-nrfjprog --program initiator_nrf54l15dk_cent_a1_1_ipt.hex --verify --reset
+nrfjprog --program initiator_nrf54l15dk_cent_a1_4_ipt.hex --verify --reset
 nrfjprog --program reflector_nrf54l15dk_peri_a1_4_ipt.hex --verify --reset
 ```
 

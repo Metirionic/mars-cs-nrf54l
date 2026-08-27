@@ -38,9 +38,9 @@ The recommended starting pairs on the nRF54L15 DK — RAS and IPT, peer choices:
 
 | Mode | Role | Preset | Antennas | Paths |
 |------|------|--------|----------|-------|
-| RAS | Initiator (BLE Central) | `nrf54l15dk_cent_a1_1` | 1 | 1 |
+| RAS | Initiator (BLE Central) | `nrf54l15dk_cent_a1_4` | 1 | 4 |
 | RAS | Reflector (BLE Peripheral) | `nrf54l15dk_peri_a1_4` | 1 | 4 |
-| IPT | Initiator (BLE Central) | `nrf54l15dk_cent_a1_1_ipt` | 1 | 1 |
+| IPT | Initiator (BLE Central) | `nrf54l15dk_cent_a1_4_ipt` | 1 | 4 |
 | IPT | Reflector (BLE Peripheral) | `nrf54l15dk_peri_a1_4_ipt` | 1 | 4 |
 
 Preset names follow `<board>_<cent|peri>_a<antennas>_<paths>`, with an `_ipt`
