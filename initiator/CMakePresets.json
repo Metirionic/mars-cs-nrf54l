@@ -6,18 +6,6 @@
     },
     "configurePresets": [
         {
-            "name": "nrf54l15dk_cent_a1_1",
-            "displayName": "nRF54L15DK: central A1 (1 path)",
-            "generator": "Ninja",
-            "binaryDir": "${sourceDir}/build_nrf54l15dk_cent_a1_1",
-            "cacheVariables": {
-                "BOARD": "nrf54l15dk/nrf54l15/cpuapp",
-                "EXTRA_CONF_FILE": "central.overlay;../boards/1_path_1_local.conf",
-                "CONF_FILE": "prj.conf",
-                "DTC_OVERLAY_FILE": "../boards/nrf54l15dk_nrf54l15_cpuapp.overlay"
-            }
-        },
-        {
             "name": "nrf54l15dk_cent_a1_2",
             "displayName": "nRF54L15DK: central A1 (2 paths)",
             "generator": "Ninja",
@@ -78,13 +66,13 @@
             }
         },
         {
-            "name": "ublox_cent_a1_1",
-            "displayName": "U-Blox: central A1 (1 path)",
+            "name": "ublox_cent_a1_4",
+            "displayName": "U-Blox: central A1 (4 paths)",
             "generator": "Ninja",
-            "binaryDir": "${sourceDir}/build_ublox_cent_a1_1",
+            "binaryDir": "${sourceDir}/build_ublox_cent_a1_4",
             "cacheVariables": {
                 "BOARD": "nrf54l15dk/nrf54l15/cpuapp",
-                "EXTRA_CONF_FILE": "central.overlay;../boards/1_path_1_local.conf",
+                "EXTRA_CONF_FILE": "central.overlay;../boards/4_path_1_local.conf",
                 "CONF_FILE": "prj.conf",
                 "DTC_OVERLAY_FILE": "../boards/ublox_nrf54l15_cpuapp.overlay"
             }
@@ -102,37 +90,37 @@
             }
         },
         {
-            "name": "fanstel_bm15c_cent_a1_1",
-            "displayName": "Fanstel BM15C: central A1 (1 path)",
+            "name": "fanstel_bm15c_cent_a1_4",
+            "displayName": "Fanstel BM15C: central A1 (4 paths)",
             "generator": "Ninja",
-            "binaryDir": "${sourceDir}/build_fanstel_cent_a1_1",
+            "binaryDir": "${sourceDir}/build_fanstel_cent_a1_4",
             "cacheVariables": {
                 "BOARD": "nrf54l15dk/nrf54l15/cpuapp",
-                "EXTRA_CONF_FILE": "central.overlay;../boards/1_path_1_local.conf",
+                "EXTRA_CONF_FILE": "central.overlay;../boards/4_path_1_local.conf",
                 "CONF_FILE": "prj.conf",
                 "DTC_OVERLAY_FILE": "../boards/fanstel_bm15c_nrf54l15_cpuapp.overlay"
             }
         },
         {
-            "name": "minew_me54be01_cent_a1_1",
-            "displayName": "Minewsemi ME54BE01: central A1 (1 path)",
+            "name": "minew_me54be01_cent_a1_4",
+            "displayName": "Minewsemi ME54BE01: central A1 (4 paths)",
             "generator": "Ninja",
-            "binaryDir": "${sourceDir}/build_minew_me54be01_cent_a1_1",
+            "binaryDir": "${sourceDir}/build_minew_me54be01_cent_a1_4",
             "cacheVariables": {
                 "BOARD": "nrf54l15dk/nrf54l15/cpuapp",
-                "EXTRA_CONF_FILE": "central.overlay;../boards/1_path_1_local.conf;../boards/minew_me54be01.conf",
+                "EXTRA_CONF_FILE": "central.overlay;../boards/4_path_1_local.conf;../boards/minew_me54be01.conf",
                 "CONF_FILE": "prj.conf",
                 "DTC_OVERLAY_FILE": "../boards/minew_me54be01_nrf54l15_cpuapp.overlay"
             }
         },
         {
-            "name": "nrf54l15dk_cent_a1_1_ipt",
-            "displayName": "nRF54L15DK: central A1 (1 path, inline PCT)",
+            "name": "nrf54l15dk_cent_a1_4_ipt",
+            "displayName": "nRF54L15DK: central A1 (4 paths, inline PCT)",
             "generator": "Ninja",
-            "binaryDir": "${sourceDir}/build_nrf54l15dk_cent_a1_1_ipt",
+            "binaryDir": "${sourceDir}/build_nrf54l15dk_cent_a1_4_ipt",
             "cacheVariables": {
                 "BOARD": "nrf54l15dk/nrf54l15/cpuapp",
-                "EXTRA_CONF_FILE": "central.overlay;../boards/inline_pct_initiator.conf;../boards/inline_pct_shared.conf;../boards/1_path_1_local.conf",
+                "EXTRA_CONF_FILE": "central.overlay;../boards/inline_pct_initiator.conf;../boards/inline_pct_shared.conf;../boards/4_path_1_local.conf",
                 "CONF_FILE": "prj.conf",
                 "DTC_OVERLAY_FILE": "../boards/nrf54l15dk_nrf54l15_cpuapp.overlay"
             }
@@ -150,13 +138,13 @@
             }
         },
         {
-            "name": "ublox_cent_a1_1_ipt",
-            "displayName": "U-Blox: central A1 (1 path, inline PCT)",
+            "name": "ublox_cent_a1_4_ipt",
+            "displayName": "U-Blox: central A1 (4 paths, inline PCT)",
             "generator": "Ninja",
-            "binaryDir": "${sourceDir}/build_ublox_cent_a1_1_ipt",
+            "binaryDir": "${sourceDir}/build_ublox_cent_a1_4_ipt",
             "cacheVariables": {
                 "BOARD": "nrf54l15dk/nrf54l15/cpuapp",
-                "EXTRA_CONF_FILE": "central.overlay;../boards/inline_pct_initiator.conf;../boards/inline_pct_shared.conf;../boards/1_path_1_local.conf",
+                "EXTRA_CONF_FILE": "central.overlay;../boards/inline_pct_initiator.conf;../boards/inline_pct_shared.conf;../boards/4_path_1_local.conf",
                 "CONF_FILE": "prj.conf",
                 "DTC_OVERLAY_FILE": "../boards/ublox_nrf54l15_cpuapp.overlay"
             }
@@ -174,25 +162,25 @@
             }
         },
         {
-            "name": "fanstel_bm15c_cent_a1_1_ipt",
-            "displayName": "Fanstel BM15C: central A1 (1 path, inline PCT)",
+            "name": "fanstel_bm15c_cent_a1_4_ipt",
+            "displayName": "Fanstel BM15C: central A1 (4 paths, inline PCT)",
             "generator": "Ninja",
-            "binaryDir": "${sourceDir}/build_fanstel_cent_a1_1_ipt",
+            "binaryDir": "${sourceDir}/build_fanstel_cent_a1_4_ipt",
             "cacheVariables": {
                 "BOARD": "nrf54l15dk/nrf54l15/cpuapp",
-                "EXTRA_CONF_FILE": "central.overlay;../boards/inline_pct_initiator.conf;../boards/inline_pct_shared.conf;../boards/1_path_1_local.conf",
+                "EXTRA_CONF_FILE": "central.overlay;../boards/inline_pct_initiator.conf;../boards/inline_pct_shared.conf;../boards/4_path_1_local.conf",
                 "CONF_FILE": "prj.conf",
                 "DTC_OVERLAY_FILE": "../boards/fanstel_bm15c_nrf54l15_cpuapp.overlay"
             }
         },
         {
-            "name": "minew_me54be01_cent_a1_1_ipt",
-            "displayName": "Minewsemi ME54BE01: central A1 (1 path, inline PCT)",
+            "name": "minew_me54be01_cent_a1_4_ipt",
+            "displayName": "Minewsemi ME54BE01: central A1 (4 paths, inline PCT)",
             "generator": "Ninja",
-            "binaryDir": "${sourceDir}/build_minew_me54be01_cent_a1_1_ipt",
+            "binaryDir": "${sourceDir}/build_minew_me54be01_cent_a1_4_ipt",
             "cacheVariables": {
                 "BOARD": "nrf54l15dk/nrf54l15/cpuapp",
-                "EXTRA_CONF_FILE": "central.overlay;../boards/inline_pct_initiator.conf;../boards/inline_pct_shared.conf;../boards/1_path_1_local.conf;../boards/minew_me54be01.conf",
+                "EXTRA_CONF_FILE": "central.overlay;../boards/inline_pct_initiator.conf;../boards/inline_pct_shared.conf;../boards/4_path_1_local.conf;../boards/minew_me54be01.conf",
                 "CONF_FILE": "prj.conf",
                 "DTC_OVERLAY_FILE": "../boards/minew_me54be01_nrf54l15_cpuapp.overlay"
             }
