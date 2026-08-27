@@ -96,10 +96,12 @@ run independently. All five must be green:
   below.
 - `lint` (ubuntu-latest) — `pre-commit/action@v3.0.1` runs
   `pre-commit run --all-files`. This is the only place the hooks above are enforced.
-- `build-initiator` (NCS v3.4.0 container) —
-  `ci/build.sh --target initiator --preset nrf54l15dk_cent_a1_4`.
-- `build-reflector` (same container) —
-  `ci/build.sh --target reflector --preset nrf54l15dk_peri_a1_4`.
+- `build-initiator` (NCS v3.4.0 container) — `ci/build.sh --target initiator` over
+  five presets: `nrf54l15dk_cent_a1_4`, `nrf54l15tag_cent_a2_4`,
+  `minew_me54be01_cent_a1_4`, and their `_ipt` twins.
+- `build-reflector` (same container) — `ci/build.sh --target reflector` over
+  five presets: `nrf54l15dk_peri_a1_4`, `nrf54l15tag_peri_a2_4`,
+  `minew_me54be01_peri_a1_4`, and their `_ipt` twins.
 - `onboarding-verification` (clean `ubuntu:24.04`) — runs
   `scripts/install-toolchain.sh --with-rust` then builds **both** the reflector and
   the initiator (the latter exercising the Rust COBS-serializer bridge), guarding the
