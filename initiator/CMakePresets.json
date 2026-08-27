@@ -93,7 +93,7 @@
             "name": "fanstel_bm15c_cent_a1_4",
             "displayName": "Fanstel BM15C: central A1 (4 paths)",
             "generator": "Ninja",
-            "binaryDir": "${sourceDir}/build_fanstel_cent_a1_4",
+            "binaryDir": "${sourceDir}/build_fanstel_bm15c_cent_a1_4",
             "cacheVariables": {
                 "BOARD": "nrf54l15dk/nrf54l15/cpuapp",
                 "EXTRA_CONF_FILE": "central.overlay;../boards/4_path_1_local.conf",
@@ -165,7 +165,7 @@
             "name": "fanstel_bm15c_cent_a1_4_ipt",
             "displayName": "Fanstel BM15C: central A1 (4 paths, inline PCT)",
             "generator": "Ninja",
-            "binaryDir": "${sourceDir}/build_fanstel_cent_a1_4_ipt",
+            "binaryDir": "${sourceDir}/build_fanstel_bm15c_cent_a1_4_ipt",
             "cacheVariables": {
                 "BOARD": "nrf54l15dk/nrf54l15/cpuapp",
                 "EXTRA_CONF_FILE": "central.overlay;../boards/inline_pct_initiator.conf;../boards/inline_pct_shared.conf;../boards/4_path_1_local.conf",
