@@ -97,7 +97,7 @@ run independently. All five must be green:
 - `lint` (ubuntu-latest) — `pre-commit/action@v3.0.1` runs
   `pre-commit run --all-files`. This is the only place the hooks above are enforced.
 - `build-initiator` (NCS v3.4.0 container) —
-  `ci/build.sh --target initiator --preset nrf54l15dk_cent_a1_1`.
+  `ci/build.sh --target initiator --preset nrf54l15dk_cent_a1_4`.
 - `build-reflector` (same container) —
   `ci/build.sh --target reflector --preset nrf54l15dk_peri_a1_4`.
 - `onboarding-verification` (clean `ubuntu:24.04`) — runs

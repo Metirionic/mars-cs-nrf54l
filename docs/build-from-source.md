@@ -89,12 +89,12 @@ each other:
 ```bash
 source ~/.ncs-venv/bin/activate
 
-# RAS pair — nrf54l15dk_cent_a1_1 (initiator) + nrf54l15dk_peri_a1_4 (reflector)
-bash ci/build.sh --target initiator --preset nrf54l15dk_cent_a1_1
+# RAS pair — nrf54l15dk_cent_a1_4 (initiator) + nrf54l15dk_peri_a1_4 (reflector)
+bash ci/build.sh --target initiator --preset nrf54l15dk_cent_a1_4
 bash ci/build.sh --target reflector --preset nrf54l15dk_peri_a1_4
 
-# IPT pair — nrf54l15dk_cent_a1_1_ipt (initiator) + nrf54l15dk_peri_a1_4_ipt (reflector)
-bash ci/build.sh --target initiator --preset nrf54l15dk_cent_a1_1_ipt
+# IPT pair — nrf54l15dk_cent_a1_4_ipt (initiator) + nrf54l15dk_peri_a1_4_ipt (reflector)
+bash ci/build.sh --target initiator --preset nrf54l15dk_cent_a1_4_ipt
 bash ci/build.sh --target reflector --preset nrf54l15dk_peri_a1_4_ipt
 ```
 
@@ -121,7 +121,7 @@ workflow builds every shipped preset — the six RAS presets followed by the six
 
 ```bash
 bash ci/build.sh --target initiator \
-  --preset nrf54l15dk_cent_a1_1,nrf54l15tag_cent_a2_4,ublox_cent_a1_1,ezurio_bl54l15u_cent_a2_4,fanstel_bm15c_cent_a1_1,minew_me54be01_cent_a1_1,nrf54l15dk_cent_a1_1_ipt,nrf54l15tag_cent_a2_4_ipt,ublox_cent_a1_1_ipt,ezurio_bl54l15u_cent_a2_4_ipt,fanstel_bm15c_cent_a1_1_ipt,minew_me54be01_cent_a1_1_ipt \
+  --preset nrf54l15dk_cent_a1_4,nrf54l15tag_cent_a2_4,ublox_cent_a1_4,ezurio_bl54l15u_cent_a2_4,fanstel_bm15c_cent_a1_4,minew_me54be01_cent_a1_4,nrf54l15dk_cent_a1_4_ipt,nrf54l15tag_cent_a2_4_ipt,ublox_cent_a1_4_ipt,ezurio_bl54l15u_cent_a2_4_ipt,fanstel_bm15c_cent_a1_4_ipt,minew_me54be01_cent_a1_4_ipt \
   --release-dir release
 bash ci/build.sh --target reflector \
   --preset nrf54l15dk_peri_a1_4,nrf54l15tag_peri_a2_4,ezurio_bl54l15u_peri_a2_4,fanstel_bm15c_peri_a1_4,ublox_peri_a1_4,minew_me54be01_peri_a1_4,nrf54l15dk_peri_a1_4_ipt,nrf54l15tag_peri_a2_4_ipt,ezurio_bl54l15u_peri_a2_4_ipt,fanstel_bm15c_peri_a1_4_ipt,ublox_peri_a1_4_ipt,minew_me54be01_peri_a1_4_ipt \
@@ -144,7 +144,7 @@ use --build-dir to set another build directory
 
 The documented path avoids this: `ci/build.sh --target <app> --preset <name>`
 builds each preset into its own `binaryDir`
-(e.g. `initiator/build_nrf54l15dk_cent_a1_1`,
+(e.g. `initiator/build_nrf54l15dk_cent_a1_4`,
 `reflector/build_nrf54l15dk_peri_a1_4`) and passes `--pristine=auto`, so the two
 apps never collide. If you drive `west build` by hand, pass `-d` /
 `--build-dir` explicitly to keep the build directories separate.
@@ -183,7 +183,7 @@ docker run --rm -it --entrypoint /bin/bash -v "$PWD":/work -w /work \
     wget -qO- https://sh.rustup.rs | sh -s -- -y
     source "$HOME/.cargo/env"
     rustup target add thumbv8m.main-none-eabihf
-    NCS_DIR=$(pwd) bash ci/build.sh --target initiator --preset nrf54l15dk_cent_a1_1
+    NCS_DIR=$(pwd) bash ci/build.sh --target initiator --preset nrf54l15dk_cent_a1_4
     NCS_DIR=$(pwd) bash ci/build.sh --target reflector --preset nrf54l15dk_peri_a1_4
   '
 ```
@@ -196,11 +196,11 @@ for day-to-day work and `west flash`, prefer the native install above.
 ## Flash your build
 
 Once a build completes, flash it to a board over the onboard J-Link. Each preset
-builds into its own directory (e.g. `initiator/build_nrf54l15dk_cent_a1_1`), so
+builds into its own directory (e.g. `initiator/build_nrf54l15dk_cent_a1_4`), so
 point `west flash` at the build directory you want to flash:
 
 ```bash
-west flash -d initiator/build_nrf54l15dk_cent_a1_1      # initiator
+west flash -d initiator/build_nrf54l15dk_cent_a1_4      # initiator
 west flash -d reflector/build_nrf54l15dk_peri_a1_4      # reflector
 ```
 
