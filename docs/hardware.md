@@ -137,11 +137,27 @@ no NCS board def for the AN54LV-K15) — the overlay selects the carrier.
   RTT console backend (and disables the DK defconfig's `CONFIG_UART_CONSOLE`,
   since the overlay defines no `zephyr,console` node), so the console (log
   output) runs over Segger RTT via the same debug probe, with no extra wiring.
+- **No console for non-Raytac builds.** A preset whose conf does not select the
+  RTT console keeps the DK defconfig's console on `uart30` — pins that go
+  nowhere on the AN54LV-K15 EVB — so a foreign build flashed onto this carrier
+  boots and runs with no console of any kind. To see its logs, add the RTT
+  override as an extra `EXTRA_CONF_FILE` — the same lines
+  `boards/raytac_an54lv_k15.conf` carries: `CONFIG_USE_SEGGER_RTT=y`,
+  `CONFIG_RTT_CONSOLE=y`, `CONFIG_UART_CONSOLE=n` — which restores the log
+  console over the DEBUG-OUT probe (bench-verified with an
+  `nrf54l15dk_cent_a1_4` build: boot banner and live CS lines over RTT).
 - **COBS UART.** Unlike the ME54BE01 there is no onboard USB-to-serial bridge:
   header J1 carries `uart20` (TX `P1.04` / RX `P1.05`, inherited from the
   nrf54l15dk base DTS, `921600` baud, 8N1, no flow control), read through an
   external UART-to-USB adapter (e.g. FT232) — the same external-adapter shape
   as the TAG.
+- **Power feeds from the FT232 over J1.** The same J1 header that taps
+  `uart20` also carries the carrier's power feed from the external adapter —
+  with the FT232 on J1, the EVB is powered through it, and Type-C/battery are
+  not in this bench's power path. Keep J1 single-source: a second power source
+  alongside the adapter backfeeds the rail. The carrier's CS-active current
+  rides on the FT232's supply too, so the adapter and its USB source are the
+  EVB's only supply.
 - **Antenna switch and the antenna-index ↔ RF-connector mapping.** The
   SKY13586-678LF SP3T switch has two control inputs wired to `V1` → `P0.03`,
   `V2` → `P0.04`. The overlay encodes them as `ant-gpios`: `&gpio0 4` first
