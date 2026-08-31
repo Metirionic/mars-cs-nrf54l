@@ -11,7 +11,7 @@ mars-bluetooth-hci API.
 
 ## Supported boards
 
-Six of the target boards build for `BOARD=nrf54l15dk/nrf54l15/cpuapp` with the
+Seven of the target boards build for `BOARD=nrf54l15dk/nrf54l15/cpuapp` with the
 carrier selected by overlay. The nRF54L15 TAG is the exception: it builds
 against its own base board `nrf54l15tag/nrf54l15/cpuapp`, because the tag
 overlay's `/delete-node/ &sky13348` and `antenna_switch_v1`/`antenna_switch_v2`
@@ -26,6 +26,7 @@ target nodes that exist only in the nrf54l15tag DTS (see issue #40).
 | Fanstel BM15C | `boards/fanstel_bm15c_nrf54l15_cpuapp.overlay` | `uart20` @ 921600 | `uart30` @ 921600 | — (no antenna-switch node) |
 | Minewsemi ME54BE01 | `boards/minew_me54be01_nrf54l15_cpuapp.overlay` | `uart20` @ 921600 | — (RTT via debug probe) | — (no antenna-switch node) |
 | Raytac AN54LV-K15 | `boards/raytac_an54lv_k15_nrf54l15_cpuapp.overlay` | `uart20` @ 921600 | — (RTT via debug probe) | `P0.03`, `P0.04` |
+| Insight SiP ISP2454 | `boards/insight_isp2454_nrf54l15_cpuapp.overlay` | `uart20` @ 921600 | — (RTT via onboard J-Link OB) | — (no antenna-switch node) |
 
 GPIOs use Zephyr devicetree port-pin notation (`&gpio1 9` → `P1.09`, port 1
 pin 9). All antenna-switch `ant-gpios` are `GPIO_ACTIVE_HIGH`. The DK, U-Blox,
@@ -41,8 +42,8 @@ is shown here as `nRF54L15 TAG`.
 
 - `cobs-uart` is the authoritative chosen node for the COBS ranging stream,
   consumed by `initiator/src/serialize.c` via `DEVICE_DT_GET(DT_CHOSEN(cobs_uart))`.
-  On boards with a console UART (all except the TAG, the ME54BE01, and the
-  AN54LV-K15), the console UART also
+  On boards with a console UART (all except the TAG, the ME54BE01, the
+  AN54LV-K15, and the ISP2454), the console UART also
   carries shell, mcumgr, bt-mon, and bt-c2h — all five `zephyr,console` /
   `shell-uart` / `uart-mcumgr` / `bt-mon-uart` / `bt-c2h-uart` chosen nodes point
   to it. The TAG has no console UART (see [TAG wiring notes](#nrf54l15-tag-wiring-notes)).
@@ -219,6 +220,63 @@ no NCS board def for the AN54LV-K15) — the overlay selects the carrier.
   and the [SKY13586-678LF data sheet](https://www.skyworksinc.com/-/media/SkyWorks/Documents/Products/2401-2500/SKY13586-678LF_203452G.pdf)
   (control truth table).
 
+### Insight SiP ISP2454 wiring notes
+
+The ISP2454 is an Insight SiP module dev kit (order code ISP2454-LX-EB: the
+plug-on ISP2454-LX-TB Test Board carrying the ISP2454-LX module, stacked on
+the ISP130603 Interface Board). Like the ME54BE01 it exposes a single module
+UART and runs the console over RTT — but unlike it the debugger is onboard.
+It builds on `BOARD=nrf54l15dk/nrf54l15/cpuapp` (there is no NCS board def
+for the ISP2454 EVK) — the overlay selects the carrier, and the EVK's own
+flash flow (Insight AN250502) is the standard Nordic Recover/Flash against
+that same board target.
+
+- **Onboard J-Link OB.** The ISP130603 Interface Board integrates a J-Link OB
+  JTAG/SWD emulator: its single USB connector both flashes the module and
+  reads the RTT console — no external debug probe needed (unlike the TAG,
+  ME54BE01, and AN54LV-K15).
+- **Single UART; console over RTT.** Only `uart20` is exposed — the COBS
+  ranging stream via `cobs-uart`, on Interface-Board silk `P36` (module TX,
+  `P1.04`) and `P37` (module RX, `P1.05`, `921600` baud, 8N1, no flow
+  control). The pinctrl is inherited from the nrf54l15dk base DTS, and the
+  EVK documents exactly this external-adapter path (Insight AN250502 wires an
+  external USB-UART adapter to P36/P37 for the module's log UART). There is
+  no console/shell UART: the overlay binds only `cobs-uart = &uart20` and
+  `boards/insight_isp2454.conf` selects the RTT console backend (and disables
+  the DK defconfig's `CONFIG_UART_CONSOLE`, since the overlay defines no
+  `zephyr,console` node), so the console (log output) runs over Segger RTT
+  via the same onboard J-Link OB. (The DK-default uart30 console pins
+  `P0.00`/`P0.01` are not routed to the Interface Board; a uart30 console
+  would need Insight's `P0.02`/`P0.03` pinctrl remap — RTT avoids it.)
+- **The module rail is 3.0 V, not the DK's 1.8 V.** With the Interface
+  Board's default power path (`J4` = `REG`, the embedded 3 V regulator), the
+  module runs at 3.0 V (its allowed range is 1.7–3.6 V), so header IO is
+  3.0 V nominal. Leave the external adapter's VCC unconnected (GND + TX/RX
+  only): supply pins ride the stacking and GPIO headers with no series
+  isolation, so a powered adapter backfeeds the module rail — the same
+  backfeed risk the Raytac jig hit.
+- **LF clock: LFXO load clamped to the SoC maximum.** The ISP2454-LX module's
+  32.768 kHz crystal is specified for a 19 pF load, and Insight's firmware
+  note (data sheet §2.5, note 2) prescribes `load-capacitance-femtofarad =
+  <19000>` — but the nRF54L15 cannot express that: the product spec holds the
+  internal LFXO capacitor bank to 4–18 pF in 0.5 pF steps, and the SoC code
+  (`soc/nordic/nrf54l/soc.c`) `BUILD_ASSERT`s 3000–18000 fF, so a 19000
+  overlay fails the build. The overlay sets the SoC maximum `18000` — the
+  nearest expressible load — against the DK target's `17000`; the residual
+  1 pF delta is a bench-timing observation (rig bring-up), not tuning
+  guidance (the load capacitors are internal on both boards).
+- **Antenna.** A single integrated PCB antenna, no RF switch and no populated
+  RF-connector path (the Test Board's SMA sits behind 0 Ω links — external
+  conducted-RF access is rework-only). Same single-antenna shape as Fanstel
+  and the ME54BE01, so all ISP2454 presets use `NUM_ANTENNAS=1`
+  (`4_path_1_local.conf`) and the overlay carries no `cs_antenna_switch`
+  node.
+- **Engineering-B die.** These EVKs ship on nRF54L15 Engineering-B silicon
+  (the vendor's own EB-listing warning) — worth confirming the die revision
+  when comparing CS results across carrier boards. See the
+  [ISP2454 DK data sheet](https://www.insightsip.com/fichiers_insightsip/pdf/ble/ISP2454/isp_ble_DS2454_DK.pdf)
+  and [AN250502, "Use of the ISP2454-LX Development Kit"](https://www.insightsip.com/fichiers_insightsip/pdf/ble/ISP2454/isp_ble_AN250502.pdf).
+
 ### Antenna-switch node
 
 - The `cs_antenna_switch` node (`compatible = "nordic,bt-cs-antenna-switch"`,
@@ -226,10 +284,11 @@ no NCS board def for the AN54LV-K15) — the overlay selects the carrier.
   controller library in NCS; no code in this repo reads `ant-gpios` directly.
   The overlay comment "See `cs_antenna_switch.c`" refers to NCS-owned source, not
   a file in this repo.
-- Fanstel and the Minewsemi ME54BE01 have no `cs_antenna_switch` node
-  (single-antenna boards; the Nordic controller's `cs_antenna_switch.c` is
-  compiled only under `CONFIG_BT_CTLR_SDC_CS_MULTIPLE.ANTENNA_SUPPORT`, i.e.
-  `NUM_ANTENNAS >= 2`, and both boards' presets use `NUM_ANTENNAS=1`). The
+- Fanstel, the Minewsemi ME54BE01, and the Insight SiP ISP2454 have no
+  `cs_antenna_switch` node (single-antenna boards; the Nordic controller's
+  `cs_antenna_switch.c` is compiled only under
+  `CONFIG_BT_CTLR_SDC_CS_MULTIPLE.ANTENNA_SUPPORT`, i.e. `NUM_ANTENNAS >= 2`,
+  and all three boards' presets use `NUM_ANTENNAS=1`). The
   Fanstel overlay instead sets `&lfxo` load-capacitance to 15.5 pF (`15500` fF) —
   a factual board-clock difference recorded here as overlay content, not tuning
   guidance.
@@ -247,10 +306,10 @@ no NCS board def for the AN54LV-K15) — the overlay selects the carrier.
 ### Kconfig fragments
 
 Every preset pulls a `boards/*_local.conf` path-local fragment. RAS presets pull
-just that one (plus `central.overlay` for initiators, and `nrf54l15tag.conf` for
-the TAG presets' RTT-console/serial-driver Kconfig — see
-[TAG wiring notes](#nrf54l15-tag-wiring-notes)). Each local fragment is three
-lines setting the same three symbols:
+just that one (plus `central.overlay` for initiators, and the carrier
+`boards/<carrier>.conf` fragment wherever a board's RTT-console/serial-driver
+Kconfig is needed — see each carrier's wiring notes). Each local fragment is
+three lines setting the same three symbols:
 
 | Fragment | `RAS_MAX_ANTENNA_PATHS` | `SDC_CS_MAX_ANTENNA_PATHS` | `SDC_CS_NUM_ANTENNAS` | Antennas / Paths |
 |----------|------------------------|----------------------------|------------------------|------------------|
@@ -282,7 +341,7 @@ Mode column marks which. The two are peer choices — see
 [docs/architecture.md](architecture.md) for the RAS-vs-IPT contrast and the IPT
 data flow. RAS and IPT share the same board overlays and path-local fragments;
 IPT presets additionally pull the `inline_pct_*.conf` fragments above. IPT
-covers all seven carrier boards — A1/A2 4-path on the initiator, A1 4-path on the
+covers all eight carrier boards — A1/A2 4-path on the initiator, A1 4-path on the
 reflector, with the TAG and the Ezurio reflector at A2 4-path and the Raytac at
 A3 4-path.
 
@@ -304,6 +363,8 @@ A3 4-path.
 | `minew_me54be01_cent_a1_4_ipt` | IPT | initiator | Minewsemi ME54BE01 | `minew_me54be01_*.overlay` | `central.overlay;inline_pct_initiator.conf;inline_pct_shared.conf;4_path_1_local.conf;minew_me54be01.conf` | A1 / 4 |
 | `raytac_an54lv_k15_cent_a3_4` | RAS | initiator | Raytac AN54LV-K15 | `raytac_an54lv_k15_*.overlay` | `central.overlay;4_path_3_local.conf;raytac_an54lv_k15.conf` | A3 / 4 |
 | `raytac_an54lv_k15_cent_a3_4_ipt` | IPT | initiator | Raytac AN54LV-K15 | `raytac_an54lv_k15_*.overlay` | `central.overlay;inline_pct_initiator.conf;inline_pct_shared.conf;4_path_3_local.conf;raytac_an54lv_k15.conf` | A3 / 4 |
+| `insight_isp2454_cent_a1_4` | RAS | initiator | Insight SiP ISP2454 | `insight_isp2454_*.overlay` | `central.overlay;4_path_1_local.conf;insight_isp2454.conf` | A1 / 4 |
+| `insight_isp2454_cent_a1_4_ipt` | IPT | initiator | Insight SiP ISP2454 | `insight_isp2454_*.overlay` | `central.overlay;inline_pct_initiator.conf;inline_pct_shared.conf;4_path_1_local.conf;insight_isp2454.conf` | A1 / 4 |
 | `nrf54l15dk_peri_a1_4` | RAS | reflector | nRF54L15DK | `nrf54l15dk_*.overlay` | `4_path_1_local.conf` | A1 / 4 |
 | `nrf54l15dk_peri_a2_2` | RAS | reflector | nRF54L15DK | `nrf54l15dk_*.overlay` | `2_path_2_local.conf` | A2 / 2 |
 | `nrf54l15dk_peri_a4_4` | RAS | reflector | nRF54L15DK | `nrf54l15dk_*.overlay` | `4_path_4_local.conf` | A4 / 4 |
@@ -320,6 +381,8 @@ A3 4-path.
 | `minew_me54be01_peri_a1_4_ipt` | IPT | reflector | Minewsemi ME54BE01 | `minew_me54be01_*.overlay` | `inline_pct_reflector.conf;inline_pct_shared.conf;4_path_1_local.conf;minew_me54be01.conf` | A1 / 4 |
 | `raytac_an54lv_k15_peri_a3_4` | RAS | reflector | Raytac AN54LV-K15 | `raytac_an54lv_k15_*.overlay` | `4_path_3_local.conf;raytac_an54lv_k15.conf` | A3 / 4 |
 | `raytac_an54lv_k15_peri_a3_4_ipt` | IPT | reflector | Raytac AN54LV-K15 | `raytac_an54lv_k15_*.overlay` | `inline_pct_reflector.conf;inline_pct_shared.conf;4_path_3_local.conf;raytac_an54lv_k15.conf` | A3 / 4 |
+| `insight_isp2454_peri_a1_4` | RAS | reflector | Insight SiP ISP2454 | `insight_isp2454_*.overlay` | `4_path_1_local.conf;insight_isp2454.conf` | A1 / 4 |
+| `insight_isp2454_peri_a1_4_ipt` | IPT | reflector | Insight SiP ISP2454 | `insight_isp2454_*.overlay` | `inline_pct_reflector.conf;inline_pct_shared.conf;4_path_1_local.conf;insight_isp2454.conf` | A1 / 4 |
 
 - **Naming asymmetry.** Preset names are `<board>_<cent|peri>_a<antennas>_<paths>`
   — antennas first, paths second (e.g. `ezurio_bl54l15u_cent_a2_4` = A2, 4 paths).
@@ -333,8 +396,9 @@ A3 4-path.
 ### How a preset composes overlay + fragments
 
 Each preset sets `DTC_OVERLAY_FILE` (the board overlay) and `EXTRA_CONF_FILE`
-(the role fragment `;`-separated from the path-local fragment; the TAG presets
-also append `../boards/nrf54l15tag.conf` for RTT-console/serial-driver Kconfig).
+(the role fragment `;`-separated from the path-local fragment; the TAG, ME54BE01,
+AN54LV-K15, and ISP2454 presets also append their `boards/<carrier>.conf`
+fragment for RTT-console/serial-driver Kconfig).
 IPT presets insert the `inline_pct_initiator.conf` / `inline_pct_reflector.conf`
 and `inline_pct_shared.conf` fragments between the role fragment and the
 path-local fragment (see the preset table above).

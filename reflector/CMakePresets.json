@@ -126,6 +126,18 @@
             }
         },
         {
+            "name": "insight_isp2454_peri_a1_4",
+            "displayName": "Insight SiP ISP2454: peripheral A1 (4 paths)",
+            "generator": "Ninja",
+            "binaryDir": "${sourceDir}/build_insight_isp2454_peri_a1_4",
+            "cacheVariables": {
+                "BOARD": "nrf54l15dk/nrf54l15/cpuapp",
+                "EXTRA_CONF_FILE": "../boards/4_path_1_local.conf;../boards/insight_isp2454.conf",
+                "CONF_FILE": "prj.conf",
+                "DTC_OVERLAY_FILE": "../boards/insight_isp2454_nrf54l15_cpuapp.overlay"
+            }
+        },
+        {
             "name": "nrf54l15dk_peri_a1_4_ipt",
             "displayName": "nRF54L15DK: peripheral A1 (4 paths, inline PCT)",
             "generator": "Ninja",
@@ -207,6 +219,18 @@
                 "EXTRA_CONF_FILE": "../boards/inline_pct_reflector.conf;../boards/inline_pct_shared.conf;../boards/4_path_3_local.conf;../boards/raytac_an54lv_k15.conf",
                 "CONF_FILE": "prj.conf",
                 "DTC_OVERLAY_FILE": "../boards/raytac_an54lv_k15_nrf54l15_cpuapp.overlay"
+            }
+        },
+        {
+            "name": "insight_isp2454_peri_a1_4_ipt",
+            "displayName": "Insight SiP ISP2454: peripheral A1 (4 paths, inline PCT)",
+            "generator": "Ninja",
+            "binaryDir": "${sourceDir}/build_insight_isp2454_peri_a1_4_ipt",
+            "cacheVariables": {
+                "BOARD": "nrf54l15dk/nrf54l15/cpuapp",
+                "EXTRA_CONF_FILE": "../boards/inline_pct_reflector.conf;../boards/inline_pct_shared.conf;../boards/4_path_1_local.conf;../boards/insight_isp2454.conf",
+                "CONF_FILE": "prj.conf",
+                "DTC_OVERLAY_FILE": "../boards/insight_isp2454_nrf54l15_cpuapp.overlay"
             }
         }
     ]

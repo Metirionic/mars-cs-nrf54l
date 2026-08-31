@@ -1,0 +1,66 @@
+/* SPDX-License-Identifier: MIT */
+/*
+ * Insight SiP ISP2454 EVK overlay (ISP2454-LX module on the ISP2454-LX-TB
+ * Test Board, stacked on the ISP130603 Interface Board). Builds on the
+ * nrf54l15dk base board (no NCS board def for the ISP2454 EVK); BOARD stays
+ * nrf54l15dk/nrf54l15/cpuapp and this overlay selects the carrier — the EVK's
+ * own flash flow (Insight AN250502) is the standard Nordic Recover/Flash
+ * against that target.
+ *
+ * COBS ranging stream: uart20, pinctrl inherited from the nrf54l15dk base DTS
+ * (P1.04 TX / P1.05 RX, 921600 baud) — the EVK's documented log UART
+ * (AN250502) — exposed on Interface-Board silk P36 (module TX = P1.04) and
+ * P37 (module RX = P1.05). The only USB connector feeds the J-Link OB; these
+ * header lines have no onboard bridge, so the stream is read through an
+ * external UART-to-USB adapter (e.g. FT232), same shape as the TAG. The
+ * module rail is 3.0 V by default (IB J4 = REG), so adapter VCC stays
+ * unconnected — see docs/hardware.md (ISP2454 wiring notes).
+ *
+ * Antenna: single integrated PCB antenna, no RF switch. No cs_antenna_switch
+ * node — the Nordic controller's cs_antenna_switch.c is compiled only under
+ * CONFIG_BT_CTLR_SDC_CS_MULTIPLE.ANTENNA_SUPPORT (NUM_ANTENNAS >= 2); all
+ * ISP2454 presets use NUM_ANTENNAS=1 (4_path_1_local), so it is compiled out
+ * and the node is not required (same as the Fanstel BM15C / ME54BE01).
+ *
+ * LF clock: the module carries a 32.768 kHz crystal whose specified load is
+ * 19 pF (ISP2454 data sheet §2.5, note 2), and Insight's firmware note
+ * literally prescribes load-capacitance-femtofarad = <19000> — instructing
+ * the reader to add 19000 to the binding enum. The nRF54L15 cannot express
+ * that load: the product spec holds the internal LFXO capacitor bank to
+ * 4–18 pF in 0.5 pF steps, and soc/nordic/nrf54l/soc.c BUILD_ASSERTs a range
+ * of 3000–18000 fF, so a 19000 overlay fails to build on NCS v3.4.0. This
+ * overlay therefore sets the SoC maximum 18000 fF — the nearest expressible
+ * load — with the residual 1 pF delta a bench-timing observation (rig
+ * verification), not tuning guidance.
+ *
+ * Console: Segger RTT via the EVK's onboard J-Link OB (the Interface Board
+ * integrates it). The nrf54l15dk base (nrf54l_05_10_15_cpuapp_common.dtsi)
+ * binds zephyr,console / shell-uart / uart-mcumgr / bt-mon-uart / bt-c2h-uart
+ * to uart20 — here the COBS stream — so those are /delete-property/'d below
+ * to keep uart20 for COBS only; boards/insight_isp2454.conf selects the RTT
+ * backend and disables the DK defconfig's UART_CONSOLE. (The DK-default
+ * uart30 console pins P0.00/P0.01 are not routed to the Interface Board; a
+ * uart30 console would need Insight's P0.02/P0.03 remap.) See
+ * docs/hardware.md.
+ */
+
+/ {
+    chosen {
+        cobs-uart = &uart20;
+
+        /delete-property/ zephyr,console;
+        /delete-property/ zephyr,shell-uart;
+        /delete-property/ zephyr,uart-mcumgr;
+        /delete-property/ zephyr,bt-mon-uart;
+        /delete-property/ zephyr,bt-c2h-uart;
+    };
+};
+
+&uart20 {
+    status = "okay";
+    current-speed = <921600>;
+};
+
+&lfxo {
+    load-capacitance-femtofarad = <18000>;
+};
