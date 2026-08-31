@@ -27,9 +27,10 @@
  * literally prescribes load-capacitance-femtofarad = <19000> — instructing
  * the reader to add 19000 to the binding enum. The nRF54L15 cannot express
  * that load: the product spec holds the internal LFXO capacitor bank to
- * 4–18 pF in 0.5 pF steps, and soc/nordic/nrf54l/soc.c BUILD_ASSERTs a range
- * of 3000–18000 fF, so a 19000 overlay fails to build on NCS v3.4.0. This
- * overlay therefore sets the SoC maximum 18000 fF — the nearest expressible
+ * 4–18 pF in 0.5 pF steps, and soc/nordic/nrf54l/soc.c enforces a range of
+ * 3000–18000 fF via BUILD_ASSERT, so a 19000 overlay fails to build on
+ * NCS v3.4.0. This overlay therefore sets the SoC maximum 18000 fF — the
+ * nearest expressible
  * load — with the residual 1 pF delta a bench-timing observation (rig
  * verification), not tuning guidance.
  *
