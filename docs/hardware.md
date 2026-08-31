@@ -235,6 +235,15 @@ that same board target.
   JTAG/SWD emulator: its single USB connector both flashes the module and
   reads the RTT console — no external debug probe needed (unlike the TAG,
   ME54BE01, and AN54LV-K15).
+- **Bench: flash and RTT via `nrfutil` — the J-Link DLL is unusable on this
+  OB.** `JLinkExe`/`JLinkRTTLogger` (system DLL 7.92m) SIGABRT with
+  `bit out of range 0 - FD_SETSIZE` on every attach, re-attempting an
+  OB firmware update that never sticks; `nrfutil device` (recover, program,
+  read, write) performs the same operations over the same OB cleanly.
+- **Bench: AP-Protect ships enabled — recover once before flashing.** The
+  first `nrfutil device program` against the EVK fails with
+  "Application core access port is currently closed"; a one-time
+  `nrfutil device recover` clears it, and it stays clear for later flashes.
 - **Single UART; console over RTT.** Only `uart20` is exposed — the COBS
   ranging stream via `cobs-uart`, on Interface-Board silk `P36` (module TX,
   `P1.04`) and `P37` (module RX, `P1.05`, `921600` baud, 8N1, no flow
@@ -248,6 +257,21 @@ that same board target.
   via the same onboard J-Link OB. (The DK-default uart30 console pins
   `P0.00`/`P0.01` are not routed to the Interface Board; a uart30 console
   would need Insight's `P0.02`/`P0.03` pinctrl remap — RTT avoids it.)
+- **Bench: RTT via `nrfutil device read` — drain the stale boot ring first.**
+  The console's 1 KB up-buffer runs `NO_BLOCK_SKIP` (the same stale-ring
+  behavior noted for the AN54LV-K15 above) and fills during boot, so a
+  post-hoc read returns a frozen tail or nothing. The control block sits at
+  the ELF symbol `_SEGGER_RTT` (up-buffer behind it); read RAM at that
+  address via `nrfutil device read`, and to tail live output write
+  `RdOff = WrOff` at the control block (`nrfutil device write`) so the
+  stale boot output drains.
+- **Bench: serial-port identities.** The OB exposes a single CDC (`ttyACM0`,
+  silent — the module's `uart20` never reaches the OB, so the ranging stream
+  never appears on the J-Link's port), and `nrfutil device list` mislabels
+  the external FT232's `/dev/ttyUSB0` as this J-Link's `vcom 1`; disambiguate
+  via `/dev/serial/by-id` (`usb-FTDI_FT232R…` → `ttyUSB0`). The FT232 at
+  921600 on `P36`/`P37` is verified clean — a 4 MB soak with zero COBS decode
+  failures past the startup partial.
 - **The module rail is 3.0 V, not the DK's 1.8 V.** With the Interface
   Board's default power path (`J4` = `REG`, the embedded 3 V regulator), the
   module runs at 3.0 V (its allowed range is 1.7–3.6 V), so header IO is
@@ -263,8 +287,9 @@ that same board target.
   (`soc/nordic/nrf54l/soc.c`) `BUILD_ASSERT`s 3000–18000 fF, so a 19000
   overlay fails the build. The overlay sets the SoC maximum `18000` — the
   nearest expressible load — against the DK target's `17000`; the residual
-  1 pF delta is a bench-timing observation (rig bring-up), not tuning
-  guidance (the load capacitors are internal on both boards).
+  1 pF delta is a bench-timing watch item — the four role/mode bench soaks
+  showed no drift signature — not tuning guidance (the load capacitors are
+  internal on both boards).
 - **Antenna.** A single integrated PCB antenna, no RF switch and no populated
   RF-connector path (the Test Board's SMA sits behind 0 Ω links — external
   conducted-RF access is rework-only). Same single-antenna shape as Fanstel
@@ -273,7 +298,8 @@ that same board target.
   node.
 - **Engineering-B die.** These EVKs ship on nRF54L15 Engineering-B silicon
   (the vendor's own EB-listing warning) — worth confirming the die revision
-  when comparing CS results across carrier boards. See the
+  when comparing CS results across carrier boards; the bench rig's EB reads
+  REV1 (`nrfutil device info` → `NRF54L15_xxxx_REV1`). See the
   [ISP2454 DK data sheet](https://www.insightsip.com/fichiers_insightsip/pdf/ble/ISP2454/isp_ble_DS2454_DK.pdf)
   and [AN250502, "Use of the ISP2454-LX Development Kit"](https://www.insightsip.com/fichiers_insightsip/pdf/ble/ISP2454/isp_ble_AN250502.pdf).
 
