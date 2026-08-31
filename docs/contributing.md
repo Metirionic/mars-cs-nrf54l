@@ -116,10 +116,16 @@ A sixth check — `Docs`
 `pull_request` and every push to `main`. It validates the internal inline
 links between the [README](../README.md) and the guides in `docs/` (this one
 included), so a renamed or moved guide is caught before a user hits a dead
-link, and it confirms the release-artifact name in
+link; confirms the release-artifact name in
 [docs/flash-quickstart.md](flash-quickstart.md) matches the archive
-[release.yml](../.github/workflows/release.yml) produces. Run it locally with
-`bash scripts/check-docs.sh`.
+[release.yml](../.github/workflows/release.yml) produces; and cross-checks the
+preset names in the docs table plus the hand-copied preset lists in
+[ci.yml](../.github/workflows/ci.yml),
+[release.yml](../.github/workflows/release.yml), and
+[build-from-source.md](build-from-source.md) against the configurePresets in
+`initiator/CMakePresets.json` / `reflector/CMakePresets.json` (a misspelled or
+dropped preset name in those lists is caught here, not by a release build).
+Run it locally with `bash scripts/check-docs.sh`.
 
 There is no `.github/pull_request_template.md`, no `CODEOWNERS`, and no in-repo
 branch-protection hint — a PR is simply a branch opened against `main` with all six
