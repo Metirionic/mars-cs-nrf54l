@@ -146,6 +146,30 @@ no NCS board def for the AN54LV-K15) — the overlay selects the carrier.
   `CONFIG_RTT_CONSOLE=y`, `CONFIG_UART_CONSOLE=n` — which restores the log
   console over the DEBUG-OUT probe (bench-verified with an
   `nrf54l15dk_cent_a1_4` build: boot banner and live CS lines over RTT).
+- **Both roles log over RTT; a "silent" build usually means a stale ring.**
+  Both Raytac presets write their console through the DEBUG-OUT probe —
+  including the reflector: a bench-verified `raytac_an54lv_k15_peri_a3_4`
+  fresh boot logs the banner, SDC revision, `Connected to …`, `CS capability
+  exchange completed (peer antennas: 1)` and the full `CS config creation
+  complete` block over RTT, same shape as the initiator.
+- **RTT reads a stale ring after a reflash — invalidate the control block
+  first.** The console's RTT init runs in `STRONG_CHECK` mode: a valid RAM
+  control block survives both a system reset and a reflash (RAM is not
+  cleared by `SYSRESETREQ` or by `nrfutil device program`), and the 1 KB
+  up-buffer runs `NO_BLOCK_SKIP` — once full, further output is silently
+  discarded instead of wrapping. Post-hoc reads (`JLinkExe` `savebin` at the
+  `_SEGGER_RTT` control block, no RTT client draining it) then show whatever
+  the last drained session left: `wr` frozen, "zero bytes" for any image
+  flashed on top, or two sessions' content appended together. This is
+  build-independent and cost bench verification of the reflector console a
+  long misdiagnosis. Clean-read recipe: with the probe attached, corrupt the
+  control-block ID (e.g. `JLinkExe`: `h`,
+  `w1 <_SEGGER_RTT addr>, 0xAA, 2` clobbering the `SE` of `"SEGGER RTT"`),
+  then `r` — `g`; the fresh boot sees an invalid control block and re-inits
+  `wr` = `rd` = 0, and the ring's first ~1 KB (banner through early session)
+  is this boot's output only. Power-cycling the EVB works too (RAM clears)
+  but on this bench the power source is the FT232 on J1 — unplugging it is
+  the console's power switch.
 - **COBS UART.** Unlike the ME54BE01 there is no onboard USB-to-serial bridge:
   header J1 carries `uart20` (TX `P1.04` / RX `P1.05`, inherited from the
   nrf54l15dk base DTS, `921600` baud, 8N1, no flow control), read through an
