@@ -42,9 +42,9 @@ boards ship in the same archive; see the [preset table](hardware.md#presets).
 
 1. Go to the repo's **Releases** page on GitHub and download
    `cs-ranging-firmware.zip` from the latest release.
-2. Unzip it. The archive is flat — 24 `.hex` files at the root, named
-   `<role>_<preset>.hex`. That is six RAS presets and six `_ipt` presets per
-   role (12 initiator + 12 reflector); no build step is needed.
+2. Unzip it. The archive is flat — 28 `.hex` files at the root, named
+   `<role>_<preset>.hex`. That is seven RAS presets and seven `_ipt` presets
+   per role (14 initiator + 14 reflector); no build step is needed.
 3. Locate the two files for your chosen pair. IPT files use the same
    `<role>_<preset>.hex` name with an `_ipt` suffix before `.hex`:
    - **RAS pair** — `initiator_nrf54l15dk_cent_a1_4.hex` +

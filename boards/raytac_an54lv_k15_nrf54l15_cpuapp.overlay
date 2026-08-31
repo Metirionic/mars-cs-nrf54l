@@ -49,8 +49,9 @@
     current-speed = <921600>;
 };
 
-/* Antenna control below is implemented as described in the CS documentation.
- * See cs_antenna_switch.c
+/* Antenna control below: ant-gpios[0] drives antenna-index bit 0 per the
+ * binary encoding in cs_antenna_switch.c — the NCS CS documentation's mode-1
+ * truth table is transposed relative to that code (see the header note above).
  */
 / {
     cs_antenna_switch: cs-antenna-config {
