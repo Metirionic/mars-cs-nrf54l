@@ -9,6 +9,7 @@ extend-ignore-re = [
 [default.extend-identifiers]
 # Bluetooth spec terms
 "HCI" = "HCI"
+"ACI" = "ACI"  # Antenna Configuration Index (CS tone antenna configs) — not ACPI
 "subevent" = "subevent"
 "subevents" = "subevents"
 
