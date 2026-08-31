@@ -115,16 +115,16 @@ locally-built image.
 
 `--preset` accepts a comma-separated list, and `--release-dir` collects each
 merged `.hex` into a flat output directory. This is exactly how the release
-workflow builds every shipped preset — the six RAS presets followed by the six
-`_ipt` presets for each target (see
+workflow builds every shipped preset — the seven RAS presets followed by the
+seven `_ipt` presets for each target (see
 [.github/workflows/release.yml](../.github/workflows/release.yml)):
 
 ```bash
 bash ci/build.sh --target initiator \
-  --preset nrf54l15dk_cent_a1_4,nrf54l15tag_cent_a2_4,ublox_cent_a1_4,ezurio_bl54l15u_cent_a2_4,fanstel_bm15c_cent_a1_4,minew_me54be01_cent_a1_4,nrf54l15dk_cent_a1_4_ipt,nrf54l15tag_cent_a2_4_ipt,ublox_cent_a1_4_ipt,ezurio_bl54l15u_cent_a2_4_ipt,fanstel_bm15c_cent_a1_4_ipt,minew_me54be01_cent_a1_4_ipt \
+  --preset nrf54l15dk_cent_a1_4,nrf54l15tag_cent_a2_4,ublox_cent_a1_4,ezurio_bl54l15u_cent_a2_4,fanstel_bm15c_cent_a1_4,minew_me54be01_cent_a1_4,raytac_an54lv_k15_cent_a3_4,nrf54l15dk_cent_a1_4_ipt,nrf54l15tag_cent_a2_4_ipt,ublox_cent_a1_4_ipt,ezurio_bl54l15u_cent_a2_4_ipt,fanstel_bm15c_cent_a1_4_ipt,minew_me54be01_cent_a1_4_ipt,raytac_an54lv_k15_cent_a3_4_ipt \
   --release-dir release
 bash ci/build.sh --target reflector \
-  --preset nrf54l15dk_peri_a1_4,nrf54l15tag_peri_a2_4,ezurio_bl54l15u_peri_a2_4,fanstel_bm15c_peri_a1_4,ublox_peri_a1_4,minew_me54be01_peri_a1_4,nrf54l15dk_peri_a1_4_ipt,nrf54l15tag_peri_a2_4_ipt,ezurio_bl54l15u_peri_a2_4_ipt,fanstel_bm15c_peri_a1_4_ipt,ublox_peri_a1_4_ipt,minew_me54be01_peri_a1_4_ipt \
+  --preset nrf54l15dk_peri_a1_4,nrf54l15tag_peri_a2_4,ezurio_bl54l15u_peri_a2_4,fanstel_bm15c_peri_a1_4,ublox_peri_a1_4,minew_me54be01_peri_a1_4,raytac_an54lv_k15_peri_a3_4,nrf54l15dk_peri_a1_4_ipt,nrf54l15tag_peri_a2_4_ipt,ezurio_bl54l15u_peri_a2_4_ipt,fanstel_bm15c_peri_a1_4_ipt,ublox_peri_a1_4_ipt,minew_me54be01_peri_a1_4_ipt,raytac_an54lv_k15_peri_a3_4_ipt \
   --release-dir release
 ```
 
