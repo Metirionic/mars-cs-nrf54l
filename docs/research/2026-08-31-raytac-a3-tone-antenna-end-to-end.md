@@ -138,7 +138,7 @@ sides; the Raytac↔DK pairs negotiate N_AP 3 the same way.
   need here: the Raytac's 3 antennas drive the config.)
 
 The DK `a1_4` presets are also the natural bench fit operationally: they are the
-presets the DK *4404 otherwise runs in every A1 pairing this repo ships, and
+presets the bench's DK otherwise runs in every A1 pairing this repo ships, and
 the same flash artifact covers both bench variants (IPT and RAS per #151's
 matrix).
 
