@@ -1,0 +1,63 @@
+/* SPDX-License-Identifier: MIT */
+/*
+ * Raytac AN54LV-K15 development board (AN54LV-K15 module, nRF54L15) overlay.
+ * Builds on the nrf54l15dk base board (no NCS board def for the AN54LV-K15);
+ * BOARD stays nrf54l15dk/nrf54l15/cpuapp and this overlay selects the carrier.
+ *
+ * COBS ranging stream: uart20, pinctrl inherited from the nrf54l15dk base DTS
+ * (P1.04 TX / P1.05 RX, 921600 baud). The EVB exposes this UART on header J1 —
+ * there is no onboard USB-to-serial bridge, so the stream is read through an
+ * external UART-to-USB adapter (e.g. FT232), same shape as the nRF54L15 TAG.
+ *
+ * Antenna: the AN54LV-K15 EVB's three RF connectors (RF1/RF2/RF3) are selected
+ * by a SKY13586-678LF SP3T switch with two control inputs, wired to
+ *   V2 -> P0.04  (bit 0)
+ *   V1 -> P0.03  (bit 1)
+ * The ant-gpios order below therefore puts V2 first (bit 0 = the
+ * cs_antenna_switch.c index encoding, ant-gpios[0] = bit 0). With
+ * multiplexing-mode <1> and (V1,V2)=(0,0) selecting RF3, antenna index i
+ * selects RF(3-i): 0 -> RF3, 1 -> RF2, 2 -> RF1 — a permuted, non-linear
+ * (but complete) mapping; see docs/hardware.md (Raytac wiring notes) for the
+ * SP3T truth table and the composed path -> RF-connector mapping. Note that
+ * the NCS CS documentation's mode-1 truth table is transposed relative to
+ * cs_antenna_switch.c:78-82 — derive board wiring from the code.
+ *
+ * Console: Segger RTT via an external J-Link (no console UART, no onboard
+ * debugger). The nrf54l15dk base binds zephyr,console / shell-uart /
+ * uart-mcumgr / bt-mon-uart / bt-c2h-uart to uart20 — here the COBS stream —
+ * so those are /delete-property/'d below to keep uart20 for COBS only;
+ * boards/raytac_an54lv_k15.conf selects the RTT backend and disables the DK
+ * defconfig's UART_CONSOLE. (The AN54LV-K15 EVB is flashed and its console
+ * read through an nRF54L15 DK's DEBUG OUT header, like the TAG.) See
+ * docs/hardware.md.
+ */
+
+/ {
+    chosen {
+        cobs-uart = &uart20;
+
+        /delete-property/ zephyr,console;
+        /delete-property/ zephyr,shell-uart;
+        /delete-property/ zephyr,uart-mcumgr;
+        /delete-property/ zephyr,bt-mon-uart;
+        /delete-property/ zephyr,bt-c2h-uart;
+    };
+};
+
+&uart20 {
+    status = "okay";
+    current-speed = <921600>;
+};
+
+/* Antenna control below is implemented as described in the CS documentation.
+ * See cs_antenna_switch.c
+ */
+/ {
+    cs_antenna_switch: cs-antenna-config {
+        status = "okay";
+        compatible = "nordic,bt-cs-antenna-switch";
+        ant-gpios = <&gpio0 4 (GPIO_ACTIVE_HIGH)>,
+                    <&gpio0 3 (GPIO_ACTIVE_HIGH)>;
+        multiplexing-mode = <1>;
+    };
+};

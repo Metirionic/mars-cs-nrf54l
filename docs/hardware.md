@@ -11,7 +11,7 @@ mars-bluetooth-hci API.
 
 ## Supported boards
 
-Five of the target boards build for `BOARD=nrf54l15dk/nrf54l15/cpuapp` with the
+Six of the target boards build for `BOARD=nrf54l15dk/nrf54l15/cpuapp` with the
 carrier selected by overlay. The nRF54L15 TAG is the exception: it builds
 against its own base board `nrf54l15tag/nrf54l15/cpuapp`, because the tag
 overlay's `/delete-node/ &sky13348` and `antenna_switch_v1`/`antenna_switch_v2`
@@ -25,6 +25,7 @@ target nodes that exist only in the nrf54l15tag DTS (see issue #40).
 | Ezurio BL54L15u | `boards/ezurio_bl54l15u_nrf54l15_cpuapp.overlay` | `uart20` @ 921600 | `uart30` @ 921600 | `P1.09`, `P1.08` |
 | Fanstel BM15C | `boards/fanstel_bm15c_nrf54l15_cpuapp.overlay` | `uart20` @ 921600 | `uart30` @ 921600 | — (no antenna-switch node) |
 | Minewsemi ME54BE01 | `boards/minew_me54be01_nrf54l15_cpuapp.overlay` | `uart20` @ 921600 | — (RTT via debug probe) | — (no antenna-switch node) |
+| Raytac AN54LV-K15 | `boards/raytac_an54lv_k15_nrf54l15_cpuapp.overlay` | `uart20` @ 921600 | — (RTT via debug probe) | `P0.03`, `P0.04` |
 
 GPIOs use Zephyr devicetree port-pin notation (`&gpio1 9` → `P1.09`, port 1
 pin 9). All antenna-switch `ant-gpios` are `GPIO_ACTIVE_HIGH`. The DK, U-Blox,
@@ -40,7 +41,8 @@ is shown here as `nRF54L15 TAG`.
 
 - `cobs-uart` is the authoritative chosen node for the COBS ranging stream,
   consumed by `initiator/src/serialize.c` via `DEVICE_DT_GET(DT_CHOSEN(cobs_uart))`.
-  On boards with a console UART (all except the TAG and the ME54BE01), the console UART also
+  On boards with a console UART (all except the TAG, the ME54BE01, and the
+  AN54LV-K15), the console UART also
   carries shell, mcumgr, bt-mon, and bt-c2h — all five `zephyr,console` /
   `shell-uart` / `uart-mcumgr` / `bt-mon-uart` / `bt-c2h-uart` chosen nodes point
   to it. The TAG has no console UART (see [TAG wiring notes](#nrf54l15-tag-wiring-notes)).
@@ -117,6 +119,66 @@ is no NCS board def for the ME54BE01) — the overlay selects the carrier.
   [ME54BE01 dev board datasheet](https://store.minewsemi.com/wp-content/uploads/2024/11/Development_Board_ME54BE01_Datasheet_EN.pdf)
   and the [ME54BS01 module datasheet](https://store.minewsemi.com/wp-content/uploads/2025/02/ME54BS01-nRF54L15_Datasheet_K_EN.pdf).
 
+### Raytac AN54LV-K15 wiring notes
+
+The AN54LV-K15 is a Raytac module dev board (nRF54L15-based AN54LV-K15 module).
+Like the ME54BE01 it exposes a single UART, runs the console over RTT, and has
+no onboard debugger — but it is the one carrier board here with a
+three-antenna RF front end: a SKY13586-678LF SP3T switch selecting between
+three RF connectors. It builds on `BOARD=nrf54l15dk/nrf54l15/cpuapp` (there is
+no NCS board def for the AN54LV-K15) — the overlay selects the carrier.
+
+- **No onboard debugger.** The AN54LV-K15 EVB has no onboard J-Link; flashing
+  and RTT both go through an nRF54L15 DK's `DEBUG OUT` header (the DK's onboard
+  debugger is rerouted to the module's SoC).
+- **Single UART; console over RTT.** Only `uart20` is used — the COBS ranging
+  stream via `cobs-uart`. There is no console/shell UART: the overlay binds
+  only `cobs-uart = &uart20` and `boards/raytac_an54lv_k15.conf` selects the
+  RTT console backend (and disables the DK defconfig's `CONFIG_UART_CONSOLE`,
+  since the overlay defines no `zephyr,console` node), so the console (log
+  output) runs over Segger RTT via the same debug probe, with no extra wiring.
+- **COBS UART.** Unlike the ME54BE01 there is no onboard USB-to-serial bridge:
+  header J1 carries `uart20` (TX `P1.04` / RX `P1.05`, inherited from the
+  nrf54l15dk base DTS, `921600` baud, 8N1, no flow control), read through an
+  external UART-to-USB adapter (e.g. FT232) — the same external-adapter shape
+  as the TAG.
+- **Antenna switch and the antenna-index ↔ RF-connector mapping.** The
+  SKY13586-678LF SP3T switch has two control inputs wired to `V1` → `P0.03`,
+  `V2` → `P0.04`. The overlay encodes them as `ant-gpios`: `&gpio0 4` first
+  (bit 0 = `V2`), `&gpio0 3` second (bit 1 = `V1`), `multiplexing-mode = <1>`.
+  The switch truth table gives `(V1,V2)` = `(0,0)` → RF3, `(x,1)` → RF2,
+  `(1,0)` → RF1, so antenna index *i* (the `cs_antenna_switch.c` binary index)
+  selects **RF(3−i)**: 0 → RF3, 1 → RF2, 2 → RF1. Because index 0 must drive
+  all control pins low and `(0,0)` selects RF3, no GPIO ordering yields a linear
+  0 = RF1 mapping — the order above is the clean inverse. Beware: the NCS CS
+  documentation's multiplexing-mode-1 truth table is transposed relative to the
+  `cs_antenna_switch.c` implementation — derive wiring from the code, as this
+  overlay does.
+- **Path → RF-connector mapping (N_AP = 3).** A `*_a3_4` preset runs
+  `NUM_ANTENNAS=3`, so CS steps report up to three antenna paths. The logical
+  path → RF-connector view composes the mars-bluetooth-hci antenna-permutation
+  tables (`antenna_permutation::lookup(3, antenna_permutation_index)` — logical
+  path → 0-based antenna index; `An_Bm` per-step `antenna_permutation_index`)
+  with the RF(3−i) board mapping above:
+
+  | `antenna_permutation_index` (0–5) | path 0 | path 1 | path 2 |
+  |-----------------------------------|--------|--------|--------|
+  | 0 | RF3 | RF2 | RF1 |
+  | 1 | RF2 | RF3 | RF1 |
+  | 2 | RF3 | RF1 | RF2 |
+  | 3 | RF1 | RF3 | RF2 |
+  | 4 | RF1 | RF2 | RF3 |
+  | 5 | RF2 | RF1 | RF3 |
+
+- **Switch control levels.** The SKY13586's control inputs are referenced to
+  the switch's own VDD (logic high 1.6–3.6 V), while the nRF54L15 GPIO high
+  sits at roughly its supply minus 0.4 V — the supply rail feeding the switch's
+  VDD and the `P0.03`/`P0.04` lines is a wiring-rig check, alongside the
+  physical path → RF-connector ordering above. See the
+  [Raytac AN54LV module documentation](https://www.raytac.com/product/ins.php?index_id=169)
+  and the [SKY13586-678LF data sheet](https://www.skyworksinc.com/-/media/SkyWorks/Documents/Products/2401-2500/SKY13586-678LF_203452G.pdf)
+  (control truth table).
+
 ### Antenna-switch node
 
 - The `cs_antenna_switch` node (`compatible = "nordic,bt-cs-antenna-switch"`,
@@ -156,6 +218,7 @@ lines setting the same three symbols:
 | `2_path_2_local.conf` | 2 | 2 | 2 | A2 / 2-path |
 | `4_path_1_local.conf` | 4 | 4 | 1 | A1 / 4-path |
 | `4_path_2_local.conf` | 4 | 4 | 2 | A2 / 4-path |
+| `4_path_3_local.conf` | 4 | 4 | 3 | A3 / 4-path |
 | `4_path_4_local.conf` | 4 | 4 | 4 | A4 / 4-path |
 
 Fragment filenames follow `<paths>_path_<antennas>_local.conf` — paths first,
@@ -179,8 +242,9 @@ Mode column marks which. The two are peer choices — see
 [docs/architecture.md](architecture.md) for the RAS-vs-IPT contrast and the IPT
 data flow. RAS and IPT share the same board overlays and path-local fragments;
 IPT presets additionally pull the `inline_pct_*.conf` fragments above. IPT
-covers all six carrier boards — A1/A2 4-path on the initiator, A1 4-path on the
-reflector, with the TAG and the Ezurio reflector at A2 4-path.
+covers all seven carrier boards — A1/A2 4-path on the initiator, A1 4-path on the
+reflector, with the TAG and the Ezurio reflector at A2 4-path and the Raytac at
+A3 4-path.
 
 | Preset | Mode | Role | Board | Overlay | `EXTRA_CONF_FILE` | Antennas / Paths |
 |--------|------|------|-------|---------|-------------------|------------------|
@@ -198,6 +262,8 @@ reflector, with the TAG and the Ezurio reflector at A2 4-path.
 | `fanstel_bm15c_cent_a1_4_ipt` | IPT | initiator | Fanstel BM15C | `fanstel_*.overlay` | `central.overlay;inline_pct_initiator.conf;inline_pct_shared.conf;4_path_1_local.conf` | A1 / 4 |
 | `minew_me54be01_cent_a1_4` | RAS | initiator | Minewsemi ME54BE01 | `minew_me54be01_*.overlay` | `central.overlay;4_path_1_local.conf;minew_me54be01.conf` | A1 / 4 |
 | `minew_me54be01_cent_a1_4_ipt` | IPT | initiator | Minewsemi ME54BE01 | `minew_me54be01_*.overlay` | `central.overlay;inline_pct_initiator.conf;inline_pct_shared.conf;4_path_1_local.conf;minew_me54be01.conf` | A1 / 4 |
+| `raytac_an54lv_k15_cent_a3_4` | RAS | initiator | Raytac AN54LV-K15 | `raytac_an54lv_k15_*.overlay` | `central.overlay;4_path_3_local.conf;raytac_an54lv_k15.conf` | A3 / 4 |
+| `raytac_an54lv_k15_cent_a3_4_ipt` | IPT | initiator | Raytac AN54LV-K15 | `raytac_an54lv_k15_*.overlay` | `central.overlay;inline_pct_initiator.conf;inline_pct_shared.conf;4_path_3_local.conf;raytac_an54lv_k15.conf` | A3 / 4 |
 | `nrf54l15dk_peri_a1_4` | RAS | reflector | nRF54L15DK | `nrf54l15dk_*.overlay` | `4_path_1_local.conf` | A1 / 4 |
 | `nrf54l15dk_peri_a2_2` | RAS | reflector | nRF54L15DK | `nrf54l15dk_*.overlay` | `2_path_2_local.conf` | A2 / 2 |
 | `nrf54l15dk_peri_a4_4` | RAS | reflector | nRF54L15DK | `nrf54l15dk_*.overlay` | `4_path_4_local.conf` | A4 / 4 |
@@ -212,6 +278,8 @@ reflector, with the TAG and the Ezurio reflector at A2 4-path.
 | `ublox_peri_a1_4_ipt` | IPT | reflector | U-Blox NINA-B40 | `ublox_*.overlay` | `inline_pct_reflector.conf;inline_pct_shared.conf;4_path_1_local.conf` | A1 / 4 |
 | `minew_me54be01_peri_a1_4` | RAS | reflector | Minewsemi ME54BE01 | `minew_me54be01_*.overlay` | `4_path_1_local.conf;minew_me54be01.conf` | A1 / 4 |
 | `minew_me54be01_peri_a1_4_ipt` | IPT | reflector | Minewsemi ME54BE01 | `minew_me54be01_*.overlay` | `inline_pct_reflector.conf;inline_pct_shared.conf;4_path_1_local.conf;minew_me54be01.conf` | A1 / 4 |
+| `raytac_an54lv_k15_peri_a3_4` | RAS | reflector | Raytac AN54LV-K15 | `raytac_an54lv_k15_*.overlay` | `4_path_3_local.conf;raytac_an54lv_k15.conf` | A3 / 4 |
+| `raytac_an54lv_k15_peri_a3_4_ipt` | IPT | reflector | Raytac AN54LV-K15 | `raytac_an54lv_k15_*.overlay` | `inline_pct_reflector.conf;inline_pct_shared.conf;4_path_3_local.conf;raytac_an54lv_k15.conf` | A3 / 4 |
 
 - **Naming asymmetry.** Preset names are `<board>_<cent|peri>_a<antennas>_<paths>`
   — antennas first, paths second (e.g. `ezurio_bl54l15u_cent_a2_4` = A2, 4 paths).
@@ -273,13 +341,14 @@ to:
 | A2 / 2           | —                 | `A1_B2`            |
 | A1 / 4           | `A1_B4`           | `A4_B1`            |
 | A2 / 4           | `A2_B2`           | `A2_B2`            |
+| A3 / 4           | `A3_B1`           | `A1_B3`            |
 | A4 / 4           | `A4_B1`           | `A1_B4`            |
 
 A `—` marks a role no shipped preset runs in that config (A1 2-path ships only
 as initiator; A2 2-path only as reflector). A2 4-path is symmetric — `A2_B2`
 either way. The `ANTENNA_MAPPING` table also carries placeholder `A1_B1` entries
 for index combinations no shipped preset uses (e.g. `[1][2]`, `[2][1]`, `[3][1]`);
-only the five configs above actually ship.
+only the six configs above actually ship.
 
 _Supplementary — from `common/antenna.c`, not from presets/fragments._
 
