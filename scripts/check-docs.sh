@@ -17,10 +17,17 @@
 #      out of the docs (or dropped from the build but left in the docs) is
 #      caught. The two nRF54L15 DM presets are excluded (deliberately
 #      undocumented; see issue #89).
+#   4. The preset lists hand-copied at the six list sites — the ci.yml build
+#      matrix, the release.yml build-all commands, and the two mirrored
+#      commands in docs/build-from-source.md — must enumerate the shipped
+#      configurePresets of their role's CMakePresets.json (see
+#      check_preset_lists), so a misspelled or dropped preset name in one of
+#      those lists is caught at docs-check time instead of by a release run or
+#      a user reproducing the documented command.
 #
 # External http(s)/mailto: URLs are deliberately NOT checked (out of scope; they
-# would add network flakiness). Only internal links, the release-artifact
-# cross-reference, and the preset-table cross-reference are validated.
+# would add network flakiness). Only internal links, and the release-artifact,
+# preset-table, and preset-list cross-references are validated.
 #
 # Only inline [text](href) links are parsed — reference-style links
 # ([text][ref] + [ref]: url) and autolinks (<url>) are not. The repo's docs use
@@ -308,6 +315,185 @@ the preset)"
   fi
 }
 
+# --- preset-list cross-reference ---------------------------------------------
+
+# preset_names_from_workflow <workflow> <role> -> one --preset name per line,
+# de-duplicated, from every `bash ci/build.sh --target <role> --preset <list>`
+# invocation in the workflow (a list is comma-separated). In ci.yml that
+# unions the build-matrix step with the single-preset onboarding steps; in
+# release.yml it is the build-all step. The trailing `|| true` keeps a
+# missing/unreadable file from aborting under set -e (an empty result is caught
+# by check_preset_lists' fail-loud guards, as in check_preset_table).
+preset_names_from_workflow() {
+  local wf="$1" role="$2"
+  # '|' as the sed delimiter: the pattern itself contains slashes (ci/build.sh).
+  sed -nE 's|^[[:space:]]*bash ci/build\.sh --target '"$role"' --preset ([^[:space:]]+).*|\1|p' \
+    "$wf" 2>/dev/null | tr ',' '\n' | sort -u || true
+}
+
+# preset_names_from_doc <md> <role> -> one --preset name per line,
+# de-duplicated, from the role's command in "### Multiple presets (driven like
+# CI)" in docs/build-from-source.md. The section is scoped by its unique
+# heading, so the single-preset pair examples earlier in the guide are not
+# swept in; the role of a continuation line ('  --preset <names> \') is the
+# --target seen on the command's first line.
+preset_names_from_doc() {
+  local md="$1" role="$2"
+  awk -v wanted="$role" '
+    /^[[:space:]]*#+ / { insec = ($0 ~ /Multiple presets \(driven like CI\)/); next }
+    !insec { next }
+    {
+      if (match($0, /--target[[:space:]]+(initiator|reflector)/)) {
+        role = substr($0, RSTART, RLENGTH)
+        sub(/--target[[:space:]]+/, "", role)
+      }
+      if (role == wanted && match($0, /--preset[[:space:]]+[^[:space:]]+/)) {
+        tok = substr($0, RSTART, RLENGTH)
+        sub(/--preset[[:space:]]+/, "", tok)
+        sub(/\\+$/, "", tok)
+        print tok
+      }
+    }
+  ' "$md" 2>/dev/null | tr ',' '\n' | sort -u || true
+}
+
+# preset_unshipped <role> <preset> -> 0 when the preset is deliberately NOT
+# built by the release workflow, i.e. must be absent from (and is not demanded
+# of) the list sites:
+#   * nrf54l15dm_* — deliberately undocumented prototypes (see #89, as in
+#     check_preset_table), and
+#   * the non-shipped nRF54L15 DK antenna variants — documented in
+#     docs/hardware.md as bench configurations but deliberately not released
+#     (nrf54l15dk_cent_a1_2 / nrf54l15dk_cent_a4_4 for the initiator,
+#     nrf54l15dk_peri_a2_2 / nrf54l15dk_peri_a4_4 for the reflector).
+# A preset added to (or dropped from) a CMakePresets.json fails
+# check_preset_lists until it is either shipped by the release/doc lists or
+# taught to this predicate as deliberately unshipped — so the decision is made
+# in one place, loudly.
+preset_unshipped() {
+  local role="$1" p="$2"
+  case "$p" in
+    nrf54l15dm_*) return 0 ;;
+    nrf54l15dk_cent_a1_2|nrf54l15dk_cent_a4_4)
+      [[ "$role" == initiator ]] && return 0 ;;
+    nrf54l15dk_peri_a2_2|nrf54l15dk_peri_a4_4)
+      [[ "$role" == reflector ]] && return 0 ;;
+  esac
+  return 1
+}
+
+# preset_list_unknown_errors <role> <json> <json_names> <site> <names> —
+# direction (a): every preset name listed at one site must be a shipped preset
+# of that role. A misspelling, a preset dropped from the build, a name copied
+# from the other role, and a deliberately-unshipped preset all land here.
+preset_list_unknown_errors() {
+  local role="$1" json="$2" json_names="$3" site="$4" names="$5" p
+  while IFS= read -r p; do
+    [[ -z "$p" ]] && continue
+    if ! grep -qxF "$p" <<< "$json_names"; then
+      add_error "preset '$p' is listed in the $role preset list in $site but \
+does not exist in $json (misspelled, dropped from the build, or a name from \
+the other role)"
+    elif preset_unshipped "$role" "$p"; then
+      add_error "preset '$p' is listed in the $role preset list in $site but \
+is deliberately not shipped (see preset_unshipped in this script) — remove it \
+from the list or start shipping it"
+    fi
+  done <<< "$names"
+}
+
+# preset_list_missing_errors <role> <json> <site> <site_names> <shipped> —
+# direction (b): completeness. Every shipped preset of the role must be
+# enumerated by the site's list, so a preset added to or dropped from
+# CMakePresets.json forces the published lists to move with it.
+preset_list_missing_errors() {
+  local role="$1" json="$2" site="$3" site_names="$4" shipped="$5" p
+  while IFS= read -r p; do
+    [[ -z "$p" ]] && continue
+    if ! grep -qxF "$p" <<< "$site_names"; then
+      add_error "preset '$p' is defined in $json but missing from the $role \
+preset list in $site (add it to that list, or — if it is deliberately not \
+built/released — teach preset_unshipped in this script)"
+    fi
+  done <<< "$shipped"
+}
+
+# The six list sites enumerate the preset matrix by hand; this asserts they
+# match the CMakePresets.json files. Expectation per role (initiator vs
+# reflector), derived from how the sites read today:
+#   * release.yml's role list and docs/build-from-source.md's role list must
+#     enumerate exactly the role's SHIPPED preset set — every configurePresets
+#     name in the role's CMakePresets.json except the deliberately-unshipped
+#     ones (preset_unshipped above). Enforced in both directions.
+#   * ci.yml's role list is a deliberate smoke subset of the shipped set (it
+#     builds 9 of the 16 shipped presets and omits, among others, the ublox,
+#     Ezurio and Fanstel carriers), so only the subset direction is enforced
+#     there: every preset ci.yml names must be shipped. Completeness stays
+#     anchored on the release/doc lists, which fail whenever the preset set
+#     changes — so the ci.yml subset has to be a conscious choice.
+check_preset_lists() {
+  local ci_wf=".github/workflows/ci.yml"
+  local rel_wf=".github/workflows/release.yml"
+  local bfs_md="docs/build-from-source.md"
+  local before=$errors
+  local role json json_names shipped rel_names bfs_names ci_names p
+
+  for role in initiator reflector; do
+    case "$role" in
+      initiator) json="initiator/CMakePresets.json" ;;
+      reflector) json="reflector/CMakePresets.json" ;;
+    esac
+
+    json_names="$(preset_names_from_json "$json")"
+    rel_names="$(preset_names_from_workflow "$rel_wf" "$role")"
+    bfs_names="$(preset_names_from_doc "$bfs_md" "$role")"
+    ci_names="$(preset_names_from_workflow "$ci_wf" "$role")"
+
+    # Fail loud per extraction (mirrors check_preset_table): a restructured
+    # or unreadable source must not silently pass as "no mismatch".
+    if [[ -z "$json_names" ]]; then
+      add_error "preset-list check: no configurePresets parsed from '$json' \
+(is the file valid JSON with a non-empty configurePresets array?)"
+    fi
+    if [[ -z "$rel_names" ]]; then
+      add_error "preset-list check: no '$role' presets parsed from '$rel_wf' \
+(expected a 'bash ci/build.sh --target $role --preset ...' line)"
+    fi
+    if [[ -z "$bfs_names" ]]; then
+      add_error "preset-list check: no '$role' presets parsed from the \
+'Multiple presets (driven like CI)' section of '$bfs_md' (expected a \
+'--target $role' command with a '  --preset <names>' continuation line)"
+    fi
+    if [[ -z "$ci_names" ]]; then
+      add_error "preset-list check: no '$role' presets parsed from '$ci_wf' \
+(expected a 'bash ci/build.sh --target $role --preset ...' step)"
+    fi
+    if (( errors > before )); then
+      return 0
+    fi
+
+    # The shipped set for this role (see preset_unshipped for the exclusions).
+    shipped=""
+    while IFS= read -r p; do
+      [[ -z "$p" ]] && continue
+      if ! preset_unshipped "$role" "$p"; then
+        shipped+="$p"$'\n'
+      fi
+    done <<< "$json_names"
+
+    preset_list_unknown_errors "$role" "$json" "$json_names" "$ci_wf" "$ci_names"
+    preset_list_unknown_errors "$role" "$json" "$json_names" "$rel_wf" "$rel_names"
+    preset_list_unknown_errors "$role" "$json" "$json_names" "$bfs_md" "$bfs_names"
+
+    preset_list_missing_errors "$role" "$json" "$rel_wf" "$rel_names" "$shipped"
+    preset_list_missing_errors "$role" "$json" "$bfs_md" "$bfs_names" "$shipped"
+  done
+
+  if (( errors == before )); then
+    printf 'preset lists consistent: release.yml and docs/build-from-source.md enumerate every shipped preset for both roles; ci.yml builds a subset of the shipped set\n'
+  fi
+}
+
 # --- main -------------------------------------------------------------------
 
 # Scope per issue #16: README.md + docs/*.md, tracked files only. git ls-files
@@ -364,6 +550,8 @@ check_release_artifact
 
 check_preset_table
 
+check_preset_lists
+
 # --- report -----------------------------------------------------------------
 
 if [[ -n "${GITHUB_STEP_SUMMARY:-}" ]]; then
@@ -375,7 +563,7 @@ if [[ -n "${GITHUB_STEP_SUMMARY:-}" ]]; then
       printf '  - %s\n' "${summary_lines[@]}"
       printf '```\n'
     else
-      printf '**Passed** — all internal links, the release-artifact name, and the preset table are consistent.\n'
+      printf '**Passed** — all internal links, the release-artifact name, the preset table, and the preset list sites are consistent.\n'
     fi
   } >> "$GITHUB_STEP_SUMMARY" 2>/dev/null || true
 fi
@@ -384,4 +572,4 @@ if (( errors > 0 )); then
   printf 'docs check failed: %d broken link(s)/reference(s) found (see above)\n' "$errors" >&2
   exit 1
 fi
-printf 'docs check passed: all internal links, the release-artifact name, and the preset table are consistent\n'
+printf 'docs check passed: all internal links, the release-artifact name, the preset table, and the preset list sites are consistent\n'
