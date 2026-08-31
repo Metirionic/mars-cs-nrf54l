@@ -2,7 +2,7 @@
 
 _Research for wayfinder ticket [#148](https://github.com/Metirionic/mars-cs-nrf54l/issues/148),
 map [#146](https://github.com/Metirionic/mars-cs-nrf54l/issues/146). Follows
-[2026-08-31-raytac-sdc-3-antenna-feasibility.md](https://github.com/Metirionic/mars-cs-nrf54l/blob/feat/wayfinder-147-research/docs/research/2026-08-31-raytac-sdc-3-antenna-feasibility.md)
+[2026-08-31-raytac-sdc-3-antenna-feasibility.md](2026-08-31-raytac-sdc-3-antenna-feasibility.md)
 (ticket #147), which established the controller side: `(NUM=3, MAX=4)` is a valid
 SDC build and `cs_antenna_switch` multiplexing-mode 1 expresses the SKY13586 with
 the antenna-index ↔ RF(3−i) permutation._
