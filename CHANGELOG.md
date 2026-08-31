@@ -2,6 +2,20 @@
 All notable changes to this project will be documented in this file. See [conventional commits](https://www.conventionalcommits.org/) for commit guidelines.
 
 - - -
+## [v1.14.0](https://github.com/Metirionic/mars-cs-nrf54l/releases/tag/v1.14.0) - 2026-08-31
+#### Features
+- (**board**) add Raytac AN54LV-K15 carrier support (A3 presets) - ([6c59a0a](https://github.com/Metirionic/mars-cs-nrf54l/commit/6c59a0ab3562da1b0393460f710896ed39406c0d)) - AttilaRoemer
+#### Bug Fixes
+- resolve code-review findings (release counts, stale link, overlay comment) - ([0c346f5](https://github.com/Metirionic/mars-cs-nrf54l/commit/0c346f52188aebc42cab224bb444dc52a3c5b1c5)) - AttilaRoemer
+#### Documentation
+- (**hardware**) RTT console works for both Raytac roles; document stale-ring clean-read recipe - ([f676d18](https://github.com/Metirionic/mars-cs-nrf54l/commit/f676d182e2f61acdbd078150881fa9817104c7db)) - AttilaRoemer
+- (**hardware**) record AN54LV-K15 J1 power path + non-Raytac RTT override - ([45e36a3](https://github.com/Metirionic/mars-cs-nrf54l/commit/45e36a39f1736c9e7077aa91cde001c0df203fa9)) - AttilaRoemer
+- (**research**) A3 tone-antenna end-to-end for Raytac-DK pairs (wayfinder #148) - ([122bf1b](https://github.com/Metirionic/mars-cs-nrf54l/commit/122bf1bfb3ff2e62202c487153eaad74ccafa493)) - AttilaRoemer
+- (**research**) pin SDC 3-antenna feasibility + SP3T GPIO mapping (wayfinder #147) - ([e623e7b](https://github.com/Metirionic/mars-cs-nrf54l/commit/e623e7b1a840d0609ea37ddb6da14fc6b6dc974c)) - AttilaRoemer
+- fix preset enumeration count and unexplained bench shorthand - ([d6143d9](https://github.com/Metirionic/mars-cs-nrf54l/commit/d6143d963455baa80b0f548bdc08d033146704f9)) - AttilaRoemer
+
+- - -
+
 ## [v1.13.0](https://github.com/Metirionic/mars-cs-nrf54l/releases/tag/v1.13.0) - 2026-08-27
 #### Features
 - (**initiator**) support asymmetric pairs — rename a1_1 initiator presets to a1_4 - ([54acb72](https://github.com/Metirionic/mars-cs-nrf54l/commit/54acb72782b7f086c938ae2ef89a77d92e3ed8ab)) - AttilaRoemer
