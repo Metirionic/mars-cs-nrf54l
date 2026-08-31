@@ -2,6 +2,16 @@
 All notable changes to this project will be documented in this file. See [conventional commits](https://www.conventionalcommits.org/) for commit guidelines.
 
 - - -
+## [v1.15.0](https://github.com/Metirionic/mars-cs-nrf54l/releases/tag/v1.15.0) - 2026-08-31
+#### Features
+- (**board**) add Insight SiP ISP2454 carrier support (A1 presets) - ([d6871d2](https://github.com/Metirionic/mars-cs-nrf54l/commit/d6871d23c2ba62431cdcd098cf0c8beed2010546)) - AttilaRoemer
+#### Bug Fixes
+- (**board**) rephrase LFXO comment so typos stays green - ([98bbbc1](https://github.com/Metirionic/mars-cs-nrf54l/commit/98bbbc1e6457d25efabb1c61c56249dc09aa8cfa)) - AttilaRoemer
+#### Documentation
+- carry ISP2454 EVK bench quirks into the hardware reference (wayfinder #161) - ([5081e8e](https://github.com/Metirionic/mars-cs-nrf54l/commit/5081e8e717884019c98cb17d37a4365eedcbcf78)) - AttilaRoemer
+
+- - -
+
 ## [v1.14.0](https://github.com/Metirionic/mars-cs-nrf54l/releases/tag/v1.14.0) - 2026-08-31
 #### Features
 - (**board**) add Raytac AN54LV-K15 carrier support (A3 presets) - ([6c59a0a](https://github.com/Metirionic/mars-cs-nrf54l/commit/6c59a0ab3562da1b0393460f710896ed39406c0d)) - AttilaRoemer
