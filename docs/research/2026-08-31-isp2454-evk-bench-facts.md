@@ -76,15 +76,21 @@ conducted-RF access.
   the **latest J-Link software** (§3.2.1 p.9, screenshot shows V8.16), uses
   `CONFIG_LOG_BACKEND_RTT` / SEGGER RTT in its Kconfig examples and notes "RTT and UART can
   run in parallel on the nRF54L15" [AN250502 §3.1 p.8, §5 p.18]. J-Link OB emulators
-  generally support RTT — treat as likely (unconfirmed: run JLinkExe/nrfutil RTT against
-  the EVK once).
+  generally support RTT — **bench-confirmed 2026-08-31: RTT works through the OB via
+  `nrfutil device read` at the ELF symbol `_SEGGER_RTT`** ([wayfinder #159
+  resolution](https://github.com/Metirionic/mars-cs-nrf54l/issues/159#issuecomment-5482510446)).
 - Driver-version caveat (bench-relevant): the workstation's system J-Link DLL is V7.92m
   with no nRF54L15 device entry, and the `-Device CORTEX-M33` workaround has been the
   standing mitigation on other nRF54L15 J-Link probes (repo bench memory,
   `tag-debug-out-flash-quirks` / `cobs-decode-envelope-jlink-quirks`). The EVK's OB is used
   through the *same host-side J-Link DLL* by nrfutil/JLinkExe, so the caveat applies
-  unchanged — either upgrade to the latest J-Link pack (what the AN prescribes) or reuse
-  `-Device CORTEX-M33`. Exact minimum J-Link version for nRF54L15 support unconfirmed.
+  unchanged — **bench-resolved 2026-08-31: the system DLL (7.92m) `JLinkExe`/`JLinkRTTLogger`
+  SIGABRT with `bit out of range 0 - FD_SETSIZE` on every attach** (the crash hits on attach
+  while it re-attempts an OB firmware update that never sticks, so the `-Device CORTEX-M33`
+  workaround is never reached), **and the bench therefore does all flashing and RTT via
+  `nrfutil device` over the same OB** ([wayfinder #159
+  resolution](https://github.com/Metirionic/mars-cs-nrf54l/issues/159#issuecomment-5482510446)).
+  Exact minimum J-Link version for nRF54L15 support unconfirmed.
 
 ## 3. FT232 wiring to uart20 (P1.04 / P1.05)
 
@@ -100,14 +106,21 @@ conducted-RF access.
   (J8/J9) carry them to the Interface Board [TB schematic, IB CONNECTORS sheet].
 - So for COBS: adapter RX ← IB silk P36 (module TX), adapter TX (optional, commands only)
   → IB silk P37. AN example baud is 115200; 921600 8N1 is a firmware-side setting (project
-  convention), nothing EVK-side limits it beyond trace quality (unconfirmed on the IB header).
+  convention), nothing EVK-side limits it beyond trace quality — **bench-confirmed 2026-08-31:
+  a 4 MB COBS soak at 921600 8N1 over P36/P37 decoded with zero failures past the startup
+  partial** ([wayfinder #159
+  resolution](https://github.com/Metirionic/mars-cs-nrf54l/issues/159#issuecomment-5482510446)).
 - On-board USB-UART bridge: the only USB connector on the Interface Board feeds the J-Link
   OB [AN250502 §2.3 p.4]. The IB has **"UART & SWD enable jumpers"** ("connect or
   disconnect Debug and UART lines from the test board") [AN250502 §2.3 p.5], but the AN
-  never uses an OB VCOM for UART logs — it always prescribes the external adapter. Whether
-  the OB's VCOM (if it exists) lands on P1.04/P1.05 or any module UART is **unconfirmed —
-  verify on bench** (plug the IB USB, check for a CDC interface next to the J-Link enum,
-  continuity-check the middle jumper block). Do not assume the OB VCOM can carry COBS.
+  never uses an OB VCOM for UART logs — it always prescribes the external adapter.
+  **Bench-resolved 2026-08-31: the OB enumerates exactly one CDC (`ttyACM0`, interface 00)
+  and it is silent — the module's uart20 does not reach the OB at all, so no OB VCOM can
+  carry COBS, and the external adapter is the only UART path.** Related port-picture fact:
+  `nrfutil device list` mislabels the external FT232's `/dev/ttyUSB0` as this J-Link's
+  `vcom 1`; disambiguate via `/dev/serial/by-id` (`usb-FTDI_FT232R…` → `ttyUSB0`)
+  ([wayfinder #159
+  resolution](https://github.com/Metirionic/mars-cs-nrf54l/issues/159#issuecomment-5482510446)).
 - Levels: the 1.8 V figure applies to the *Nordic DK* (DK fact), not this EVK. The module's
   operating supply is **1.7–3.6 V** [DS2454 §2.3 p.7], and the EVK's default 3 V source is
   the embedded regulator (see §4), with power tables quoted at 3.0/3.1 V [DS2454 §2.4 p.7].
