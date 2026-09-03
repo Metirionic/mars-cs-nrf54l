@@ -163,5 +163,15 @@ struct bt_conn_le_cs_subevent_result * cs_initiator_get_latest_subevent_header(v
 void                                   cs_initiator_give_sem_local_steps(void);
 void                                   cs_initiator_give_sem_data_ready(void);
 void                                   cs_initiator_take_sem_data_ready(void);
+#if defined(CONFIG_MARS_CS_INLINE_PCT)
+/** @brief Consume the pending IPT event pair on the caller's thread (IPT only).
+ *
+ * The main loop calls this in place of cs_initiator_take_sem_data_ready():
+ * it blocks until the RX thread has populated a completed procedure's events,
+ * runs the app's process callback (serialize + UART TX), and releases the
+ * event handoff. Keeps the blocking serialize path off the BT RX thread (#173).
+ */
+void                                   cs_initiator_consume_pending_event(void);
+#endif  // defined(CONFIG_MARS_CS_INLINE_PCT)
 
 #endif  // CS_INITIATOR_H

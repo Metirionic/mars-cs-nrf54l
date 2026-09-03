@@ -36,8 +36,13 @@ static struct bt_conn_le_cs_config cs_config;
 /**
  * @brief Process populated subevent events by serializing them over UART COBS.
  *
- * Called from the shared IPT skeleton in cs_initiator.c after the local and
- * peer events have been populated via subevent_populate_inline().
+ * Called on the main loop thread from cs_initiator_consume_pending_event()
+ * (the shared IPT skeleton populates the events on the BT RX thread and hands
+ * them over). Running the blocking serialize + UART TX path here instead of in
+ * the RX thread keeps the SDC's step-data delivery unblocked (#173); a
+ * serialize burst longer than the procedure cadence drops surplus procedures
+ * at the handoff gate, visibly, instead of turning them into controller
+ * aborts.
  */
 static void process_subevent_cb(SubeventResultEvent_t * p_local_event, SubeventResultEvent_t * p_peer_event)
 {
@@ -296,7 +301,15 @@ int main(void)
 
     while (true)
     {
+#if IS_ENABLED(CONFIG_MARS_CS_INLINE_PCT)
+        /* IPT: this thread is the serialize consumer — the skeleton hands
+         * each populated event pair over and this call runs the process
+         * callback (watchdog pet + serialize + UART TX) off the BT RX
+         * thread (#173). */
+        cs_initiator_consume_pending_event();
+#else
         cs_initiator_take_sem_data_ready();
+#endif
     }
 
     return 0;
