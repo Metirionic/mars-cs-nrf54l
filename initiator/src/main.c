@@ -36,18 +36,16 @@ static struct bt_conn_le_cs_config cs_config;
 /**
  * @brief Process populated subevent events by serializing them over UART COBS.
  *
- * Called on the main loop thread from cs_initiator_consume_pending_event()
- * (the shared IPT skeleton populates the events on the BT RX thread and hands
- * them over). Running the blocking serialize + UART TX path here instead of in
- * the RX thread keeps the SDC's step-data delivery unblocked (#173); a
- * serialize burst longer than the procedure cadence drops surplus procedures
- * at the handoff gate, visibly, instead of turning them into controller
- * aborts.
+ * Called on the main loop thread from cs_initiator_consume_pending_event(); the shared IPT skeleton populates the
+ * events on the BT RX thread and hands them over. The blocking serialize + UART TX path must stay off the RX thread,
+ * where it would delay the SDC's step-data delivery until the controller aborts the surplus subevents (#173 — numbers
+ * in docs/architecture.md).
  */
 static void process_subevent_cb(SubeventResultEvent_t * p_local_event, SubeventResultEvent_t * p_peer_event)
 {
-    /* CS liveness watchdog (#116): the shared skeleton only calls this on
-     * procedures with step data, so this is the IPT "completed procedure". */
+    /* CS liveness watchdog (#116): the skeleton hands over completed procedures with step data, and this thread
+     * consumes them at the wire rate — so the pet paces at the consume rate, not the completion rate, and holds the
+     * link while the wire keeps up (see #173). */
     cs_watchdog_pet();
 
     serialize_run(p_local_event, p_peer_event);
@@ -302,10 +300,9 @@ int main(void)
     while (true)
     {
 #if IS_ENABLED(CONFIG_MARS_CS_INLINE_PCT)
-        /* IPT: this thread is the serialize consumer — the skeleton hands
-         * each populated event pair over and this call runs the process
-         * callback (watchdog pet + serialize + UART TX) off the BT RX
-         * thread (#173). */
+        /* IPT: this thread is the serialize consumer — this call runs the process callback on the next event pair the
+         * skeleton handed over (see process_subevent_cb and docs/architecture.md for why this must stay off the BT RX
+         * thread; #173). */
         cs_initiator_consume_pending_event();
 #else
         cs_initiator_take_sem_data_ready();
