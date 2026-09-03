@@ -120,16 +120,33 @@ jumper-wire rig on CN4/CN5/CN8/CN9 needs headers soldered first.
 - **CN1 = PSS-720153-05, 10-pin 1.27 mm dual-row, the programming connector**
   (EVB §4 schematic p.4, labeled "CN1: SWD (for J-link lite)" in §5 p.5). It is the
   one connector **not** in the not-mounted list (EVB §5 note 2 p.5), i.e. fitted.
-- **CN1 is not the standard ARM 10-pin SWD pinout.** From the EVB §4 schematic (p.4):
-  pin 9 → GND, pins 10, 8, 6 → NC (crossed out), and the connector carries SWDCLK
-  (module pad 15) and SWDIO (module pad 14). There is **no VTref and no nRESET** on
-  CN1 — nRESET (module pad 20, DS §7 p.25) is reachable only via the SW1 push button
-  (active low, EVB §5 note 6 p.5) and CN5 pin 9 (N.M. header). Practical consequence:
-  a straight-through 1.27 mm ribbon from a standard ARM-10 debug header (e.g. the DK
-  DEBUG OUT) **will not map 1:1** — the cable must be adapted pin-by-pin. The complete
-  per-pin CN1 map could not be read with certainty from the raster schematic (see
-  "Not found") — bench-verify continuity against the EVB §4 schematic before trusting
-  a cable.
+- **CN1 is not the standard ARM 10-pin SWD pinout.** Full per-pin map, read from a
+  400 DPI render of the EVB §4 schematic (p.4) during rig verification (#170) —
+  the bench's adapted DK-DEBUG-OUT cable matches it, and CN1 pin 1 (square pad) is
+  keyed:
+
+  | CN1 pin | Net | Module pad |
+  |---|---|---|
+  | 1 | VDD | rail |
+  | 2 | SWDIO | 14 |
+  | 3 | GND | — |
+  | 4 | SWDCLK | 15 |
+  | 5 | GND | — |
+  | 6 | NC | — |
+  | 7 | NC (no stub drawn) | — |
+  | 8 | NC | — |
+  | 9 | GND | — |
+  | 10 | NC | — |
+
+  The silkscreen confirms the four named nets (`VDD GND SWCL SWIO`). **VDD is
+  present (pin 1)** — an earlier pass of this research wrongly reported "no VTref";
+  a probe's voltage reference can be fed from CN1 pin 1. nRESET is genuinely absent
+  from CN1: module pad 20 (DS §7 p.25) is reachable only via the SW1 push button
+  (active low, EVB §5 note 6 p.5) and CN5 pin 9 (N.M. header). Practical
+  consequence: a straight-through 1.27 mm ribbon from a standard ARM-10 debug
+  header (e.g. the DK DEBUG OUT) **will not map 1:1** — adapt pin-by-pin against
+  the table above (VDD/VTref→1, SWDIO→2, GND→3/5/9, SWDCLK→4), leave nRESET
+  unmapped, and reset via SW1.
 - **CN8 (2.54 mm, 10-pin) breaks out the same SWD plus UART and power** — pins:
   1 VDD, 2 GND, 3 SWCL, 4 SWIO, 5 P1.06, 6 P1.07, 7 P1.04, 8 P1.05, 9 P0.00, 10 P0.03
   (EVB §7 table p.6). **The header is not fitted** (EVB §5 note 2 p.5), so the
@@ -242,7 +259,7 @@ jumper-wire rig on CN4/CN5/CN8/CN9 needs headers soldered first.
 |---|---|---|
 | 1 | 32.768 kHz crystal internal to module, no CL published (DS §5.1 p.20; §7 pp.24–26; FAQ Q2-4 p.8) | No `&lfxo` override in the overlay (DK default 17000 fF stays); read die/module marking; if 32 kHz accuracy matters, measure LFXO ppm |
 | 2 | Ships APPROTECT-enabled + blank (FW §1.2 p.5; EVB §2 p.3) | Fresh module: `nrfutil device recover` before first flash; expect erase to re-arm the lock |
-| 3 | CN1 = 10-pin 1.27 mm SWD, non-ARM pinout, pins 10/8/6 NC, 9 = GND, no nRESET (EVB §4 p.4) | Continuity-map CN1 ↔ module pads 14/15 before cabling the DK DEBUG OUT; reset via SW1 |
+| 3 | CN1 = 10-pin 1.27 mm SWD, non-ARM pinout: VDD=1, SWDIO=2, GND=3/5/9, SWDCLK=4, 6/7/8/10 NC, no nRESET (EVB §4 p.4, resolved at 400 DPI) | Bench check DONE (#170): the adapted DK-DEBUG-OUT cable matches and the SWD path works; reset via SW1 |
 | 4 | Only CN1 + CN6 fitted; CN4/5/7/8/9 headers N.M. (EVB §5 note 2 p.5) | Solder a header on CN8 before any jumper-wire SWD/UART rig |
 | 5 | SB1–SB5 + CN2 factory-shorted (EVB §4 p.4 note) | USB plug → D1 lights (3.3 V rail); COBS smoke test on CN6 at our chosen baud (P1.04 TX / P1.05 RX) |
 | 6 | SB5 ties FT232 VCCIO = VDD (EVB §4 p.4) | Confirm UART IO level equals measured VDD before wiring any external adapter |
@@ -263,10 +280,11 @@ jumper-wire rig on CN4/CN5/CN8/CN9 needs headers soldered first.
   Util", "J-Link Lite CortexM-9 etc.", "a debug probe such as the SEGGER J-Link").
 - **UART baud rate** for the FT232 path: no baud stated anywhere (921600 COBS is our
   own rig choice).
-- **Complete CN1 per-pin SWD map**: the EVB §4 schematic is a raster image; pins 10/8/6
-  NC + pin 9 GND + SWDIO/SWDCLK presence are readable, the remaining pin assignments
-  are not reliably legible. Bench continuity or the CAD-data zip (footprint drawings,
-  not a schematic PDF) would settle it.
+- ~~**Complete CN1 per-pin SWD map**~~ — **RESOLVED during rig verification (#170)**:
+  a 400 DPI render of the EVB §4 schematic is fully legible; the complete map
+  (VDD=1, SWDIO=2, GND=3/5/9, SWDCLK=4, 6/7/8/10 NC) is recorded in §3 above.
+  Remaining open item from the original listing: only the "VDD present on CN1"
+  correction stands (the initial raster pass misread it as "no VTref").
 - **Quick Start Guide** (referenced by FAQ Q3-3/Q4-6 as the exact flashing/dev-env
   walkthrough): distributed only via the restricted-access site printed on the
   information card in the box, or from KAGA FEI sales
