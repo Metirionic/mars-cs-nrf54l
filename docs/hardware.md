@@ -11,7 +11,7 @@ mars-bluetooth-hci API.
 
 ## Supported boards
 
-Seven of the target boards build for `BOARD=nrf54l15dk/nrf54l15/cpuapp` with the
+Eight of the target boards build for `BOARD=nrf54l15dk/nrf54l15/cpuapp` with the
 carrier selected by overlay. Two build against their own base board instead: the
 nRF54L15 TAG builds on `nrf54l15tag/nrf54l15/cpuapp`, because the tag
 overlay's `/delete-node/ &sky13348` and `antenna_switch_v1`/`antenna_switch_v2`
@@ -31,6 +31,7 @@ def, which already models the carrier (see the
 | Raytac AN54LV-K15 | `boards/raytac_an54lv_k15_nrf54l15_cpuapp.overlay` | `uart20` @ 921600 | — (RTT via debug probe) | `P0.03`, `P0.04` |
 | Insight SiP ISP2454 | `boards/insight_isp2454_nrf54l15_cpuapp.overlay` | `uart20` @ 921600 | — (RTT via onboard J-Link OB) | — (no antenna-switch node) |
 | Würth Ophelia-IV MiniEV | `boards/ophelia4ev_nrf54l15_cpuapp.overlay` | `uart20` @ 921600 | — (RTT via debug probe) | — (no antenna-switch node) |
+| KAGA FEI EC4L15BA1 | `boards/kaga_ec4l15ba1_nrf54l15_cpuapp.overlay` | `uart20` @ 921600 | — (RTT via debug probe) | — (no antenna-switch node) |
 
 GPIOs use Zephyr devicetree port-pin notation (`&gpio1 9` → `P1.09`, port 1
 pin 9). All antenna-switch `ant-gpios` are `GPIO_ACTIVE_HIGH`. The DK, U-Blox,
@@ -47,7 +48,7 @@ is shown here as `nRF54L15 TAG`.
 - `cobs-uart` is the authoritative chosen node for the COBS ranging stream,
   consumed by `initiator/src/serialize.c` via `DEVICE_DT_GET(DT_CHOSEN(cobs_uart))`.
   On boards with a console UART (all except the TAG, the ME54BE01, the
-  AN54LV-K15, the ISP2454, and the MiniEV), the console UART also
+  AN54LV-K15, the ISP2454, the MiniEV, and the EC4L15BA1), the console UART also
   carries shell, mcumgr, bt-mon, and bt-c2h — all five `zephyr,console` /
   `shell-uart` / `uart-mcumgr` / `bt-mon-uart` / `bt-c2h-uart` chosen nodes point
   to it. The TAG and the MiniEV have no console UART (see the
@@ -427,6 +428,81 @@ deltas that matter are below. Consolidated board-def and bench facts:
   getting started with Zephyr"), the
   [Ophelia-IV product page](https://www.we-online.com/en/components/products/OPHELIA-IV)
   (module 2621011022000 + EV-Kit 2621119022001).
+### KAGA FEI EC4L15BA1 wiring notes
+
+The EC4L15BA1 is a KAGA FEI module dev board (the EC4L15BA1 nRF54L Basic
+module on the EC4L15BA1-EVB). Like the ME54BE01 it exposes a single UART
+through an onboard USB-to-serial bridge and runs the console over RTT via an
+external debug probe. It builds on `BOARD=nrf54l15dk/nrf54l15/cpuapp` (there
+is no NCS board def for the EC4L15BA1-EVB) — the overlay selects the carrier.
+
+- **Single UART; console over RTT.** Only `uart20` is exposed — the COBS
+  ranging stream via `cobs-uart`, over the onboard FT232RNQ USB-to-serial
+  bridge on the CN6 mini-USB connector (solder bridges SB1/SB2,
+  factory-shorted traces; TX `P1.04` / RX `P1.05`, `921600` baud, 8N1). SB3
+  and SB4 also bridge the FT232's RTS/CTS to `P1.06`/`P1.07`, but the
+  firmware runs 8N1 with no flow control, so those lines are inert — open
+  the host serial port with flow control off. The COBS `uart20` pins are
+  inherited from the nrf54l15dk base DTS, the same `P1.04`/`P1.05` as the DK
+  and the ISP2454 EVK. There is no console/shell UART: the overlay binds
+  only `cobs-uart = &uart20` and `boards/kaga_ec4l15ba1.conf` selects the
+  RTT console backend (and disables the DK defconfig's `CONFIG_UART_CONSOLE`,
+  since the overlay defines no `zephyr,console` node), so the console (log
+  output) runs over Segger RTT via the debug probe, with no extra wiring.
+- **No onboard debugger; CN1 SWD is not the standard ARM 10-pin pinout.**
+  The EVB has no onboard J-Link — flashing and RTT both need an external
+  probe. CN1 (the fitted 10-pin 1.27 mm SWD header) carries VDD (pin 1 —
+  usable as the probe's VTref), SWDIO (pin 2) and SWDCLK (pin 4) with GND on
+  3/5/9, but no nRESET (module pad 20 is reachable only through the SW1 push
+  button; CN1 pin map per the EVB schematic, corrected in the research doc) —
+  a straight-through ribbon
+  from a standard ARM-10 debug header (e.g. an nRF54L15 DK `DEBUG OUT`) does
+  not map 1:1; adapt pin-by-pin. CN8 (10-pin 2.54 mm) breaks out the same
+  SWD plus UART and power, but only CN1 and CN6 are fitted — the
+  CN4/CN5/CN7/CN8/CN9 headers are not mounted, so any jumper-wire rig needs
+  a header soldered first.
+- **AP-protect ships enabled — recover before the first flash.** The modules
+  ship APPROTECT-enabled and blank (KAGA Firmware Writing Manual §1.2/§2.2):
+  run `nrfutil device recover` before the first flash; a plain erase re-arms
+  the lock. Same playbook the ISP2454 EVK bench hit.
+- **Power: the CN6 bridge is the 3.3 V source.** By default the module is
+  powered from the FT232RNQ's 3V3OUT through the factory-shorted CN2 trace —
+  one USB cable powers the board and carries the COBS UART, and CS-active
+  current rides on that bridge (the same power-path shape the Raytac jig
+  hit: the USB source is the board's only supply). SB5 ties the bridge's
+  VCCIO to the module rail, so UART IO levels track VDD (3.3 V) — no
+  mixed-level caveat like the ISP2454's 3.0 V rail. For an external supply
+  (1.7–3.6 V), cut CN2 pins 1–2 first. D1 lights when USB power is present;
+  D2/D3 are the UART TX/RX LEDs.
+- **LF clock: internal crystal, no overlay value.** The 32.768 kHz crystal
+  is inside the module with no exposed XL1/XL2 pads and no vendor-published
+  load capacitance, so the overlay sets nothing — the DK target default
+  (17000 fF, internal capacitors) stands, inside the SoC's 3000–18000 fF
+  bank. The ISP2454 collision (a vendor-prescribed 19 pF against the 18 pF
+  bank ceiling) cannot arise. The data sheet's only accuracy statement is
+  that the internal crystal misses the ±50 ppm ANT requirement over the full
+  temperature range (a certification caveat); if 32 kHz accuracy ever
+  matters beyond that, the factory setting would have to come from KAGA FEI
+  support.
+- **Marking check before bench work.** The EVB manual only ever shows the
+  EC4L15BA1 mounted, but KAGA's ES4L15BA1 is a real sibling part that lacks
+  the internal 32.768 kHz crystal and is rated to +8 dBm (vs +7 dBm for the
+  EC4L15BA1) — read the laser marking on the module shield first, since an
+  ES4L15BA1 re-opens the LF-clock question.
+- **Antenna.** A single integrated PCB antenna (JP1 default internal; the
+  CN7 U.FL connector is not mounted), no RF switch — conducted RF access is
+  JP1/CN7 rework. Same single-antenna shape as Fanstel, the ME54BE01, and
+  the ISP2454, so all EC4L15BA1 presets use `NUM_ANTENNAS=1`
+  (`4_path_1_local.conf`) and the overlay carries no `cs_antenna_switch`
+  node.
+- **DC/DC only.** The module supports DC/DC converter mode only (LDO not
+  supported), which is what the NCS samples assume — no power-regulator
+  Kconfig work.
+
+See the
+[EC4L15BA1 data sheet](https://www.kagafei.com/jp/products/wireless-modules/bluetooth/File/__icsFiles/afieldfile/2026/06/29/EC4L15BA1_EC4L10BA1_EC4L05BA1_DataSheet_V1_1_20260612E.pdf)
+and the
+[EC4L15BA1-EVB manual](https://www.kagafei.com/jp/products/wireless-modules/bluetooth/File/__icsFiles/afieldfile/2026/02/12/EC4L15BA1_EVBManual_V1_0_20260126.pdf).
 
 ### Antenna-switch node
 
@@ -435,8 +511,8 @@ deltas that matter are below. Consolidated board-def and bench facts:
   controller library in NCS; no code in this repo reads `ant-gpios` directly.
   The overlay comment "See `cs_antenna_switch.c`" refers to NCS-owned source, not
   a file in this repo.
-- Fanstel, the Minewsemi ME54BE01, the Insight SiP ISP2454, and the Würth
-  Ophelia-IV MiniEV have no
+- Fanstel, the Minewsemi ME54BE01, the Insight SiP ISP2454, the Würth
+  Ophelia-IV MiniEV, and the KAGA FEI EC4L15BA1 have no
   `cs_antenna_switch` node (single-antenna boards; the Nordic controller's
   `cs_antenna_switch.c` is compiled only under
   `CONFIG_BT_CTLR_SDC_CS_MULTIPLE.ANTENNA_SUPPORT`, i.e. `NUM_ANTENNAS >= 2`,
@@ -519,6 +595,8 @@ A3 4-path.
 | `insight_isp2454_cent_a1_4_ipt` | IPT | initiator | Insight SiP ISP2454 | `insight_isp2454_*.overlay` | `central.overlay;inline_pct_initiator.conf;inline_pct_shared.conf;4_path_1_local.conf;insight_isp2454.conf` | A1 / 4 |
 | `ophelia4ev_cent_a1_4` | RAS | initiator | Würth Ophelia-IV MiniEV | `ophelia4ev_*.overlay` | `central.overlay;4_path_1_local.conf;ophelia4ev.conf` | A1 / 4 |
 | `ophelia4ev_cent_a1_4_ipt` | IPT | initiator | Würth Ophelia-IV MiniEV | `ophelia4ev_*.overlay` | `central.overlay;inline_pct_initiator.conf;inline_pct_shared.conf;4_path_1_local.conf;ophelia4ev.conf` | A1 / 4 |
+| `kaga_ec4l15ba1_cent_a1_4` | RAS | initiator | KAGA FEI EC4L15BA1 | `kaga_ec4l15ba1_*.overlay` | `central.overlay;4_path_1_local.conf;kaga_ec4l15ba1.conf` | A1 / 4 |
+| `kaga_ec4l15ba1_cent_a1_4_ipt` | IPT | initiator | KAGA FEI EC4L15BA1 | `kaga_ec4l15ba1_*.overlay` | `central.overlay;inline_pct_initiator.conf;inline_pct_shared.conf;4_path_1_local.conf;kaga_ec4l15ba1.conf` | A1 / 4 |
 | `nrf54l15dk_peri_a1_4` | RAS | reflector | nRF54L15DK | `nrf54l15dk_*.overlay` | `4_path_1_local.conf` | A1 / 4 |
 | `nrf54l15dk_peri_a2_2` | RAS | reflector | nRF54L15DK | `nrf54l15dk_*.overlay` | `2_path_2_local.conf` | A2 / 2 |
 | `nrf54l15dk_peri_a4_4` | RAS | reflector | nRF54L15DK | `nrf54l15dk_*.overlay` | `4_path_4_local.conf` | A4 / 4 |
@@ -539,6 +617,8 @@ A3 4-path.
 | `insight_isp2454_peri_a1_4_ipt` | IPT | reflector | Insight SiP ISP2454 | `insight_isp2454_*.overlay` | `inline_pct_reflector.conf;inline_pct_shared.conf;4_path_1_local.conf;insight_isp2454.conf` | A1 / 4 |
 | `ophelia4ev_peri_a1_4` | RAS | reflector | Würth Ophelia-IV MiniEV | `ophelia4ev_*.overlay` | `4_path_1_local.conf;ophelia4ev.conf` | A1 / 4 |
 | `ophelia4ev_peri_a1_4_ipt` | IPT | reflector | Würth Ophelia-IV MiniEV | `ophelia4ev_*.overlay` | `inline_pct_reflector.conf;inline_pct_shared.conf;4_path_1_local.conf;ophelia4ev.conf` | A1 / 4 |
+| `kaga_ec4l15ba1_peri_a1_4` | RAS | reflector | KAGA FEI EC4L15BA1 | `kaga_ec4l15ba1_*.overlay` | `4_path_1_local.conf;kaga_ec4l15ba1.conf` | A1 / 4 |
+| `kaga_ec4l15ba1_peri_a1_4_ipt` | IPT | reflector | KAGA FEI EC4L15BA1 | `kaga_ec4l15ba1_*.overlay` | `inline_pct_reflector.conf;inline_pct_shared.conf;4_path_1_local.conf;kaga_ec4l15ba1.conf` | A1 / 4 |
 
 - **Naming asymmetry.** Preset names are `<board>_<cent|peri>_a<antennas>_<paths>`
   — antennas first, paths second (e.g. `ezurio_bl54l15u_cent_a2_4` = A2, 4 paths).
@@ -557,8 +637,8 @@ A3 4-path.
 
 Each preset sets `DTC_OVERLAY_FILE` (the board overlay) and `EXTRA_CONF_FILE`
 (the role fragment `;`-separated from the path-local fragment; the TAG, ME54BE01,
-AN54LV-K15, ISP2454, and MiniEV presets also append their `boards/<carrier>.conf`
-fragment for RTT-console/serial-driver Kconfig).
+AN54LV-K15, ISP2454, MiniEV, and EC4L15BA1 presets also append their
+`boards/<carrier>.conf` fragment for RTT-console/serial-driver Kconfig).
 IPT presets insert the `inline_pct_initiator.conf` / `inline_pct_reflector.conf`
 and `inline_pct_shared.conf` fragments between the role fragment and the
 path-local fragment (see the preset table above).
