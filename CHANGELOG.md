@@ -2,6 +2,19 @@
 All notable changes to this project will be documented in this file. See [conventional commits](https://www.conventionalcommits.org/) for commit guidelines.
 
 - - -
+## [v1.15.1](https://github.com/Metirionic/mars-cs-nrf54l/releases/tag/v1.15.1) - 2026-09-03
+#### Bug Fixes
+- (**cs**) run IPT serialize+UART TX off the BT RX thread (#173) - ([6cec171](https://github.com/Metirionic/mars-cs-nrf54l/commit/6cec1717c1223a61d2bbafec395dbff82a481fed)) - AttilaRoemer
+- (**scripts**) assert the console watchdog signature in the #173 capture harness - ([1728977](https://github.com/Metirionic/mars-cs-nrf54l/commit/172897736ab096dd85a3dc34248a606853003950)) - AttilaRoemer
+#### Documentation
+- re-anchor architecture.md line citations after the #173 fix - ([80ffed2](https://github.com/Metirionic/mars-cs-nrf54l/commit/80ffed24996d2623c8866c2dee56f4487c99c97f)) - AttilaRoemer
+#### Refactoring
+- (**cs**) hoist shared IPT completion tail; correct #173 comments - ([18486d7](https://github.com/Metirionic/mars-cs-nrf54l/commit/18486d743332a6585576ad24146c62384899b580)) - AttilaRoemer
+#### Style
+- (**cs**) apply clang-format and EOF newline to the #173 fix - ([b9a7a5b](https://github.com/Metirionic/mars-cs-nrf54l/commit/b9a7a5b1e1fe81b16b1c705aeda41233d89db67a)) - AttilaRoemer
+
+- - -
+
 ## [v1.15.0](https://github.com/Metirionic/mars-cs-nrf54l/releases/tag/v1.15.0) - 2026-08-31
 #### Features
 - (**board**) add Insight SiP ISP2454 carrier support (A1 presets) - ([d6871d2](https://github.com/Metirionic/mars-cs-nrf54l/commit/d6871d23c2ba62431cdcd098cf0c8beed2010546)) - AttilaRoemer
