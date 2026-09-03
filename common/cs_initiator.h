@@ -171,7 +171,7 @@ void                                   cs_initiator_take_sem_data_ready(void);
  * runs the app's process callback (serialize + UART TX), and releases the
  * event handoff. Keeps the blocking serialize path off the BT RX thread (#173).
  */
-void                                   cs_initiator_consume_pending_event(void);
+void cs_initiator_consume_pending_event(void);
 #endif  // defined(CONFIG_MARS_CS_INLINE_PCT)
 
 #endif  // CS_INITIATOR_H

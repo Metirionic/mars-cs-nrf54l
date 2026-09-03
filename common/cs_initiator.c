@@ -364,8 +364,7 @@ static void subevent_result_cb(struct bt_conn * p_conn, struct bt_conn_le_cs_sub
             g_event_backlog_drops++;
             if (g_event_backlog_drops == 1U || (g_event_backlog_drops % 128U) == 0U)
             {
-                LOG_WRN("Serialize backlog: dropped %u procedures (UART slower than cadence)",
-                        g_event_backlog_drops);
+                LOG_WRN("Serialize backlog: dropped %u procedures (UART slower than cadence)", g_event_backlog_drops);
             }
             net_buf_simple_reset(&latest_local_steps);
             cs_initiator_give_sem_local_steps();
