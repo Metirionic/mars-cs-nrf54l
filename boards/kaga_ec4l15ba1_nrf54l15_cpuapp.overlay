@@ -1,0 +1,61 @@
+/* SPDX-License-Identifier: MIT */
+/*
+ * KAGA FEI EC4L15BA1-EVB overlay (EC4L15BA1 nRF54L Basic module). Builds on
+ * the nrf54l15dk base board (no NCS board def for the EC4L15BA1-EVB); BOARD
+ * stays nrf54l15dk/nrf54l15/cpuapp and this overlay selects the carrier. The
+ * module ships APPROTECT-enabled and blank (KAGA Firmware Writing Manual
+ * §1.2/§2.2): run `nrfutil device recover` before the first flash — a plain
+ * erase re-arms the lock.
+ *
+ * COBS ranging stream: uart20, pinctrl inherited from the nrf54l15dk base DTS
+ * (P1.04 TX / P1.05 RX, 921600 baud) via the EVB's onboard FT232RNQ
+ * USB-to-serial bridge on the CN6 mini-USB connector (solder bridges SB1/SB2,
+ * factory-shorted — EVB manual §4). SB3/SB4 additionally bridge the FT232's
+ * RTS/CTS to P1.06/P1.07, but the DK pinctrl maps no flow-control pins and
+ * the firmware runs 8N1 with no flow control, so those lines are inert; the
+ * host serial port must be opened 8N1, no flow control. Same uart20
+ * P1.04/P1.05 COBS pins as the DK and the ISP2454 EVK.
+ *
+ * Antenna: single integrated PCB antenna (JP1 default internal; CN7 U.FL not
+ * mounted), no RF switch. No cs_antenna_switch node — the Nordic controller's
+ * cs_antenna_switch.c is compiled only under
+ * CONFIG_BT_CTLR_SDC_CS_MULTIPLE.ANTENNA_SUPPORT (NUM_ANTENNAS >= 2); all
+ * EC4L15BA1 presets use NUM_ANTENNAS=1 (4_path_1_local), so it is compiled
+ * out and the node is not required (same as the Fanstel BM15C / ME54BE01 /
+ * ISP2454).
+ *
+ * LF clock: the 32.768 kHz crystal is inside the module (DS §5.1 block
+ * diagram; FAQ §2 Q2-4) with no XL1/XL2 pads exposed and no vendor-published
+ * load capacitance, so there is nothing to override — the nrf54l15dk target
+ * default (load-capacitance-femtofarad = <17000>, internal capacitors)
+ * stands, inside the 3000–18000 fF bank BUILD_ASSERT. The ISP2454 collision
+ * (vendor prescribes 19 pF against the 18 pF bank ceiling) cannot arise
+ * here. See docs/hardware.md (KAGA FEI EC4L15BA1 wiring notes).
+ *
+ * Console: Segger RTT via an external debug probe (the EVB has no onboard
+ * debugger). The nrf54l15dk base (nrf54l_05_10_15_cpuapp_common.dtsi) binds
+ * zephyr,console / shell-uart / uart-mcumgr / bt-mon-uart / bt-c2h-uart to
+ * uart20 — here the COBS stream — so those are /delete-property/'d below to
+ * keep uart20 for COBS only; boards/kaga_ec4l15ba1.conf selects the RTT
+ * backend and disables the DK defconfig's UART_CONSOLE. (The DK-default
+ * uart30 console pins P0.00/P0.01 reach only the CN8/CN9 headers, which are
+ * not fitted; a uart30 console would need headers soldered first — RTT
+ * avoids it.) See docs/hardware.md.
+ */
+
+/ {
+    chosen {
+        cobs-uart = &uart20;
+
+        /delete-property/ zephyr,console;
+        /delete-property/ zephyr,shell-uart;
+        /delete-property/ zephyr,uart-mcumgr;
+        /delete-property/ zephyr,bt-mon-uart;
+        /delete-property/ zephyr,bt-c2h-uart;
+    };
+};
+
+&uart20 {
+    status = "okay";
+    current-speed = <921600>;
+};
