@@ -264,7 +264,7 @@ jumper-wire rig on CN4/CN5/CN8/CN9 needs headers soldered first.
 | 5 | SB1–SB5 + CN2 factory-shorted (EVB §4 p.4 note) | USB plug → D1 lights (3.3 V rail); COBS smoke test on CN6 at our chosen baud (P1.04 TX / P1.05 RX) |
 | 6 | SB5 ties FT232 VCCIO = VDD (EVB §4 p.4) | Confirm UART IO level equals measured VDD before wiring any external adapter |
 | 7 | JP1 default internal antenna; CN7 U.FL N.M. (EVB §5 p.5; DS §5.2 p.21) | Loupe JP1/CN7 if conducted RF is ever needed |
-| 8 | Module may be EC4L15BA1 or (mis)marked ES4L15BA1 (FAQ Q2-4/Q2-11 pp.8–9) | Read shield marking; if ES4L15BA1: no internal 32 kHz crystal, +8 dBm cap |
+| 8 | Module may be an EC4L15BA1 or a mislabeled ES4L15BA1 (FAQ Q2-4/Q2-11 pp.8–9) | Read shield marking; if ES4L15BA1: no internal 32 kHz crystal, +8 dBm cap |
 | 9 | DC/DC-only, LDO unsupported (DS §5.1 p.20; FAQ Q3-3 p.11) | Keep the NCS-sample DC/DC defaults; no LDO Kconfig work |
 | 10 | Die revision not documented | `nrfutil device info` / Programmer → log die revision in the bench ticket |
 
