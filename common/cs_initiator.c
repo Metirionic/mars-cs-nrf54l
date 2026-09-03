@@ -36,6 +36,16 @@ static K_SEM_DEFINE(sem_cs_security_enabled, 0, 1);
 static K_SEM_DEFINE(sem_connected, 0, 1);
 static K_SEM_DEFINE(sem_security, 0, 1);
 static K_SEM_DEFINE(sem_local_steps, 1, 1);
+#if IS_ENABLED(CONFIG_MARS_CS_INLINE_PCT)
+/** @brief IPT event handoff (#173): 1 = the event pair below is free for the
+ * RX thread to populate; 0 = the main loop owns it (serializing). */
+static K_SEM_DEFINE(sem_event_free, 1, 1);
+/** @brief Completed procedures dropped because the serialize consumer was busy. */
+static uint32_t g_event_backlog_drops;
+/** @brief Static event pair handed from the RX thread to the main loop. */
+static SubeventResultEvent_t g_local_event;
+static SubeventResultEvent_t g_peer_event;
+#endif
 #if IS_ENABLED(CONFIG_BT_RAS_RREQ)
 static K_SEM_DEFINE(sem_discovery_done, 0, 1);
 static K_SEM_DEFINE(sem_mtu_exchange_done, 0, 1);
@@ -162,6 +172,34 @@ void cs_initiator_take_sem_data_ready(void)
 {
     k_sem_take(&sem_data_ready, K_FOREVER);
 }
+
+#if IS_ENABLED(CONFIG_MARS_CS_INLINE_PCT)
+/** @brief Consume the pending IPT event pair on the caller's thread.
+ *
+ * Blocks until the RX thread has populated a completed procedure's events
+ * (sem_data_ready), runs the app's process callback — the serialize + UART TX
+ * path, ~289 ms per 26.6 KB event at 921600 — then releases the handoff
+ * (sem_event_free) so the RX thread may populate the next procedure.
+ *
+ * This moves the blocking serialize path OFF the BT RX thread. Running it
+ * inline in the RX thread (the pre-#173 behaviour) starved the SDC's
+ * step-data delivery above ~3.5 procedures/s and the controller aborted the
+ * surplus subevents — the COMPLETE-but-empty procedures of #173. While the
+ * consumer is busy, the RX thread drops surplus completed procedures at the
+ * handoff gate instead (counted, LOG_WRN every 128th drop).
+ */
+void cs_initiator_consume_pending_event(void)
+{
+    k_sem_take(&sem_data_ready, K_FOREVER);
+
+    if (gp_process_subevent_cb)
+    {
+        gp_process_subevent_cb(&g_local_event, &g_peer_event);
+    }
+
+    k_sem_give(&sem_event_free);
+}
+#endif  // IS_ENABLED(CONFIG_MARS_CS_INLINE_PCT)
 
 /** @brief Register the ranging data callback for realtime or on-demand RD mode. */
 void cs_initiator_set_ranging_data_cb(cs_initiator_ranging_data_cb p_cb)
@@ -306,34 +344,41 @@ static void subevent_result_cb(struct bt_conn * p_conn, struct bt_conn_le_cs_sub
 
 #if IS_ENABLED(CONFIG_MARS_CS_INLINE_PCT)
         /* IPT: local steps are complete. The shared skeleton handles the
-         * err/empty/populate/wake protocol:
-         *   - empty procedure → recover sem_local_steps + wake consumer
-         *   - non-empty → subevent_populate_inline → process callback → reset → wake
-         */
+         * err/empty/populate/handoff protocol:
+         *   - empty procedure → recover sem_local_steps (nothing to consume)
+         *   - consumer busy → drop the procedure, counted (sem_event_free held)
+         *   - otherwise → populate → release buffer → hand off to the main
+         *     loop thread, which runs the process callback (serialize + UART)
+         *     via cs_initiator_consume_pending(). The process callback must
+         *     NOT run here: it blocks on the UART TX-complete handshake, and
+         *     a blocked RX thread starves the SDC's step-data delivery until
+         *     it aborts the surplus subevents (#173). */
         if (latest_local_steps.len == 0)
         {
             LOG_WRN("IPT procedure produced no step data");
             net_buf_simple_reset(&latest_local_steps);
             cs_initiator_give_sem_local_steps();
-            cs_initiator_give_sem_data_ready();
+        }
+        else if (k_sem_take(&sem_event_free, K_NO_WAIT) < 0)
+        {
+            g_event_backlog_drops++;
+            if (g_event_backlog_drops == 1U || (g_event_backlog_drops % 128U) == 0U)
+            {
+                LOG_WRN("Serialize backlog: dropped %u procedures (UART slower than cadence)",
+                        g_event_backlog_drops);
+            }
+            net_buf_simple_reset(&latest_local_steps);
+            cs_initiator_give_sem_local_steps();
         }
         else
         {
-            static SubeventResultEvent_t local_event;
-            static SubeventResultEvent_t peer_event;
-
-            subevent_populate_inline(&local_event,
-                                     &peer_event,
+            subevent_populate_inline(&g_local_event,
+                                     &g_peer_event,
                                      g_local_mac,
                                      g_peer_mac,
                                      &g_latest_subevent_header,
                                      &latest_local_steps,
                                      BT_CONN_LE_CS_ROLE_INITIATOR);
-
-            if (gp_process_subevent_cb)
-            {
-                gp_process_subevent_cb(&local_event, &peer_event);
-            }
 
             net_buf_simple_reset(&latest_local_steps);
             cs_initiator_give_sem_local_steps();
