@@ -321,6 +321,21 @@ deltas that matter are below. Consolidated board-def and bench facts:
 [research doc](https://github.com/Metirionic/mars-cs-nrf54l/tree/research/ophelia4ev-miniev-facts/docs/research)
 (wayfinder #178).
 
+- **Known limitation: the reflector role fails CS on this carrier.** Bench
+  verification (#181) produced a split verdict at the repo's link+data bar: as
+  **initiator** the MiniEV passes fully in both RAS and IPT (601/601
+  consecutive procedures, zero aborts, plausible non-flat I/Q, stable ~1.28 m
+  two-way range), while as **reflector** it fails reproducibly in both modes —
+  ~85% of procedures die silently (RAS also logs `RD dropped` and
+  delivered-empty aborts), and the survivors are rejected by the host
+  pipeline's computed two-way quality (`OnlyLowQualityMeasurements`, zero
+  distances) even though the SDC's own tone-quality indicators read High on
+  both origins. Leading suspect: the crystal-less RC 32 K sleep clock (see the
+  32 K clock note below) — as initiator the MiniEV sets the CS schedule and
+  self-times it; as reflector it must track the counterpart's schedule on the
+  RC. Per the scope decision (#182) the full four-preset set ships with this
+  as a documented known limitation, tracked for post-release investigation in
+  #184.
 - **Single UART; console over RTT via the external J-Link.** Only `uart20` is
   exposed — the COBS ranging stream via `cobs-uart`, on CON4 pin 9 (module TX,
   `P1.04`) and CON4 pin 8 (module RX, `P1.15`), 921600 8N1, no flow control.
@@ -359,15 +374,32 @@ deltas that matter are below. Consolidated board-def and bench facts:
   via raw memory reads at `_SEGGER_RTT` (the system 7.92m RTTLogger cannot
   find the control block; the 1 KB up-buffer is `NO_BLOCK_SKIP` — drain the
   stale boot ring before reading, same recipe as the AN54LV-K15).
-- **Flash via `nrfutil`** with the safe options (the tool defaults —
-  `ERASE_ALL` + `RESET_NONE` — halt the chip):
+- **Bench: RTT holds stale leftovers, not live output — the FT232 COBS stream
+  is the only live window into a MiniEV.** The stale-ring mechanics documented
+  for the AN54LV-K15 apply unchanged (1 KB `NO_BLOCK_SKIP` up-buffer, RAM
+  control block surviving resets and reflashes): a post-hoc memory read at
+  `_SEGGER_RTT` returns earlier-session content, including output from an app
+  that has since been reflashed away — do not debug off the MiniEV's RTT. For
+  live RAM reads in `JLinkExe` use `Sleep` + `mem`; a bare `h` (halt) without
+  `g` stops the core — pair them deliberately, as the AN54LV-K15
+  control-block-invalidate recipe does.
+- **Flash via `nrfutil` with `reset=RESET_HARD`** — bench #181 found
+  `RESET_SYSTEM` does not reliably reboot the MiniEV: the previous app keeps
+  running through the reflash (the new image verifies clean underneath while
+  the old one keeps ranging; RTT shows only frozen state from the earlier
+  run). Keep the safe erase options (the tool defaults — `ERASE_ALL` +
+  `RESET_NONE` — halt the chip):
   `nrfutil device program --firmware <zephyr.hex> --serial-number <SN>
-  --options chip_erase_mode=ERASE_RANGES_TOUCHED_BY_FIRMWARE,reset=RESET_SYSTEM`.
-  `RESET_SYSTEM` may leave the app core halted — a
-  `nrfutil device reset --serial-number <SN> --reset-kind RESET_HARD` boots
-  it; confirm boot via the RTT/RAM read (the board has no console VCOM). The
-  shipped module carries a stock NCS DTM-sample build and no readback
-  protection — plain program overwrites it; `recover` only on a flash error.
+  --options chip_erase_mode=ERASE_RANGES_TOUCHED_BY_FIRMWARE,reset=RESET_HARD`.
+  (On other carriers `RESET_SYSTEM` merely sometimes leaves the app core
+  halted — a `nrfutil device reset --serial-number <SN> --reset-kind
+  RESET_HARD` boots it.) `ERASE_RANGES_TOUCHED_BY_FIRMWARE` also leaves a
+  previous, longer image's tail in flash (bench: the reflector image ends at
+  0x3ED40 while an earlier initiator image's bytes persisted to ~0x4E048) —
+  harmless, but mind it in flash forensics. Confirm boot via the RTT/RAM read
+  (the board has no console VCOM). The shipped module carries a stock NCS
+  DTM-sample build and no readback protection — plain program overwrites it;
+  `recover` only on a flash error.
 - **32 K clock: RC, deliberately.** The board defconfig selects the internal
   RC oscillator (`CONFIG_CLOCK_CONTROL_NRF_K32SRC_RC=y`) — the MiniEV ships
   without an LFXO crystal (Q1/C9/C10 unpopulated; rework to fit Q1 + C9/C10,
@@ -514,6 +546,11 @@ A3 4-path.
   scanning-central Kconfig fragment, mislabeled `.overlay` but a conf fragment)
   in `EXTRA_CONF_FILE`; reflector presets do not. `central.overlay` is a Kconfig
   fragment, not a devicetree overlay.
+- **ophelia4ev reflector presets are a known limitation.** The MiniEV's
+  reflector role fails CS reproducibly in both RAS and IPT (crystal-less RC
+  32 K sleep clock is the leading suspect); the initiator presets are
+  bench-proven at the verification bar. See the
+  [MiniEV wiring notes](#wrth-ophelia-iv-miniev-wiring-notes) and issue #184.
 
 ### How a preset composes overlay + fragments
 
