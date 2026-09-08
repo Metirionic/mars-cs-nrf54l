@@ -42,9 +42,9 @@ boards ship in the same archive; see the [preset table](hardware.md#presets).
 
 1. Go to the repo's **Releases** page on GitHub and download
    `cs-ranging-firmware.zip` from the latest release.
-2. Unzip it. The archive is flat — 32 `.hex` files at the root, named
-   `<role>_<preset>.hex`. That is eight RAS presets and eight `_ipt` presets
-   per role (16 initiator + 16 reflector); no build step is needed.
+2. Unzip it. The archive is flat — 36 `.hex` files at the root, named
+   `<role>_<preset>.hex`. That is nine RAS presets and nine `_ipt` presets
+   per role (18 initiator + 18 reflector); no build step is needed.
 3. Locate the two files for your chosen pair. IPT files use the same
    `<role>_<preset>.hex` name with an `_ipt` suffix before `.hex`:
    - **RAS pair** — `initiator_nrf54l15dk_cent_a1_4.hex` +
@@ -134,6 +134,15 @@ covered separately; this guide covers capture only.
 > flashed through an nRF54L15 DK's `DEBUG OUT` header. See
 > [docs/hardware.md](hardware.md#nrf54l15-tag-wiring-notes) for the full TAG
 > wiring notes.
+
+> **Würth Ophelia-IV MiniEV is different too.** It has no onboard USB or
+> debugger: flash it via `nrfutil device program` against an external J-Link
+> (SWD through the bare CON2 solder pads, serial forced), and read the COBS
+> ranging stream from an external UART-to-USB adapter wired to CON4 — module
+> **TX → CON4 pin 9 (`P1.04`)**, `921600`, 8N1, no flow control. Its console
+> runs over Segger RTT. See
+> [docs/hardware.md](hardware.md#wrth-ophelia-iv-miniev-wiring-notes) for the
+> full MiniEV wiring notes.
 
 ## Troubleshooting
 
