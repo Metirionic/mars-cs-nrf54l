@@ -33,10 +33,14 @@
 # ([text][ref] + [ref]: url) and autolinks (<url>) are not. The repo's docs use
 # inline links exclusively, so this covers every link actually in use.
 #
-# Heading anchors are matched against a simplified GitHub-style slug (lowercase,
-# punctuation stripped, spaces -> hyphens). GitHub's duplicate-heading -N suffix
-# and inline formatting inside a heading are not modeled; no current doc has
-# duplicate headings or formatting in an anchor-target heading.
+# Heading anchors are matched against a GitHub-style slug (lowercase; Unicode
+# letters and digits kept — NOT transliterated or stripped; punctuation and
+# other characters stripped; whitespace runs -> single hyphens), computed by
+# the inline python3 helper in heading_slugs. github.com keeps Unicode letters
+# in slugs (e.g. a "### Würth ..." heading anchors as "würth-..."), which
+# POSIX tr/sed cannot reproduce byte-safely. GitHub's duplicate-heading -N
+# suffix and inline formatting inside a heading are not modeled; no current
+# doc has duplicate headings or formatting in an anchor-target heading.
 #
 # Runs in CI via .github/workflows/docs.yml and locally: `bash scripts/check-docs.sh`.
 
@@ -137,27 +141,46 @@ resolve_href() {
 
 # --- anchor validation ------------------------------------------------------
 
-# slugify <heading_text> -> GitHub-style slug (lowercase, strip punctuation,
-# spaces -> hyphens, trim leading/trailing hyphens).
-slugify() {
-  local h="$1"
-  h="$(printf '%s' "$h" | tr '[:upper:]' '[:lower:]')"
-  h="$(printf '%s' "$h" | tr -cd 'a-z0-9 _-')"
-  h="${h// /-}"
-  h="${h#-}"; h="${h%-}"
-  printf '%s\n' "$h"
-}
-
-# heading_slugs <md_file> -> one slug per ATX heading. The trailing `|| true`
-# keeps the function returning 0 when grep finds no headings — without it,
-# `set -e`+`pipefail` would abort the pipeline before any trailing `return`,
-# both when captured via $(...) and when called directly in a pipeline (e.g.
-# the diagnostic slug dump in the main loop).
+# heading_slugs <md_file> -> one GitHub-style slug per ATX heading. The
+# trailing `|| true` keeps the function returning 0 when grep finds no
+# headings — without it, `set -e`+`pipefail` would abort the pipeline before
+# any trailing `return`, both when captured via $(...) and when called
+# directly in a pipeline (e.g. the diagnostic slug dump in the main loop).
+#
+# The slug is computed by the inline python3 helper below, not by tr/sed:
+# POSIX byte tools cannot keep Unicode letters while stripping punctuation,
+# and github.com slugs DO keep them — "### Würth ..." anchors as
+# "würth-...", while `tr -cd 'a-z0-9 _-'` strips the ü and would validate a
+# dead ASCII-stripped anchor. The helper reproduces the github-slugger
+# algorithm (verified against the package): lowercase; keep Unicode letters
+# and digits; strip every other character; whitespace runs -> single hyphens.
+# Not modeled, as before: GitHub's duplicate-heading -N suffix and inline
+# formatting inside a heading (no current doc has either in an anchor target).
 heading_slugs() {
   local file="$1"
   grep -nE '^#{1,6} ' "$file" 2>/dev/null \
     | sed -E 's/^[0-9]+:#*[[:space:]]+//' \
-    | while IFS= read -r h; do slugify "$h"; done || true
+    | python3 -X utf8 -c '
+import re
+import sys
+import unicodedata
+
+for line in sys.stdin:
+    # GitHub slugs the RENDERED heading text, where CommonMark has stripped
+    # the line-edge whitespace and collapsed internal whitespace runs — do
+    # both first, then strip characters, so a stripped character still leaves
+    # its own gap as github-slugger produces ("a - b" -> "a---b",
+    # "a — b" -> "a--b").
+    h = re.sub(r"\s+", " ", line.strip().lower())
+    # Keep Unicode letters and digits — never transliterate ("Würth" slugs as
+    # "würth"; NFD combining marks drop out, exactly as github-slugger drops
+    # them) — plus "-", "_" and the collapsed spaces; strip everything else.
+    # No edge-hyphen trimming: github-slugger keeps those hyphens.
+    h = "".join(ch for ch in h if ch in "-_ "
+                or unicodedata.category(ch)[0] == "L"
+                or unicodedata.category(ch) in ("Nd", "Nl"))
+    print(h.replace(" ", "-"))
+' || true
 }
 
 # anchor_exists <md_file> <anchor> -> 0 if a heading slug equals the anchor.

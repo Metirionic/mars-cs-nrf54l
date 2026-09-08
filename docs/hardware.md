@@ -11,14 +11,14 @@ mars-bluetooth-hci API.
 
 ## Supported boards
 
-Eight of the target boards build for `BOARD=nrf54l15dk/nrf54l15/cpuapp` with the
+Seven of the target boards build for `BOARD=nrf54l15dk/nrf54l15/cpuapp` with the
 carrier selected by overlay. Two build against their own base board instead: the
 nRF54L15 TAG builds on `nrf54l15tag/nrf54l15/cpuapp`, because the tag
 overlay's `/delete-node/ &sky13348` and `antenna_switch_v1`/`antenna_switch_v2`
 target nodes that exist only in the nrf54l15tag DTS (see issue #40); the Würth
 Ophelia-IV MiniEV builds on NCS v3.4.0's upstream `ophelia4ev/nrf54l15/cpuapp`
 def, which already models the carrier (see the
-[MiniEV wiring notes](#wrth-ophelia-iv-miniev-wiring-notes)).
+[MiniEV wiring notes](#würth-ophelia-iv-miniev-wiring-notes)).
 
 | Board | Overlay | COBS UART | Console UART | Antenna-switch GPIOs |
 |-------|---------|-----------|--------------|----------------------|
@@ -52,7 +52,7 @@ is shown here as `nRF54L15 TAG`.
   `shell-uart` / `uart-mcumgr` / `bt-mon-uart` / `bt-c2h-uart` chosen nodes point
   to it. The TAG and the MiniEV have no console UART (see the
   [TAG wiring notes](#nrf54l15-tag-wiring-notes) and
-  [MiniEV wiring notes](#wrth-ophelia-iv-miniev-wiring-notes)).
+  [MiniEV wiring notes](#würth-ophelia-iv-miniev-wiring-notes)).
 - **U-Blox swaps** COBS and console versus the DK: COBS on `uart30`, console on
   `uart20`. Ezurio matches the DK assignment. Don't assume a fixed mapping.
 - **Physical TX/RX pins are not in the overlays** except Fanstel's and the TAG's
@@ -550,7 +550,7 @@ A3 4-path.
   reflector role fails CS reproducibly in both RAS and IPT (crystal-less RC
   32 K sleep clock is the leading suspect); the initiator presets are
   bench-proven at the verification bar. See the
-  [MiniEV wiring notes](#wrth-ophelia-iv-miniev-wiring-notes) and issue #184.
+  [MiniEV wiring notes](#würth-ophelia-iv-miniev-wiring-notes) and issue #184.
 
 ### How a preset composes overlay + fragments
 

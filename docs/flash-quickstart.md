@@ -148,7 +148,7 @@ covered separately; this guide covers capture only.
 > **TX → CON4 pin 9 (`P1.04`)**, `921600`, 8N1, no flow control. Its console
 > runs over Segger RTT but holds stale leftovers after a reflash — the
 > adapter stream is the only live window. See
-> [docs/hardware.md](hardware.md#wrth-ophelia-iv-miniev-wiring-notes) for the
+> [docs/hardware.md](hardware.md#würth-ophelia-iv-miniev-wiring-notes) for the
 > full MiniEV wiring notes (including the reflector-role known limitation).
 
 ## Troubleshooting
