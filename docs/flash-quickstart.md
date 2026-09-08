@@ -137,12 +137,19 @@ covered separately; this guide covers capture only.
 
 > **Würth Ophelia-IV MiniEV is different too.** It has no onboard USB or
 > debugger: flash it via `nrfutil device program` against an external J-Link
-> (SWD through the bare CON2 solder pads, serial forced), and read the COBS
-> ranging stream from an external UART-to-USB adapter wired to CON4 — module
+> (SWD through the bare CON2 solder pads, serial forced) **with the safe
+> options** —
+> `--options chip_erase_mode=ERASE_RANGES_TOUCHED_BY_FIRMWARE,reset=RESET_HARD`
+> (the tool defaults halt the chip, and `RESET_SYSTEM` does not reliably
+> reboot the MiniEV — the previous app keeps running through the reflash; this
+> erase mode also leaves a previous, longer image's tail in flash — harmless,
+> but mind it when diffing flash contents). Read the COBS ranging
+> stream from an external UART-to-USB adapter wired to CON4 — module
 > **TX → CON4 pin 9 (`P1.04`)**, `921600`, 8N1, no flow control. Its console
-> runs over Segger RTT. See
+> runs over Segger RTT but holds stale leftovers after a reflash — the
+> adapter stream is the only live window. See
 > [docs/hardware.md](hardware.md#wrth-ophelia-iv-miniev-wiring-notes) for the
-> full MiniEV wiring notes.
+> full MiniEV wiring notes (including the reflector-role known limitation).
 
 ## Troubleshooting
 
