@@ -1,0 +1,64 @@
+/*
+ * SPDX-License-Identifier: MIT
+ *
+ * Würth Elektronik Ophelia-IV MiniEV board overlay (order code 2621119022001,
+ * module Ophelia-IV 2621011022000, nRF54L15). The MiniEV is the second carrier
+ * that builds on its own NCS board def — BOARD=ophelia4ev/nrf54l15/cpuapp,
+ * shipped by NCS v3.4.0 (zephyr/boards/we/ophelia4ev, Würth's ANR036 maps the
+ * MiniEV onto it) — generalizing the nrf54l15tag precedent; the DK+overlay
+ * pattern used by the other carriers does not apply here.
+ *
+ * COBS ranging stream: uart20 @ 921600. The board def's uart20 pinctrl (TX
+ * P1.04 / RX P1.15, no flow control) matches the MiniEV's CON4 FTDI wiring
+ * pin-for-pin (CON4 pin 9 = module TX P1.04, pin 8 = module RX P1.15), so no
+ * pin override is needed — only the 115200→921600 speed (and the status, which
+ * the def already enables). The stream is read through an external UART-to-USB
+ * adapter (e.g. FT232) wired TX-only, like the TAG.
+ *
+ * Console: Segger RTT via an external J-Link debug probe. Unlike the DK —
+ * where console (uart30) and COBS (uart20) are separate UARTs — the
+ * ophelia4ev board def binds ALL five console chosen nodes to uart20, here the
+ * COBS stream, so they are /delete-property/'d below to keep uart20 for COBS
+ * only; boards/ophelia4ev.conf selects the RTT backend and disables the
+ * defconfig's CONFIG_UART_CONSOLE. The module's uart30 console pins
+ * (P0.00/P0.01) sit on unmounted P1 header pins, so the DK-style uart30
+ * console is not physically reachable — RTT via the probe is the only console.
+ *
+ * Phantom board-def nodes, dropped or tolerated here (the def models the
+ * shared Ophelia-IV EV platform, the MiniEV ships without the parts):
+ * - &spi00 / mx25r64 SPI NOR flash: no flash part on the MiniEV; the driver
+ *   would probe a floating bus at boot. Disabled here.
+ * - led0-3 / button0-3 / nfct: nodes exist in the def but have no MiniEV
+ *   counterpart; harmless — dk_buttons_and_leds (CONFIG_DK_LIBRARY, app-level)
+ *   iterates the def's leds/buttons nodes and configures the floating header
+ *   pads as GPIOs. Left alone; no app code references them beyond DK_LIBRARY.
+ *
+ * Antenna: single integrated PCB antenna via populated C2 (the SMA path CON1
+ * is unmounted and needs rework), no RF switch — no cs_antenna_switch node,
+ * all presets use NUM_ANTENNAS=1 (4_path_1_local.conf), the same shape as the
+ * Fanstel BM15C, the Minewsemi ME54BE01, and the Insight SiP ISP2454.
+ */
+
+/ {
+    chosen {
+        cobs-uart = &uart20;
+
+        /delete-property/ zephyr,console;
+        /delete-property/ zephyr,shell-uart;
+        /delete-property/ zephyr,uart-mcumgr;
+        /delete-property/ zephyr,bt-mon-uart;
+        /delete-property/ zephyr,bt-c2h-uart;
+    };
+};
+
+&uart20 {
+    status = "okay";
+    current-speed = <921600>;
+};
+
+/* No SPI NOR on the MiniEV (def node models the shared EV platform) — take
+ * the whole bus down so the jedec,spi-nor driver never probes the floating
+ * bus (boot-time JEDEC failure log) on this carrier. */
+&spi00 {
+    status = "disabled";
+};

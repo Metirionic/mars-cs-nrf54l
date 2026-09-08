@@ -11,11 +11,14 @@ mars-bluetooth-hci API.
 
 ## Supported boards
 
-Seven of the target boards build for `BOARD=nrf54l15dk/nrf54l15/cpuapp` with the
-carrier selected by overlay. The nRF54L15 TAG is the exception: it builds
-against its own base board `nrf54l15tag/nrf54l15/cpuapp`, because the tag
+Eight of the target boards build for `BOARD=nrf54l15dk/nrf54l15/cpuapp` with the
+carrier selected by overlay. Two build against their own base board instead: the
+nRF54L15 TAG builds on `nrf54l15tag/nrf54l15/cpuapp`, because the tag
 overlay's `/delete-node/ &sky13348` and `antenna_switch_v1`/`antenna_switch_v2`
-target nodes that exist only in the nrf54l15tag DTS (see issue #40).
+target nodes that exist only in the nrf54l15tag DTS (see issue #40); the Würth
+Ophelia-IV MiniEV builds on NCS v3.4.0's upstream `ophelia4ev/nrf54l15/cpuapp`
+def, which already models the carrier (see the
+[MiniEV wiring notes](#wrth-ophelia-iv-miniev-wiring-notes)).
 
 | Board | Overlay | COBS UART | Console UART | Antenna-switch GPIOs |
 |-------|---------|-----------|--------------|----------------------|
@@ -27,6 +30,7 @@ target nodes that exist only in the nrf54l15tag DTS (see issue #40).
 | Minewsemi ME54BE01 | `boards/minew_me54be01_nrf54l15_cpuapp.overlay` | `uart20` @ 921600 | — (RTT via debug probe) | — (no antenna-switch node) |
 | Raytac AN54LV-K15 | `boards/raytac_an54lv_k15_nrf54l15_cpuapp.overlay` | `uart20` @ 921600 | — (RTT via debug probe) | `P0.03`, `P0.04` |
 | Insight SiP ISP2454 | `boards/insight_isp2454_nrf54l15_cpuapp.overlay` | `uart20` @ 921600 | — (RTT via onboard J-Link OB) | — (no antenna-switch node) |
+| Würth Ophelia-IV MiniEV | `boards/ophelia4ev_nrf54l15_cpuapp.overlay` | `uart20` @ 921600 | — (RTT via debug probe) | — (no antenna-switch node) |
 
 GPIOs use Zephyr devicetree port-pin notation (`&gpio1 9` → `P1.09`, port 1
 pin 9). All antenna-switch `ant-gpios` are `GPIO_ACTIVE_HIGH`. The DK, U-Blox,
@@ -43,10 +47,12 @@ is shown here as `nRF54L15 TAG`.
 - `cobs-uart` is the authoritative chosen node for the COBS ranging stream,
   consumed by `initiator/src/serialize.c` via `DEVICE_DT_GET(DT_CHOSEN(cobs_uart))`.
   On boards with a console UART (all except the TAG, the ME54BE01, the
-  AN54LV-K15, and the ISP2454), the console UART also
+  AN54LV-K15, the ISP2454, and the MiniEV), the console UART also
   carries shell, mcumgr, bt-mon, and bt-c2h — all five `zephyr,console` /
   `shell-uart` / `uart-mcumgr` / `bt-mon-uart` / `bt-c2h-uart` chosen nodes point
-  to it. The TAG has no console UART (see [TAG wiring notes](#nrf54l15-tag-wiring-notes)).
+  to it. The TAG and the MiniEV have no console UART (see the
+  [TAG wiring notes](#nrf54l15-tag-wiring-notes) and
+  [MiniEV wiring notes](#wrth-ophelia-iv-miniev-wiring-notes)).
 - **U-Blox swaps** COBS and console versus the DK: COBS on `uart30`, console on
   `uart20`. Ezurio matches the DK assignment. Don't assume a fixed mapping.
 - **Physical TX/RX pins are not in the overlays** except Fanstel's and the TAG's
@@ -303,6 +309,91 @@ that same board target.
   [ISP2454 DK data sheet](https://www.insightsip.com/fichiers_insightsip/pdf/ble/ISP2454/isp_ble_DS2454_DK.pdf)
   and [AN250502, "Use of the ISP2454-LX Development Kit"](https://www.insightsip.com/fichiers_insightsip/pdf/ble/ISP2454/isp_ble_AN250502.pdf).
 
+### Würth Ophelia-IV MiniEV wiring notes
+
+The MiniEV (order code 2621119022001) carries the Ophelia-IV module
+(2621011022000) and is, after the TAG, the second carrier built on its own NCS
+board def: `ophelia4ev/nrf54l15/cpuapp` ships with NCS v3.4.0
+(`zephyr/boards/we/ophelia4ev`) and Würth's ANR036 maps the MiniEV onto it. The
+def's targets, partition layout, GRTC channel ownership, and runner set are the
+DK's (same 188 KB RAM / 1428 KB flash budget, jlink + nrfutil runners); the
+deltas that matter are below. Consolidated board-def and bench facts:
+[research doc](https://github.com/Metirionic/mars-cs-nrf54l/tree/research/ophelia4ev-miniev-facts/docs/research)
+(wayfinder #178).
+
+- **Single UART; console over RTT via the external J-Link.** Only `uart20` is
+  exposed — the COBS ranging stream via `cobs-uart`, on CON4 pin 9 (module TX,
+  `P1.04`) and CON4 pin 8 (module RX, `P1.15`), 921600 8N1, no flow control.
+  The board def's own pinctrl matches the CON4 wiring pin-for-pin, so the
+  overlay only raises the speed from the def's 115200 default. There is no
+  console/shell UART — and unlike the DK, where console (`uart30`) and COBS
+  (`uart20`) are separate UARTs, the `ophelia4ev` def routes **all five
+  console chosen nodes to `uart20` itself**: the overlay `/delete-property/`s
+  them and `boards/ophelia4ev.conf` selects the RTT console (explicitly
+  disabling the defconfig's `CONFIG_UART_CONSOLE=y`), so the console (log
+  output) runs over Segger RTT via the debug probe. The module's uart30
+  console pins (`P0.00`/`P0.01`) sit on unmounted P1 header pins — RTT is the
+  only console.
+- **CON4 pinout** (fitted 10-pin header; UM §5.3.7 Table 13): pins 1–5 GND,
+  6 = `P1.06` (RTS), 7 = 5 V in, 8 = `P1.15` (RX), 9 = `P1.04` (TX),
+  10 = `P1.07` (CTS); silkscreen "TTL-232R-3V3 (3.3V Logic)". The bench wiring
+  is TX-only: FT232 RX → CON4 pin 9; the adapter's TX stays unwired. If CON4
+  pin 8 is ever wired, the adapter must be 3.3 V logic (module GPIO absolute
+  maximum is VDD + 0.3 V).
+- **Power: 5 V into CON4 pin 7, GND on pins 1–5; CON3 jumpers stay factory**
+  (1-2 current-measure shunt + 5-6 regulator path) — the onboard MagI³C
+  regulator feeds VDD_MOD ≈ 3.0 V (bench-measured). Never feed CON3 pins 2–5
+  (the external VDD_MOD 1.7–3.6 V option) while the 5-6 jumper is set — the
+  manual warns against tying an external rail to the regulator output, twice
+  (UM §5.6.1). (A TTL-232R-3V3 cable can carry power + UART through CON4 alone
+  — UM power-table row 1 — but the bench FT232 is TX-only.)
+- **SWD via CON2 — bare solder pads as shipped.** The 2×10 debug header
+  (standard Segger 20-pin layout: pin 1 VTref = VDD_MOD ≈ 3.0 V, 7 SWDIO,
+  9 SWCLK, 15 /RESET, GND on even pins 4–20, pin 2 NC) is **not mounted** —
+  solder a header (or probe the pads) before attaching any debug probe.
+- **Two J-Links on the bench bus — force the serial.** With the standalone
+  J-Link (S/N 50124607) and a DK's onboard debugger both attached, unforced
+  `JLinkExe` silently attaches to an arbitrary probe — always
+  `-SelectEmuBySN <sn>` and confirm the echoed S/N. Old-DLL quirks apply:
+  `-Device CORTEX-M33 -If SWD -Speed 4000` for the nRF54L15, and RTT is read
+  via raw memory reads at `_SEGGER_RTT` (the system 7.92m RTTLogger cannot
+  find the control block; the 1 KB up-buffer is `NO_BLOCK_SKIP` — drain the
+  stale boot ring before reading, same recipe as the AN54LV-K15).
+- **Flash via `nrfutil`** with the safe options (the tool defaults —
+  `ERASE_ALL` + `RESET_NONE` — halt the chip):
+  `nrfutil device program --firmware <zephyr.hex> --serial-number <SN>
+  --options chip_erase_mode=ERASE_RANGES_TOUCHED_BY_FIRMWARE,reset=RESET_SYSTEM`.
+  `RESET_SYSTEM` may leave the app core halted — a
+  `nrfutil device reset --serial-number <SN> --reset-kind RESET_HARD` boots
+  it; confirm boot via the RTT/RAM read (the board has no console VCOM). The
+  shipped module carries a stock NCS DTM-sample build and no readback
+  protection — plain program overwrites it; `recover` only on a flash error.
+- **32 K clock: RC, deliberately.** The board defconfig selects the internal
+  RC oscillator (`CONFIG_CLOCK_CONTROL_NRF_K32SRC_RC=y`) — the MiniEV ships
+  without an LFXO crystal (Q1/C9/C10 unpopulated; rework to fit Q1 + C9/C10,
+  remove R1/R2). Do not copy the DK's XTAL default without that rework. The
+  UM flags RC as outside the ±250 ppm class (UM §5.6.2) — CS sleep-clock
+  accuracy on RC is a bench watch item, not a preset change.
+- **Phantom board-def nodes.** The def models the shared Ophelia-IV EV
+  platform; the MiniEV ships without the parts. The `mx25r64` SPI NOR it
+  declares has no counterpart (the overlay takes `&spi00` down so the JEDEC
+  probe never runs); led0–3 / button0–3 / NFC are floating header pads that
+  `dk_buttons_and_leds` configures harmlessly.
+- **Antenna.** Single integrated PCB antenna via populated C2; the SMA path
+  (CON1) is unmounted and rework-only (populate C1, remove C2, mount CON1).
+  No RF switch → all MiniEV presets use `NUM_ANTENNAS=1`
+  (`4_path_1_local.conf`) and the overlay carries no `cs_antenna_switch` node.
+- **The FT232 on this bench is a clone** (USB serial `00000000`) — address it
+  via `/dev/serial/by-id` (`usb-FTDI_FT232R…`), and keep the adapter-class
+  lesson on the radar: a marginal unit corrupts the COBS stream with spurious
+  `0x00` bytes (events stop decoding while logs survive) — suspect the adapter
+  before the firmware.
+- Sources: [UM_Ophelia-IV_MiniEV_262111902xxxx rev1.0](https://www.we-online.com/components/products/manual/UM_Ophelia-IV_MiniEV_262111902xxxx%20(rev1.0).pdf),
+  [ANR036 v1.1](https://www.we-online.com/ANR036) ("Build your own firmware —
+  getting started with Zephyr"), the
+  [Ophelia-IV product page](https://www.we-online.com/en/components/products/OPHELIA-IV)
+  (module 2621011022000 + EV-Kit 2621119022001).
+
 ### Antenna-switch node
 
 - The `cs_antenna_switch` node (`compatible = "nordic,bt-cs-antenna-switch"`,
@@ -310,11 +401,12 @@ that same board target.
   controller library in NCS; no code in this repo reads `ant-gpios` directly.
   The overlay comment "See `cs_antenna_switch.c`" refers to NCS-owned source, not
   a file in this repo.
-- Fanstel, the Minewsemi ME54BE01, and the Insight SiP ISP2454 have no
+- Fanstel, the Minewsemi ME54BE01, the Insight SiP ISP2454, and the Würth
+  Ophelia-IV MiniEV have no
   `cs_antenna_switch` node (single-antenna boards; the Nordic controller's
   `cs_antenna_switch.c` is compiled only under
   `CONFIG_BT_CTLR_SDC_CS_MULTIPLE.ANTENNA_SUPPORT`, i.e. `NUM_ANTENNAS >= 2`,
-  and all three boards' presets use `NUM_ANTENNAS=1`). The
+  and all four boards' presets use `NUM_ANTENNAS=1`). The
   Fanstel overlay instead sets `&lfxo` load-capacitance to 15.5 pF (`15500` fF) —
   a factual board-clock difference recorded here as overlay content, not tuning
   guidance.
@@ -367,7 +459,7 @@ Mode column marks which. The two are peer choices — see
 [docs/architecture.md](architecture.md) for the RAS-vs-IPT contrast and the IPT
 data flow. RAS and IPT share the same board overlays and path-local fragments;
 IPT presets additionally pull the `inline_pct_*.conf` fragments above. IPT
-covers all eight carrier boards — A1/A2 4-path on the initiator, A1 4-path on the
+covers all nine carrier boards — A1/A2 4-path on the initiator, A1 4-path on the
 reflector, with the TAG and the Ezurio reflector at A2 4-path and the Raytac at
 A3 4-path.
 
@@ -391,6 +483,8 @@ A3 4-path.
 | `raytac_an54lv_k15_cent_a3_4_ipt` | IPT | initiator | Raytac AN54LV-K15 | `raytac_an54lv_k15_*.overlay` | `central.overlay;inline_pct_initiator.conf;inline_pct_shared.conf;4_path_3_local.conf;raytac_an54lv_k15.conf` | A3 / 4 |
 | `insight_isp2454_cent_a1_4` | RAS | initiator | Insight SiP ISP2454 | `insight_isp2454_*.overlay` | `central.overlay;4_path_1_local.conf;insight_isp2454.conf` | A1 / 4 |
 | `insight_isp2454_cent_a1_4_ipt` | IPT | initiator | Insight SiP ISP2454 | `insight_isp2454_*.overlay` | `central.overlay;inline_pct_initiator.conf;inline_pct_shared.conf;4_path_1_local.conf;insight_isp2454.conf` | A1 / 4 |
+| `ophelia4ev_cent_a1_4` | RAS | initiator | Würth Ophelia-IV MiniEV | `ophelia4ev_*.overlay` | `central.overlay;4_path_1_local.conf;ophelia4ev.conf` | A1 / 4 |
+| `ophelia4ev_cent_a1_4_ipt` | IPT | initiator | Würth Ophelia-IV MiniEV | `ophelia4ev_*.overlay` | `central.overlay;inline_pct_initiator.conf;inline_pct_shared.conf;4_path_1_local.conf;ophelia4ev.conf` | A1 / 4 |
 | `nrf54l15dk_peri_a1_4` | RAS | reflector | nRF54L15DK | `nrf54l15dk_*.overlay` | `4_path_1_local.conf` | A1 / 4 |
 | `nrf54l15dk_peri_a2_2` | RAS | reflector | nRF54L15DK | `nrf54l15dk_*.overlay` | `2_path_2_local.conf` | A2 / 2 |
 | `nrf54l15dk_peri_a4_4` | RAS | reflector | nRF54L15DK | `nrf54l15dk_*.overlay` | `4_path_4_local.conf` | A4 / 4 |
@@ -409,6 +503,8 @@ A3 4-path.
 | `raytac_an54lv_k15_peri_a3_4_ipt` | IPT | reflector | Raytac AN54LV-K15 | `raytac_an54lv_k15_*.overlay` | `inline_pct_reflector.conf;inline_pct_shared.conf;4_path_3_local.conf;raytac_an54lv_k15.conf` | A3 / 4 |
 | `insight_isp2454_peri_a1_4` | RAS | reflector | Insight SiP ISP2454 | `insight_isp2454_*.overlay` | `4_path_1_local.conf;insight_isp2454.conf` | A1 / 4 |
 | `insight_isp2454_peri_a1_4_ipt` | IPT | reflector | Insight SiP ISP2454 | `insight_isp2454_*.overlay` | `inline_pct_reflector.conf;inline_pct_shared.conf;4_path_1_local.conf;insight_isp2454.conf` | A1 / 4 |
+| `ophelia4ev_peri_a1_4` | RAS | reflector | Würth Ophelia-IV MiniEV | `ophelia4ev_*.overlay` | `4_path_1_local.conf;ophelia4ev.conf` | A1 / 4 |
+| `ophelia4ev_peri_a1_4_ipt` | IPT | reflector | Würth Ophelia-IV MiniEV | `ophelia4ev_*.overlay` | `inline_pct_reflector.conf;inline_pct_shared.conf;4_path_1_local.conf;ophelia4ev.conf` | A1 / 4 |
 
 - **Naming asymmetry.** Preset names are `<board>_<cent|peri>_a<antennas>_<paths>`
   — antennas first, paths second (e.g. `ezurio_bl54l15u_cent_a2_4` = A2, 4 paths).
@@ -423,7 +519,7 @@ A3 4-path.
 
 Each preset sets `DTC_OVERLAY_FILE` (the board overlay) and `EXTRA_CONF_FILE`
 (the role fragment `;`-separated from the path-local fragment; the TAG, ME54BE01,
-AN54LV-K15, and ISP2454 presets also append their `boards/<carrier>.conf`
+AN54LV-K15, ISP2454, and MiniEV presets also append their `boards/<carrier>.conf`
 fragment for RTT-console/serial-driver Kconfig).
 IPT presets insert the `inline_pct_initiator.conf` / `inline_pct_reflector.conf`
 and `inline_pct_shared.conf` fragments between the role fragment and the
@@ -432,8 +528,10 @@ path-local fragment (see the preset table above).
 parses `CMakePresets.json`, splits `EXTRA_CONF_FILE` on `;`, and resolves each
 part relative to the app directory; `ci/build.sh` passes them to
 `west build -b <BOARD>` as `-DDTC_OVERLAY_FILE`, `-DEXTRA_CONF_FILE`, and
-`-DCONF_FILE`. `BOARD` is always `nrf54l15dk/nrf54l15/cpuapp`; the overlay
-selects the carrier. See [docs/build-from-source.md](build-from-source.md) for the full build flow.
+`-DCONF_FILE`. On all carriers except the TAG and the MiniEV, `BOARD` is
+`nrf54l15dk/nrf54l15/cpuapp` and the overlay selects the carrier; the TAG builds
+on `nrf54l15tag/nrf54l15/cpuapp` and the MiniEV on `ophelia4ev/nrf54l15/cpuapp`
+(their own board defs). See [docs/build-from-source.md](build-from-source.md) for the full build flow.
 
 ### Tone-antenna configuration (supplementary)
 
