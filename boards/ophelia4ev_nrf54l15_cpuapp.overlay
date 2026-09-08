@@ -1,6 +1,5 @@
+/* SPDX-License-Identifier: MIT */
 /*
- * SPDX-License-Identifier: MIT
- *
  * Würth Elektronik Ophelia-IV MiniEV board overlay (order code 2621119022001,
  * module Ophelia-IV 2621011022000, nRF54L15). The MiniEV is the second carrier
  * that builds on its own NCS board def — BOARD=ophelia4ev/nrf54l15/cpuapp,
