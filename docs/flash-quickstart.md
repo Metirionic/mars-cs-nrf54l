@@ -149,7 +149,7 @@ covered separately; this guide covers capture only.
 > runs over Segger RTT but holds stale leftovers after a reflash — the
 > adapter stream is the only live window. See
 > [docs/hardware.md](hardware.md#würth-ophelia-iv-miniev-wiring-notes) for the
-> full MiniEV wiring notes (including the reflector-role known limitation).
+> full MiniEV wiring notes.
 
 ## Troubleshooting
 

@@ -321,21 +321,22 @@ deltas that matter are below. Consolidated board-def and bench facts:
 [research doc](https://github.com/Metirionic/mars-cs-nrf54l/tree/research/ophelia4ev-miniev-facts/docs/research)
 (wayfinder #178).
 
-- **Known limitation: the reflector role fails CS on this carrier.** Bench
-  verification (#181) produced a split verdict at the repo's link+data bar: as
-  **initiator** the MiniEV passes fully in both RAS and IPT (601/601
-  consecutive procedures, zero aborts, plausible non-flat I/Q, stable ~1.28 m
-  two-way range), while as **reflector** it fails reproducibly in both modes —
-  ~85% of procedures die silently (RAS also logs `RD dropped` and
-  delivered-empty aborts), and the survivors are rejected by the host
-  pipeline's computed two-way quality (`OnlyLowQualityMeasurements`, zero
-  distances) even though the SDC's own tone-quality indicators read High on
-  both origins. Leading suspect: the crystal-less RC 32 K sleep clock (see the
-  32 K clock note below) — as initiator the MiniEV sets the CS schedule and
-  self-times it; as reflector it must track the counterpart's schedule on the
-  RC. Per the scope decision (#182) the full four-preset set ships with this
-  as a documented known limitation, tracked for post-release investigation in
-  #184.
+- **Reflector role: resolved — verified in both modes.** The reflector-role
+  failure that bench verification (#181) reported was root-caused in #184 to a
+  **stale initiator binary**, not the carrier: the DK-initiator hex those runs
+  flashed masked the CS channel map to every other channel in place before
+  `bt_le_cs_create_config` (verified in the binary's disassembly; the committed
+  source does not do this — the hex predated the release-day rebuilds). The SDC
+  then negotiated a 37-channel map and a ~6× procedure cadence the COBS UART
+  could not serialize, so the initiator's serialize backlog dropped ~5 of every
+  6 procedures — the "~85% silent loss" — and the survivors' decimated spectra
+  landed just under the pipeline's two-way quality gate. A clean rebuild of the
+  same source negotiates the full 72-channel map and delivers every procedure
+  in both RAS and IPT, with the MiniEV healthy in either role (2026-09-08
+  four-cell re-check: {DK, MiniEV} initiator × {RAS, IPT}, 100% procedure
+  delivery in all four). Bench note: the two-way quality gate is validated
+  around the ~1.3 m upright line-of-sight bench arrangement — at sub-half-metre
+  spacing it can reject procedures (operating point, not a defect).
 - **Single UART; console over RTT via the external J-Link.** Only `uart20` is
   exposed — the COBS ranging stream via `cobs-uart`, on CON4 pin 9 (module TX,
   `P1.04`) and CON4 pin 8 (module RX, `P1.15`), 921600 8N1, no flow control.
@@ -404,8 +405,9 @@ deltas that matter are below. Consolidated board-def and bench facts:
   RC oscillator (`CONFIG_CLOCK_CONTROL_NRF_K32SRC_RC=y`) — the MiniEV ships
   without an LFXO crystal (Q1/C9/C10 unpopulated; rework to fit Q1 + C9/C10,
   remove R1/R2). Do not copy the DK's XTAL default without that rework. The
-  UM flags RC as outside the ±250 ppm class (UM §5.6.2) — CS sleep-clock
-  accuracy on RC is a bench watch item, not a preset change.
+  UM flags RC as outside the ±250 ppm class (UM §5.6.2) — harmless for CS: the
+  #184 investigation exonerated the RC sleep clock (the reflector tracks the
+  counterpart's schedule on the RC with zero procedure loss).
 - **Phantom board-def nodes.** The def models the shared Ophelia-IV EV
   platform; the MiniEV ships without the parts. The `mx25r64` SPI NOR it
   declares has no counterpart (the overlay takes `&spi00` down so the JEDEC
@@ -546,11 +548,10 @@ A3 4-path.
   scanning-central Kconfig fragment, mislabeled `.overlay` but a conf fragment)
   in `EXTRA_CONF_FILE`; reflector presets do not. `central.overlay` is a Kconfig
   fragment, not a devicetree overlay.
-- **ophelia4ev reflector presets are a known limitation.** The MiniEV's
-  reflector role fails CS reproducibly in both RAS and IPT (crystal-less RC
-  32 K sleep clock is the leading suspect); the initiator presets are
-  bench-proven at the verification bar. See the
-  [MiniEV wiring notes](#würth-ophelia-iv-miniev-wiring-notes) and issue #184.
+- **ophelia4ev presets: no special cases.** The reflector-role failure once
+  reported for these presets was a stale initiator binary (#184), not a preset
+  property — they build and bench like the other carriers'. See the
+  [MiniEV wiring notes](#würth-ophelia-iv-miniev-wiring-notes).
 
 ### How a preset composes overlay + fragments
 
