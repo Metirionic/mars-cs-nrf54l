@@ -2,6 +2,17 @@
 All notable changes to this project will be documented in this file. See [conventional commits](https://www.conventionalcommits.org/) for commit guidelines.
 
 - - -
+## [v1.16.0](https://github.com/Metirionic/mars-cs-nrf54l/releases/tag/v1.16.0) - 2026-09-08
+#### Features
+- (**board**) add Würth Ophelia-IV MiniEV carrier support (A1 presets) - ([3084db7](https://github.com/Metirionic/mars-cs-nrf54l/commit/3084db7783efb7c75a0a3f96236908092f1dcba7)) - AttilaRoemer
+#### Bug Fixes
+- (**docs**) GitHub-faithful heading slugs and anchor repairs - ([aa34dc3](https://github.com/Metirionic/mars-cs-nrf54l/commit/aa34dc3e0b7deaf233ca80253484f30121e8ee32)) - AttilaRoemer
+#### Documentation
+- fold the ophelia4ev bench quirks into the carrier notes - ([b3a7ec0](https://github.com/Metirionic/mars-cs-nrf54l/commit/b3a7ec046416ac5970e0cf7fa9a2c431560dc1bd)) - AttilaRoemer
+- pull research snapshots off main — they live on their research branches - ([b785381](https://github.com/Metirionic/mars-cs-nrf54l/commit/b7853813148aa2580e657111f6da69c52df712d0)) - AttilaRoemer
+
+- - -
+
 ## [v1.15.1](https://github.com/Metirionic/mars-cs-nrf54l/releases/tag/v1.15.1) - 2026-09-03
 #### Bug Fixes
 - (**cs**) run IPT serialize+UART TX off the BT RX thread (#173) - ([6cec171](https://github.com/Metirionic/mars-cs-nrf54l/commit/6cec1717c1223a61d2bbafec395dbff82a481fed)) - AttilaRoemer
