@@ -428,6 +428,7 @@ deltas that matter are below. Consolidated board-def and bench facts:
   getting started with Zephyr"), the
   [Ophelia-IV product page](https://www.we-online.com/en/components/products/OPHELIA-IV)
   (module 2621011022000 + EV-Kit 2621119022001).
+
 ### KAGA FEI EC4L15BA1 wiring notes
 
 The EC4L15BA1 is a KAGA FEI module dev board (the EC4L15BA1 nRF54L Basic
@@ -596,7 +597,7 @@ Mode column marks which. The two are peer choices — see
 [docs/architecture.md](architecture.md) for the RAS-vs-IPT contrast and the IPT
 data flow. RAS and IPT share the same board overlays and path-local fragments;
 IPT presets additionally pull the `inline_pct_*.conf` fragments above. IPT
-covers all nine carrier boards — A1/A2 4-path on the initiator, A1 4-path on the
+covers all ten carrier boards — A1/A2 4-path on the initiator, A1 4-path on the
 reflector, with the TAG and the Ezurio reflector at A2 4-path and the Raytac at
 A3 4-path.
 
