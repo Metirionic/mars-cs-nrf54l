@@ -115,8 +115,8 @@ locally-built image.
 
 `--preset` accepts a comma-separated list, and `--release-dir` collects each
 merged `.hex` into a flat output directory. This is exactly how the release
-workflow builds every shipped preset — the nine RAS presets followed by the
-nine `_ipt` presets for each target (see
+workflow builds every shipped preset — the ten RAS presets followed by the
+ten `_ipt` presets for each target (see
 [.github/workflows/release.yml](../.github/workflows/release.yml)):
 
 ```bash
