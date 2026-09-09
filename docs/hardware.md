@@ -498,6 +498,33 @@ is no NCS board def for the EC4L15BA1-EVB) — the overlay selects the carrier.
 - **DC/DC only.** The module supports DC/DC converter mode only (LDO not
   supported), which is what the NCS samples assume — no power-regulator
   Kconfig work.
+- **Die revision: Engineering-B.** The module reads `nRF54L15_xxAA_ENGB` — the
+  readout masks this as `NRF54L15_xxxx_REV1` while APPROTECT is enabled; only
+  after `nrfutil device recover` does the true die appear. Same EB-die
+  situation as the ISP2454 EVK — cross-carrier CS comparisons should carry the
+  caveat. (The DK's own SoC reads `xxAA_REV1`.)
+- **Bench: the bridge capture path is proven end-to-end — pre-flight check
+  first.** The onboard FT232RNQ was blamed for total COBS loss on two units
+  (the effort was withdrawn 2026-09-03); the 2026-09-09 re-open exonerated it:
+  a full-duplex hello test (heartbeat + echo on `uart20`, a ~15-line throwaway
+  Zephyr app) closed the loop through **both** SB directions, and a 60 s
+  `kaga_ec4l15ba1_cent_a1_4` soak streamed 4.92 MB (554 COBS frames, zero
+  framing anomalies, median frame 13.3 KB) through the same bridge at full
+  line rate (~82 KB/s), with the reflector console corroborating the session
+  (`nsteps=75 nap=1`, zero aborts). The original "zero bytes + D3 dark"
+  observation was a bench-state artifact — a stale pair and/or a
+  silently-wrong image (root cause in #170's closing comment). Pre-flight
+  rule: run a hello/echo wire test through the bridge before any COBS capture
+  or bridge blame; only host-side byte counts arbitrate.
+- **Flash verification is wire-level, not RAM-level.** `nrfutil device
+  program` succeeds *and* fails silently — never pipe its output or exit code
+  away. Verify a flash by its behavior on the wire, not via RTT ring reads:
+  the 1 KB `NO_BLOCK_SKIP` ring retains the previous boot's banner bytes
+  across soft resets (RAM outlives the reflashed image), so a stale
+  `kaga_cent` banner from an earlier bench state masqueraded as a fresh-boot
+  confirmation twice. The D2/D3 UART LEDs are the same class of weak signal —
+  the FT232's TXLED/RXLED are CBUS-configured outputs; their state alone
+  arbitrates nothing.
 
 See the
 [EC4L15BA1 data sheet](https://www.kagafei.com/jp/products/wireless-modules/bluetooth/File/__icsFiles/afieldfile/2026/06/29/EC4L15BA1_EC4L10BA1_EC4L05BA1_DataSheet_V1_1_20260612E.pdf)
