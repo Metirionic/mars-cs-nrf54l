@@ -2,6 +2,16 @@
 All notable changes to this project will be documented in this file. See [conventional commits](https://www.conventionalcommits.org/) for commit guidelines.
 
 - - -
+## [v1.17.0](https://github.com/Metirionic/mars-cs-nrf54l/releases/tag/v1.17.0) - 2026-09-09
+#### Features
+- (**board**) add KAGA FEI EC4L15BA1-EVB carrier support (A1 presets) - ([5b3d973](https://github.com/Metirionic/mars-cs-nrf54l/commit/5b3d973aaa4b2d0a8a9768205967f3ff3b9d406a)) - AttilaRoemer
+#### Documentation
+- correct preset-count prose for the KAGA addition - ([c4deb30](https://github.com/Metirionic/mars-cs-nrf54l/commit/c4deb30ac35b0c4209f33cf31ec6c4a5e7547090)) - AttilaRoemer
+- fold the KAGA bench findings into the carrier notes - ([9761d29](https://github.com/Metirionic/mars-cs-nrf54l/commit/9761d29aefa04382dfeb27e692c5fa16dbb80cf6)) - AttilaRoemer
+- retire the ophelia4ev reflector known-limitation - ([13d0a2a](https://github.com/Metirionic/mars-cs-nrf54l/commit/13d0a2a245434ae1dc64565928202d67bd73e687)) - AttilaRoemer
+
+- - -
+
 ## [v1.16.0](https://github.com/Metirionic/mars-cs-nrf54l/releases/tag/v1.16.0) - 2026-09-08
 #### Features
 - (**board**) add Würth Ophelia-IV MiniEV carrier support (A1 presets) - ([3084db7](https://github.com/Metirionic/mars-cs-nrf54l/commit/3084db7783efb7c75a0a3f96236908092f1dcba7)) - AttilaRoemer
