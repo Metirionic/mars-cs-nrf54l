@@ -194,7 +194,15 @@ jumper-wire rig on CN4/CN5/CN8/CN9 needs headers soldered first.
   "cutting" CN2/CN3 is trace surgery or solder-in-a-header work, not moving a cap.
   Bench smoke check: D1 (mounted 3.3 V indicator LED) lights when USB is plugged →
   default USB power path intact; D2 (UART TX) / D3 (UART RX) flicker on COBS traffic
-  (they hang off FT232 TXLED/RXLED pins 21/22 via 220 Ω, EVB §4 p.4).
+  (they hang off FT232 TXLED/RXLED pins 21/22 via 220 Ω, EVB §4 p.4). **Caveat
+  (2026-09-09 re-open): LED state is weak evidence** — the FT232's TXLED/RXLED are
+  CBUS-configured outputs, so a dark LED cannot by itself arbitrate line activity
+  (a wrong/stale image produces the same dark LED); only host-side byte counts do.
+  During the withdrawn effort, "D3 dark during active ranging" was read as "no line
+  activity reaches the FT232's RXD" and leaned on as hardware evidence — the #170
+  root-cause pass later showed the observation was a bench-state artifact (stale
+  pair / silently-wrong image). See #170's closing comment and the `docs/hardware.md`
+  KAGA bench bullets.
 - **CN3 = VDD current monitor** (layout: "Default: Short"): cut the trace between pins
   1 and 2 and put the ammeter across (EVB §10 item 1 p.8). C2/C3 (1608, N.M.) are
   spare VDD decoupling pads.
@@ -205,6 +213,13 @@ jumper-wire rig on CN4/CN5/CN8/CN9 needs headers soldered first.
   1.8 V/3.0 V mixed-level caveat like the ISP2454 rig.
 - **USB front end**: CN6 mini-USB → VBUS (ESD array + C1 4.7 µF; ferrite FB1 N.M.) →
   FT232RNQ; FTDI D2XX/VCOM drivers from ftdichip.com (EVB §4 p.4, §10 item 3 p.8).
+- **2026-09-09 re-open outcome: the bridge is exonerated.** The zero-bytes failure
+  that stopped the effort was a bench-state artifact, not wiring — a full-duplex
+  hello test closed the loop through SB1 and SB2, and a 60 s initiator-role soak
+  streamed 4.92 MB (554 COBS frames, zero anomalies) through the same bridge at
+  full line rate (root cause in #170's closing comment). The bridge-to-pin map
+  above re-verified directly against the fetched DS V1.1 §7 (pad 9 = P1.05,
+  pad 10 = P1.04 — the design was never crossed).
 
 ## 5. Antenna selection (JP1 / CN7 / pads 22-23)
 
