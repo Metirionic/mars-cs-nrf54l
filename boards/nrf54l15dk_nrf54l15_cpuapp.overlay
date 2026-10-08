@@ -24,6 +24,7 @@
 &uart20 {
     status = "okay";
     current-speed = <921600>;
+    hw-flow-control;
 };
 
 / {
