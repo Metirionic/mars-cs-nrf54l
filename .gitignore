@@ -40,3 +40,7 @@ CLAUDE.md
 .agents/
 docs/agents/
 skills-lock.json
+
+# Scratch
+tmp/
+.playwright-mcp/
