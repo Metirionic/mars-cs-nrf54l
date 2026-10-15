@@ -1,0 +1,81 @@
+# SPDX-License-Identifier: MIT
+# Geometry of the UART stream test. Sweep these with -DCONFIG_... on the
+# west build line: no source edits, one rebuild per configuration.
+
+menu "UART stream test"
+
+config STREAM_PAYLOAD_BYTES
+	int "First event frame's payload bytes"
+	default 13260
+	help
+	  Bytes of PRNG payload per event frame. The default gives a modal
+	  13,316-byte COBS wire frame -- production's SubeventResultEvent frame
+	  is 13,315/13,318 B -- so that two of them plus the 26-byte status
+	  frame land on production's logged 26,658-byte uart_tx. The PRNG
+	  payload makes the wire length jitter by roughly +/-10 B per frame
+	  (production's zero-padded step arrays jitter by ~1 B).
+
+config STREAM_DATA_FRAMES_PER_BURST
+	int "Event frames per uart_tx (a status frame always follows)"
+	default 2
+	help
+	  Production hands the UART one buffer per CS procedure holding TWO
+	  SubeventResultEvent frames plus a small status frame -- 26,658 B in
+	  one uart_tx. This is the event-frame count; a zero-payload status
+	  frame is appended to every burst, so the burst is
+	  DATA + 1 frames. 2 gives 13,316 + 13,316 + 26 = 26,658 B, matching
+	  production's logged size; 1 isolates a single event frame per
+	  transfer.
+
+config STREAM_PAYLOAD_DELTA_B
+	int "Second event frame's payload is this many bytes larger"
+	default 3
+	help
+	  Production's two per-procedure event frames are not the same size
+	  (13,315 and 13,318 wire bytes -- a 3-byte delta). Mirroring that keeps
+	  the burst shape faithful and gives the size a 1-byte tuning knob.
+
+config STREAM_STATUS_PAYLOAD
+	int "Status frame payload bytes (fixed nonzero filler)"
+	default 1
+	help
+	  The status frame carries this many bytes of a constant nonzero filler
+	  rather than PRNG data, so its wire length moves exactly 1:1 with this
+	  knob -- the fine adjustment that lands the burst total on production's
+	  26,658. 1 is the tuned value for the default payload sizes.
+
+config STREAM_ALT_PERIOD
+	int "Bursts per traffic-pattern phase (0 = no alternation)"
+	default 64
+	help
+	  Every this many bursts the firmware switches how it hands the same
+	  bytes to the UART: phase 0 sends the whole burst in one uart_tx (as
+	  production does per CS procedure), phase 1 sends one uart_tx per frame.
+	  The status frame's payload byte carries the phase, so the host can
+	  attribute each loss to the pattern in force at that moment -- one soak
+	  then compares both patterns under identical bench conditions, which
+	  separate runs cannot (the loss is episodic).
+
+config STREAM_GAP_MS
+	int "Idle gap between bursts (ms)"
+	default 36
+	help
+	  Production runs ~89% duty at 921600 (289 ms of TX, ~36 ms idle, per
+	  procedure). 36 mirrors it; 0 floods the line at 100%.
+
+config STREAM_BURST_COUNT
+	int "Total bursts to send (0 = infinite)"
+	default 0
+
+config STREAM_STATS_PERIOD_S
+	int "Console stats line period in seconds (0 = silent)"
+	default 0
+	help
+	  Console output shares the Interface MCU with the COBS stream (VCOM0
+	  vs VCOM1 on the same probe). Silent by default so the baseline
+	  capture is clean; set a period to run the "console chatter is a
+	  confound" A/B.
+
+endmenu
+
+source "Kconfig.zephyr"

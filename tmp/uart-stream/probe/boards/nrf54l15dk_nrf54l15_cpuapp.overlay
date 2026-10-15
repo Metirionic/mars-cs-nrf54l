@@ -1,0 +1,35 @@
+/*
+ * SPDX-License-Identifier: MIT
+ *
+ * Mirrors mars-cs-nrf54l/boards/nrf54l15dk_nrf54l15_cpuapp.overlay's UART half
+ * exactly (the antenna-switch node is not needed here):
+ *
+ *  - uart20 is the production COBS UART (TX P1.04 / RX P1.05 -> Interface MCU
+ *    -> VCOM1), acquired through the same chosen node production uses.
+ *  - uart30 is the production console (-> VCOM0).
+ *  - the DK's own dtsi leaves BOTH at 115200 and points zephyr,console at
+ *    uart20, so without this file the stream leaves the nRF at 115200 while
+ *    the Interface MCU reads 921600 and the console is wired to the wrong
+ *    VCOM. Both must be overridden.
+ */
+
+/ {
+	chosen {
+		cobs-uart = &uart20;
+		zephyr,console = &uart30;
+		zephyr,shell-uart = &uart30;
+		zephyr,uart-mcumgr = &uart30;
+		zephyr,bt-mon-uart = &uart30;
+		zephyr,bt-c2h-uart = &uart30;
+	};
+};
+
+&uart30 {
+	status = "okay";
+	current-speed = <921600>;
+};
+
+&uart20 {
+	status = "okay";
+	current-speed = <921600>;
+};

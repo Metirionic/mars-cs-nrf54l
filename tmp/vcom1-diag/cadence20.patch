@@ -1,0 +1,15 @@
+diff --git a/initiator/src/main.c b/initiator/src/main.c
+index 59f104c..6f00e02 100644
+--- a/initiator/src/main.c
++++ b/initiator/src/main.c
+@@ -286,8 +286,8 @@ int main(void)
+          */
+         .cs_sync_phy            = BT_CONN_LE_CS_SYNC_1M_PHY,
+         .procedure_phy          = BT_LE_CS_PROCEDURE_PHY_2M,
+-        .min_procedure_interval = 10,
+-        .max_procedure_interval = 10,
++        .min_procedure_interval = 20,
++        .max_procedure_interval = 20,
+     };
+ 
+     err = cs_initiator_start(&config);

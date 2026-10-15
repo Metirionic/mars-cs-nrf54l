@@ -1,0 +1,8 @@
+[package]
+name = "cobs-decode"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+mars-bluetooth-hci = { path = "/home/aro/work/mars-cs-nrf54l/tmp/vcom1-wt/initiator/build_nrf54l15dk_cent_a1_4/initiator/_deps/mars-bluetooth-hci-src/mars-bluetooth-hci" }
+postcard = { version = "1", features = ["alloc"] }
