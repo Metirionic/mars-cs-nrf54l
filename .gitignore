@@ -42,5 +42,8 @@ docs/agents/
 skills-lock.json
 
 # Scratch
-tmp/
-.playwright-mcp/
+/tmp/*
+# Preserved #190 investigation tree (branch research/190-uart-stream): its sources stay addable and searchable
+!/tmp/uart-stream/
+!/tmp/vcom1-diag/
+/.playwright-mcp/
