@@ -90,6 +90,18 @@
             }
         },
         {
+            "name": "ezurio_bl54l15u_cent_a4_4",
+            "displayName": "Ezurio BL54L15u: central A4 (4 paths)",
+            "generator": "Ninja",
+            "binaryDir": "${sourceDir}/build_ezurio_bl54l15u_cent_a4_4",
+            "cacheVariables": {
+                "BOARD": "nrf54l15dk/nrf54l15/cpuapp",
+                "EXTRA_CONF_FILE": "central.overlay;../boards/4_path_4_local.conf",
+                "CONF_FILE": "prj.conf",
+                "DTC_OVERLAY_FILE": "../boards/ezurio_bl54l15u_nrf54l15_cpuapp.overlay"
+            }
+        },
+        {
             "name": "fanstel_bm15c_cent_a1_4",
             "displayName": "Fanstel BM15C: central A1 (4 paths)",
             "generator": "Ninja",
