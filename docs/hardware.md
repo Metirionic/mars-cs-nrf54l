@@ -16,7 +16,7 @@ carrier selected by overlay. Two build against their own base board instead: the
 nRF54L15 TAG builds on `nrf54l15tag/nrf54l15/cpuapp`, because the tag
 overlay's `/delete-node/ &sky13348` and `antenna_switch_v1`/`antenna_switch_v2`
 target nodes that exist only in the nrf54l15tag DTS (see issue #40); the Würth
-Ophelia-IV MiniEV builds on NCS v3.4.0's upstream `ophelia4ev/nrf54l15/cpuapp`
+Ophelia-IV MiniEV builds on NCS v3.4.1's upstream `ophelia4ev/nrf54l15/cpuapp`
 def, which already models the carrier (see the
 [MiniEV wiring notes](#würth-ophelia-iv-miniev-wiring-notes)).
 
@@ -314,7 +314,7 @@ that same board target.
 
 The MiniEV (order code 2621119022001) carries the Ophelia-IV module
 (2621011022000) and is, after the TAG, the second carrier built on its own NCS
-board def: `ophelia4ev/nrf54l15/cpuapp` ships with NCS v3.4.0
+board def: `ophelia4ev/nrf54l15/cpuapp` ships with NCS v3.4.1
 (`zephyr/boards/we/ophelia4ev`) and Würth's ANR036 maps the MiniEV onto it. The
 def's targets, partition layout, GRTC channel ownership, and runner set are the
 DK's (same 188 KB RAM / 1428 KB flash budget, jlink + nrfutil runners); the

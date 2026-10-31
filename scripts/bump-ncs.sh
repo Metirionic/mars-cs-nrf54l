@@ -26,13 +26,13 @@ DRY_RUN=0
 
 usage() {
   cat <<'EOF'
-Usage: bump-ncs.sh <version> [options]
+Usage: bump-ncs.sh [options] <version>
 
 Bump the NCS version across the repo: west.yml's `nrf` revision, every NCS
 literal the scanner finds (README/docs/scripts), the `vars.NCS_VERSION` GitHub
 repo variable, and open a PR.
 
-  <version>      Target NCS version, e.g. v3.4.0 (must match vMAJOR.MINOR.PATCH).
+  <version>      Target NCS version, e.g. v3.4.1 (must match vMAJOR.MINOR.PATCH).
   --dry-run      Rewrite files and run the self-check, but skip `gh variable
                  set` and PR creation. Safe for local testing; review with
                  `git diff` and revert with `git checkout -- .`.
@@ -40,16 +40,26 @@ repo variable, and open a PR.
 EOF
 }
 
+POSITIONAL_ARGS=()
 while [[ $# -gt 0 ]]; do
   case "$1" in
     --dry-run)  DRY_RUN=1; shift ;;
     -h|--help)  usage; exit 0 ;;
     -*) echo "Unknown option: $1" >&2; usage >&2; exit 1 ;;
-    *)  break ;;
+    *)  POSITIONAL_ARGS+=("$1"); shift ;;
   esac
 done
 
-NEW_VERSION="${1:-}"
+# Options are accepted in any position: silently dropping a trailing
+# `--dry-run` (the old break-at-first-positional parser did) would run the
+# variable-set/commit/push/PR tail, which is the one thing the flag prevents.
+if [[ ${#POSITIONAL_ARGS[@]} -gt 1 ]]; then
+  echo "Error: unexpected argument: ${POSITIONAL_ARGS[1]}" >&2
+  usage >&2
+  exit 1
+fi
+
+NEW_VERSION="${POSITIONAL_ARGS[0]:-}"
 if [[ -z "$NEW_VERSION" ]]; then
   echo "Error: <version> is required" >&2
   usage >&2
@@ -82,9 +92,10 @@ log "Bumping NCS ${OLD_VERSION} -> ${NEW_VERSION}"
 mapfile -t FILES < <(find_ncs_refs | cut -d: -f1 | sort -u)
 FILES+=("west.yml")
 
-# Rewrite the old semver to the new in every target file. Safe because the
-# scanner confirmed these files' v<semver> tokens are NCS references, and the
-# only other semvers in these files (e.g. Zephyr SDK 0.17.4) lack the v prefix.
+# Rewrite the old semver to the new in every target file. Safe in practice:
+# the scanner confirmed each file carries an NCS reference, and the sed
+# replaces only that exact old NCS semver — unrelated versions in the same
+# file (e.g. Zephyr SDK 1.0.1, pre-commit hook revs) keep their value.
 for f in "${FILES[@]}"; do
   path="${REPO_ROOT}/${f}"
   [[ -f "$path" ]] || continue
