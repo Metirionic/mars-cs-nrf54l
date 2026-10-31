@@ -45,6 +45,24 @@ APP_NAME="$(basename "${TARGET}")"
 
 FAILED=0
 
+# build_preset <log> — run the current preset's west build. On the known
+# generated-header race (#132), retry once: kernel.h includes
+# zephyr/heap_constants.h, whose generation can be scheduled after a compile
+# that includes it. The failed attempt still emits the header, so an
+# incremental retry normally succeeds. Match the exact signature so a real
+# build failure is never retried, only surfaced.
+build_preset() {
+  local log="$1"
+  if west build -p "${PRISTINE}" -d "${BUILD_DIR}" -b "${BOARD}" "${TARGET_DIR}" -- "${cmake_args[@]}" 2>&1 | tee "${log}"; then
+    return 0
+  fi
+  if ! grep -qF 'fatal error: zephyr/heap_constants.h: No such file or directory' "${log}"; then
+    return 1
+  fi
+  echo "Retrying ${APP_NAME}/${PRESET} once: the build raced the generated heap_constants.h header (#132)" >&2
+  west build -p "${PRISTINE}" -d "${BUILD_DIR}" -b "${BOARD}" "${TARGET_DIR}" -- "${cmake_args[@]}"
+}
+
 IFS=',' read -ra PRESET_LIST <<< "${PRESETS}"
 for PRESET in "${PRESET_LIST[@]}"; do
   echo "=== Building ${APP_NAME}/${PRESET} ==="
@@ -68,12 +86,15 @@ for PRESET in "${PRESET_LIST[@]}"; do
   [[ -n "${DTC_OVERLAY_FILE}" ]] && cmake_args+=(-DDTC_OVERLAY_FILE="${DTC_OVERLAY_FILE}")
 
   pushd "${NCS_DIR}" > /dev/null
-  if ! west build -p "${PRISTINE}" -d "${BUILD_DIR}" -b "${BOARD}" "${TARGET_DIR}" -- "${cmake_args[@]}"; then
+  build_log="$(mktemp)"
+  if ! build_preset "${build_log}"; then
     echo "Error: build failed for ${APP_NAME}/${PRESET}" >&2
+    rm -f "${build_log}"
     popd > /dev/null
     FAILED=1
     continue
   fi
+  rm -f "${build_log}"
   popd > /dev/null
 
   if [[ -n "${RELEASE_DIR}" ]]; then
