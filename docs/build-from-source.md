@@ -34,7 +34,7 @@ duplicating its steps — that script is the single source of truth for the
 install. One idempotent invocation hides the entire native toolchain:
 host apt packages → an isolated Python venv (`~/.ncs-venv`) → the west
 workspace → the Zephyr/NCS pip requirements → the Zephyr SDK (ARM-only; version
-auto-detected from `zephyr/SDK_VERSION`, 1.0.1 for NCS v3.4.0) → and, with
+auto-detected from `zephyr/SDK_VERSION`, 1.0.1 for NCS v3.4.1) → and, with
 `--with-rust`, the `thumbv8m.main-none-eabihf` target.
 
 Every stage guards on existing state, so the script is safe to re-run on an
@@ -155,7 +155,7 @@ To debug a CI failure with byte-for-byte CI parity and **no local install**,
 build inside the same toolchain image the CI workflows use:
 
 ```
-ghcr.io/nrfconnect/sdk-nrf-toolchain:v3.4.0
+ghcr.io/nrfconnect/sdk-nrf-toolchain:v3.4.1
 ```
 
 Start a shell in the image with the repo mounted and run the CI steps. Two
@@ -171,7 +171,7 @@ build reference host paths the container cannot see. Then run the same two
 
 ```bash
 docker run --rm -it --entrypoint /bin/bash -v "$PWD":/work -w /work \
-  ghcr.io/nrfconnect/sdk-nrf-toolchain:v3.4.0 -lc '
+  ghcr.io/nrfconnect/sdk-nrf-toolchain:v3.4.1 -lc '
     git config --global --add safe.directory /work
     west init -l . --mf west.yml
     west update -o=--depth=1 -n
@@ -234,6 +234,6 @@ For flashing **prebuilt** firmware with no build step, see
   (native) and `build-initiator` / `build-reflector` (Docker).
 - [.github/workflows/release.yml](../.github/workflows/release.yml) — the
   multi-preset release build (Docker).
-- [west.yml](../west.yml) — pins NCS v3.4.0 (`nrf` / sdk-nrf @ v3.4.0, `import: true`).
-- [nRF Connect SDK v3.4.0](https://developer.nordicsemi.com/nRF_Connect_SDK/)
+- [west.yml](../west.yml) — pins NCS v3.4.1 (`nrf` / sdk-nrf @ v3.4.1, `import: true`).
+- [nRF Connect SDK v3.4.1](https://developer.nordicsemi.com/nRF_Connect_SDK/)
   and Zephyr SDK 1.0.1.

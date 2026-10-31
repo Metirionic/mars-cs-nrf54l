@@ -96,7 +96,7 @@ run independently. All five must be green:
   below.
 - `lint` (ubuntu-latest) — `pre-commit/action@v3.0.1` runs
   `pre-commit run --all-files`. This is the only place the hooks above are enforced.
-- `build-initiator` (NCS v3.4.0 container) — `ci/build.sh --target initiator` over
+- `build-initiator` (NCS v3.4.1 container) — `ci/build.sh --target initiator` over
   fourteen presets: `nrf54l15dk_cent_a1_4`, `nrf54l15tag_cent_a2_4`,
   `minew_me54be01_cent_a1_4`, `raytac_an54lv_k15_cent_a3_4`,
   `insight_isp2454_cent_a1_4`, `ophelia4ev_cent_a1_4`, `kaga_ec4l15ba1_cent_a1_4`, and the `_ipt` twin of
@@ -136,7 +136,7 @@ above (see [docs/build-from-source.md](build-from-source.md) for toolchain setup
 ## NCS version management
 
 The NCS version has one source of truth: `west.yml`'s `nrf` project `revision`
-(e.g. `v3.4.0`). A GitHub repo variable, `vars.NCS_VERSION`, carries that version
+(e.g. `v3.4.1`). A GitHub repo variable, `vars.NCS_VERSION`, carries that version
 into the CI workflows where GitHub Actions expressions need it at job startup
 (container image tags and cache keys in `ci.yml` / `release.yml` evaluate
 `${{ vars.NCS_VERSION }}` — they cannot read `west.yml` at evaluation time).
@@ -161,7 +161,7 @@ version reference and is used by two scripts:
 set the repo variable to the current `west.yml` revision:
 
 ```
-gh variable set NCS_VERSION v3.4.0
+gh variable set NCS_VERSION v3.4.1
 ```
 
 The bump script updates the variable on each bump thereafter.
