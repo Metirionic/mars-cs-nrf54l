@@ -3,12 +3,12 @@
 #
 # NCS version consistency guard for mars-cs-nrf54l.
 #
-# Asserts that every NCS version literal in the repo agrees with the canonical
-# source (west.yml's `nrf` project revision), and — on CI runs outside pull
-# requests — that the `vars.NCS_VERSION` GitHub repo variable agrees with it
-# too. Catches stale literals (container image tags, cache keys, README/docs,
-# script comments) before a bump leaves a half-built state or a tagless
-# container image.
+# Asserts that every live NCS version literal in the repo agrees with the
+# canonical source (west.yml's `nrf` project revision), and — on CI runs
+# outside pull requests — that the `vars.NCS_VERSION` GitHub repo variable
+# agrees with it too. Catches stale literals (container image tags, cache
+# keys, README/docs, script comments) before a bump leaves a half-built state
+# or a tagless container image.
 #
 # In CI (.github/workflows/ci.yml `verify-ncs-version` job, and release.yml's
 # build job) the workflow injects the repo variable via `env: NCS_VERSION:
