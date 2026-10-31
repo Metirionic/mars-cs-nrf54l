@@ -53,8 +53,10 @@ PY
 #   ncs-venv-v<semver>            NCS venv cache-key literal
 # The cache-key forms are included so a future re-introduced *literal* cache
 # key is caught; the ${{ vars.NCS_VERSION }} expression form does not match
-# (no `v<digit>` after the prefix). Excludes CHANGELOG app versions and
-# pre-commit hook revs, which don't match any of these phrasings.
+# (no `v<digit>` after the prefix). find_ncs_refs skips CHANGELOG.md and
+# .github/release-notes/ — historical records that deliberately quote the
+# versions a release moved between. The remaining pre-commit hook revs don't
+# match any of these phrasings.
 NCS_REF_PATTERN='sdk-nrf-toolchain:v[0-9]+\.[0-9]+\.[0-9]+|nrf[[:space:]]+connect[[:space:]]+sdk[[:space:]]+v[0-9]+\.[0-9]+\.[0-9]+|ncs[[:space:]]+v[0-9]+\.[0-9]+\.[0-9]+|sdk-nrf[[:space:]]+@[[:space:]]+v[0-9]+\.[0-9]+\.[0-9]+|ncs-ws-v[0-9]+\.[0-9]+\.[0-9]+|ncs-venv-v[0-9]+\.[0-9]+\.[0-9]+'
 
 # find_ncs_refs -> emit `file:lineno:version` for every NCS version literal in
@@ -66,6 +68,11 @@ find_ncs_refs() {
   root="$(find_repo_root)"
   while IFS= read -r f; do
     [[ "$f" == "west.yml" ]] && continue
+    # Historical records, not live literals: cog writes each release's bump
+    # subject ("bump NCS vA -> vB") into CHANGELOG.md, and per-tag release
+    # notes deliberately quote the versions a release moved between.
+    [[ "$f" == "CHANGELOG.md" ]] && continue
+    [[ "$f" == .github/release-notes/* ]] && continue
     [[ -f "${root}/${f}" ]] || continue
     while IFS= read -r line; do
       # grep -no output is "lineno:match"; the match may itself contain ':'
