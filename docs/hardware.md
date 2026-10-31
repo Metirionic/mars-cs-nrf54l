@@ -612,6 +612,7 @@ A3 4-path.
 | `ublox_cent_a1_4` | RAS | initiator | U-Blox NINA-B40 | `ublox_*.overlay` | `central.overlay;4_path_1_local.conf` | A1 / 4 |
 | `ublox_cent_a1_4_ipt` | IPT | initiator | U-Blox NINA-B40 | `ublox_*.overlay` | `central.overlay;inline_pct_initiator.conf;inline_pct_shared.conf;4_path_1_local.conf` | A1 / 4 |
 | `ezurio_bl54l15u_cent_a2_4` | RAS | initiator | Ezurio BL54L15u | `ezurio_*.overlay` | `central.overlay;4_path_2_local.conf` | A2 / 4 |
+| `ezurio_bl54l15u_cent_a4_4` | RAS | initiator | Ezurio BL54L15u | `ezurio_*.overlay` | `central.overlay;4_path_4_local.conf` | A4 / 4 |
 | `ezurio_bl54l15u_cent_a2_4_ipt` | IPT | initiator | Ezurio BL54L15u | `ezurio_*.overlay` | `central.overlay;inline_pct_initiator.conf;inline_pct_shared.conf;4_path_2_local.conf` | A2 / 4 |
 | `fanstel_bm15c_cent_a1_4` | RAS | initiator | Fanstel BM15C | `fanstel_*.overlay` | `central.overlay;4_path_1_local.conf` | A1 / 4 |
 | `fanstel_bm15c_cent_a1_4_ipt` | IPT | initiator | Fanstel BM15C | `fanstel_*.overlay` | `central.overlay;inline_pct_initiator.conf;inline_pct_shared.conf;4_path_1_local.conf` | A1 / 4 |
@@ -660,6 +661,15 @@ A3 4-path.
   reported for these presets was a stale initiator binary (#184), not a preset
   property — they build and bench like the other carriers'. See the
   [MiniEV wiring notes](#würth-ophelia-iv-miniev-wiring-notes).
+- **A4 4-path presets are bench configurations, not shipped.**
+  `nrf54l15dk_cent_a4_4`, `nrf54l15dk_peri_a4_4`, and
+  `ezurio_bl54l15u_cent_a4_4` exist for bench work and are deliberately
+  excluded from the release, CI, and build-from-source lists
+  (`preset_unshipped` in [scripts/check-docs.sh](../scripts/check-docs.sh)).
+  Bench an A4 board against a single-antenna peer; once the capabilities
+  exchange reports the peer's antenna count, a multi-antenna peer indexes the
+  `A1_B1` placeholder (see
+  [Tone-antenna configuration](#tone-antenna-configuration-supplementary)).
 
 ### How a preset composes overlay + fragments
 
@@ -697,17 +707,17 @@ by role:
 
 Before the capabilities exchange completes (or if it fails), the peer count
 falls back to the heuristic `peer = CONFIG_BT_CTLR_SDC_CS_MAX_ANTENNA_PATHS /
-CONFIG_BT_CTLR_SDC_CS_NUM_ANTENNAS` (integer division). For a **matched** pair
-the negotiated count equals the heuristic, so the table below still holds; for
-a **mismatched** pair the negotiated count wins — e.g. an Ezurio A2/4
+CONFIG_BT_CTLR_SDC_CS_NUM_ANTENNAS` (integer division); the table below shows
+that fallback resolution. The exchange reports the peer's actual
+`num_antennas_supported`, and that negotiated count wins — e.g. an Ezurio A2/4
 initiator paired with a DK A1/4 reflector negotiates `A2_B1` on both sides
 (initiator `preferred_peer_antenna = 1`, reflector `= 3`), not the heuristic's
 `A2_B2` / `A4_B1` (which the controller rejects with `0x0d`).
 
 The same `(antennas, paths)` config can therefore resolve to a different `An_Bm`
 depending on which role runs it — the local and peer counts land in opposite
-index slots. For every config the [Presets](#presets) table ships this resolves
-to:
+index slots. With the pre-exchange heuristic, every config in the
+[Presets](#presets) table resolves to:
 
 | Antennas / Paths | Initiator `An_Bm` | Reflector `An_Bm` |
 |------------------|-------------------|--------------------|
@@ -718,11 +728,12 @@ to:
 | A3 / 4           | `A3_B1`           | `A1_B3`            |
 | A4 / 4           | `A4_B1`           | `A1_B4`            |
 
-A `—` marks a role no shipped preset runs in that config (A1 2-path ships only
-as initiator; A2 2-path only as reflector). A2 4-path is symmetric — `A2_B2`
-either way. The `ANTENNA_MAPPING` table also carries placeholder `A1_B1` entries
-for index combinations no shipped preset uses (e.g. `[1][2]`, `[2][1]`, `[3][1]`);
-only the six configs above actually ship.
+A `—` marks a role no preset in the table runs in that config (A1 2-path
+appears only as an initiator preset; A2 2-path only as a reflector preset).
+A2 4-path is symmetric — `A2_B2` either way. The `ANTENNA_MAPPING` table also
+carries placeholder `A1_B1` entries for index combinations outside these six
+configs (e.g. `[1][2]`, `[2][1]`, `[3][1]`); these six are the configs the
+preset table defines.
 
 _Supplementary — from `common/antenna.c`, not from presets/fragments._
 
