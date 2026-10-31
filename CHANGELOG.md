@@ -2,6 +2,12 @@
 All notable changes to this project will be documented in this file. See [conventional commits](https://www.conventionalcommits.org/) for commit guidelines.
 
 - - -
+## [v1.17.2](https://github.com/Metirionic/mars-cs-nrf54l/releases/tag/v1.17.2) - 2026-10-31
+#### Bug Fixes
+- exclude CHANGELOG.md from the NCS version guard scan - ([ec2d097](https://github.com/Metirionic/mars-cs-nrf54l/commit/ec2d097bc4cfee035cade6ae309bde62099fbfee)) - AttilaRoemer
+
+- - -
+
 ## [v1.17.1](https://github.com/Metirionic/mars-cs-nrf54l/releases/tag/v1.17.1) - 2026-10-31
 #### Bug Fixes
 - bump NCS v3.4.0 -> v3.4.1 (DRGN-29459, DRGN-29669) - ([8309a82](https://github.com/Metirionic/mars-cs-nrf54l/commit/8309a82379d6dd59cea56182285ee4704f27fcb0)) - AttilaRoemer
