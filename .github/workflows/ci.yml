@@ -21,12 +21,15 @@ jobs:
     runs-on: ubuntu-latest
     env:
       NCS_VERSION: ${{ vars.NCS_VERSION }}
-      # Repo variables aren't passed to pull_request runs from forks (public
-      # repo; the "send vars to fork PRs" toggle is private-repo-only). On fork
-      # PRs vars.NCS_VERSION is empty, so the guard's variable cross-check
-      # can't apply — the script falls back to the west.yml-only literal scan
-      # (its local mode). Pushes and same-repo PRs enforce the full check.
-      ENFORCE_NCS_VAR: ${{ github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository }}
+      # Pull-request runs skip the guard's repository-variable cross-check and
+      # fall back to the west.yml-only literal scan (the script's local mode).
+      # That is required for fork PRs, where GitHub withholds repo variables
+      # (public repo; the "send vars to fork PRs" toggle is private-repo-only),
+      # and it lets a same-repo version-bump PR be green while
+      # vars.NCS_VERSION still holds the previous version. Pushes to the
+      # default branch and release.yml enforce the full check, so merging with
+      # a stale variable still fails.
+      ENFORCE_NCS_VAR: ${{ github.event_name != 'pull_request' }}
     outputs:
       # The NCS version parsed from west.yml — the value the guard just
       # verified. Build jobs consume this for the container image tag and cache

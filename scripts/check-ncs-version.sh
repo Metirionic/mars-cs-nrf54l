@@ -4,10 +4,11 @@
 # NCS version consistency guard for mars-cs-nrf54l.
 #
 # Asserts that every NCS version literal in the repo agrees with the canonical
-# source (west.yml's `nrf` project revision), and — when run in CI — that the
-# `vars.NCS_VERSION` GitHub repo variable agrees with it too. Catches stale
-# literals (container image tags, cache keys, README/docs, script comments)
-# before a bump leaves a half-built state or a tagless container image.
+# source (west.yml's `nrf` project revision), and — on CI runs outside pull
+# requests — that the `vars.NCS_VERSION` GitHub repo variable agrees with it
+# too. Catches stale literals (container image tags, cache keys, README/docs,
+# script comments) before a bump leaves a half-built state or a tagless
+# container image.
 #
 # In CI (.github/workflows/ci.yml `verify-ncs-version` job, and release.yml's
 # build job) the workflow injects the repo variable via `env: NCS_VERSION:
@@ -19,12 +20,13 @@
 # west.yml — which is checked out on fork PRs too — instead of vars.NCS_VERSION
 # (withheld on fork-PR pull_request runs). No-op outside Actions.
 #
-# Fork-PR note: GitHub does not pass repo variables to pull_request runs from
-# forks (public repo; the "send vars to fork PRs" toggle is private-repo-only),
-# so vars.NCS_VERSION is empty there. ci.yml sets ENFORCE_NCS_VAR=false on fork
-# PRs, so the guard skips the variable cross-check and runs the literal-only
-# scan. Pushes, same-repo PRs, and release.yml (ENFORCE_NCS_VAR defaulting
-# true) enforce the full check.
+# PR note: ci.yml sets ENFORCE_NCS_VAR=false on every pull_request run, so the
+# guard skips the variable cross-check and runs the literal-only scan. That is
+# required for fork PRs, where GitHub does not pass repo variables (public
+# repo; the "send vars to fork PRs" toggle is private-repo-only), and it lets a
+# same-repo version-bump PR be green while vars.NCS_VERSION still holds the
+# previous version. Pushes to the default branch and release.yml
+# (ENFORCE_NCS_VAR defaulting true) enforce the full check.
 #
 # Mirrors scripts/check-docs.sh: set -euo pipefail, an errors counter + summary
 # list, a GITHUB_STEP_SUMMARY block, and a 1/0 exit with a pass/fail message.
@@ -65,9 +67,9 @@ fi
 # here would expand container.image to a tagless image and cache keys to
 # 'ncs-ws--…' — an opaque failure far from the cause. Fail loudly with the
 # remediation instead. Locally (GITHUB_ACTIONS unset) this block is skipped and
-# west.yml is the reference. On fork-PR pull_request runs vars.NCS_VERSION is
-# withheld (see header note), so ci.yml sets ENFORCE_NCS_VAR=false and this
-# block is skipped too — the literal-only scan below still guards staleness.
+# west.yml is the reference. ci.yml also sets ENFORCE_NCS_VAR=false on every
+# pull_request run (see header note), so this block is skipped there too — the
+# literal-only scan below still guards staleness.
 if [[ "${GITHUB_ACTIONS:-}" == "true" && "${ENFORCE_NCS_VAR:-true}" == "true" ]]; then
   if [[ -z "${NCS_VERSION:-}" ]]; then
     add_error "NCS_VERSION repo variable is not set; run: gh variable set NCS_VERSION ${expected}"

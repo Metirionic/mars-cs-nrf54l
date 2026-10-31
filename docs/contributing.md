@@ -91,12 +91,14 @@ minutes are spent pulling a container image); `lint` and `verify-ncs-version`
 run independently. All five must be green:
 
 - `verify-ncs-version` (ubuntu-latest) — runs `scripts/check-ncs-version.sh` to
-  assert every NCS version literal agrees with `west.yml`'s `nrf` revision and
-  the `vars.NCS_VERSION` repo variable. See the NCS version management section
-  below.
+  assert every NCS version literal agrees with `west.yml`'s `nrf` revision; on
+  pushes to `main` (and in the release workflow) it also requires the
+  `vars.NCS_VERSION` repo variable to match. Pull-request runs skip that
+  variable cross-check, so a version-bump PR can be green before the variable
+  moves. See the NCS version management section below.
 - `lint` (ubuntu-latest) — `pre-commit/action@v3.0.1` runs
   `pre-commit run --all-files`. This is the only place the hooks above are enforced.
-- `build-initiator` (NCS v3.4.0 container) — `ci/build.sh --target initiator` over
+- `build-initiator` (NCS v3.4.1 container) — `ci/build.sh --target initiator` over
   fourteen presets: `nrf54l15dk_cent_a1_4`, `nrf54l15tag_cent_a2_4`,
   `minew_me54be01_cent_a1_4`, `raytac_an54lv_k15_cent_a3_4`,
   `insight_isp2454_cent_a1_4`, `ophelia4ev_cent_a1_4`, `kaga_ec4l15ba1_cent_a1_4`, and the `_ipt` twin of
@@ -136,7 +138,7 @@ above (see [docs/build-from-source.md](build-from-source.md) for toolchain setup
 ## NCS version management
 
 The NCS version has one source of truth: `west.yml`'s `nrf` project `revision`
-(e.g. `v3.4.0`). A GitHub repo variable, `vars.NCS_VERSION`, carries that version
+(e.g. `v3.4.1`). A GitHub repo variable, `vars.NCS_VERSION`, carries that version
 into the CI workflows where GitHub Actions expressions need it at job startup
 (container image tags and cache keys in `ci.yml` / `release.yml` evaluate
 `${{ vars.NCS_VERSION }}` — they cannot read `west.yml` at evaluation time).
@@ -144,13 +146,17 @@ into the CI workflows where GitHub Actions expressions need it at job startup
 A shared scanner (`scripts/ncs-version-lib.sh`) defines what counts as an NCS
 version reference and is used by two scripts:
 
-- `scripts/check-ncs-version.sh` — the guard. Verifies every NCS literal in the
-  repo (README, docs, scripts, cache keys) agrees with `west.yml`, and in CI also
-  that `vars.NCS_VERSION` agrees with it. Fails loudly on a stale literal, a
-  mismatched variable, or an unset variable (which would otherwise produce an
-  opaque tagless container image). Run locally with
+- `scripts/check-ncs-version.sh` — the guard. Verifies every NCS literal the
+  shared scanner recognizes (README, docs, scripts, cache keys) agrees with
+  `west.yml`, and — on CI runs outside pull requests — that `vars.NCS_VERSION`
+  agrees with it too.
+  Pull-request runs check literals only: forks cannot read repo variables, and a
+  same-repo bump PR must be green before the variable moves. Pushes to `main`
+  and the release workflow fail loudly on a stale literal, a mismatched
+  variable, or an unset variable (which would otherwise produce an opaque
+  tagless container image). Run locally with
   `bash scripts/check-ncs-version.sh`.
-- `scripts/bump-ncs.sh <version>` — the bump operation. The single way to move
+- `scripts/bump-ncs.sh [options] <version>` — the bump operation. The single way to move
   the NCS version: rewrites `west.yml`'s revision and every literal the scanner
   finds, sets `vars.NCS_VERSION` to match, runs the guard as a self-check, and
   opens a PR. README/docs update automatically because the script *is* the bump.
@@ -161,7 +167,7 @@ version reference and is used by two scripts:
 set the repo variable to the current `west.yml` revision:
 
 ```
-gh variable set NCS_VERSION v3.4.0
+gh variable set NCS_VERSION v3.4.1
 ```
 
 The bump script updates the variable on each bump thereafter.

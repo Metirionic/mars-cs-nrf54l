@@ -3,7 +3,7 @@
  * Würth Elektronik Ophelia-IV MiniEV board overlay (order code 2621119022001,
  * module Ophelia-IV 2621011022000, nRF54L15). The MiniEV is the second carrier
  * that builds on its own NCS board def — BOARD=ophelia4ev/nrf54l15/cpuapp,
- * shipped by NCS v3.4.0 (zephyr/boards/we/ophelia4ev, Würth's ANR036 maps the
+ * shipped by NCS v3.4.1 (zephyr/boards/we/ophelia4ev, Würth's ANR036 maps the
  * MiniEV onto it) — generalizing the nrf54l15tag precedent; the DK+overlay
  * pattern used by the other carriers does not apply here.
  *
