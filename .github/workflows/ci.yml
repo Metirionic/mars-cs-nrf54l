@@ -13,7 +13,12 @@ jobs:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
         with:
-          python-version: '3.x'
+          # Keep the lint toolchain below Python 3.15: cmakelang 0.6.13 (behind
+          # the cmake-format hook) builds an re.Scanner from patterns with
+          # capturing groups, which 3.15 rejects — the hook crashes on
+          # common/CMakeLists.txt before formatting anything. cmakelang has no
+          # newer release (0.6.13 is from 2020), so pin until the hook changes.
+          python-version: '3.14'
       - uses: pre-commit/action@v3.0.1
 
   verify-ncs-version:
