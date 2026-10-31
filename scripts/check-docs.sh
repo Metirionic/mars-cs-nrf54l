@@ -385,10 +385,11 @@ preset_names_from_doc() {
 # of) the list sites:
 #   * nrf54l15dm_* — deliberately undocumented prototypes (see #89, as in
 #     check_preset_table), and
-#   * the non-shipped nRF54L15 DK antenna variants — documented in
-#     docs/hardware.md as bench configurations but deliberately not released
-#     (nrf54l15dk_cent_a1_2 / nrf54l15dk_cent_a4_4 for the initiator,
-#     nrf54l15dk_peri_a2_2 / nrf54l15dk_peri_a4_4 for the reflector).
+#   * the non-shipped bench antenna variants — listed in docs/hardware.md's
+#     preset table but deliberately not released (nrf54l15dk_cent_a1_2 /
+#     nrf54l15dk_cent_a4_4 / ezurio_bl54l15u_cent_a4_4 for the initiator,
+#     nrf54l15dk_peri_a2_2 / nrf54l15dk_peri_a4_4 for the reflector); the
+#     A4/4 variants carry the bench-configuration note.
 # A preset added to (or dropped from) a CMakePresets.json fails
 # check_preset_lists until it is either shipped by the release/doc lists or
 # taught to this predicate as deliberately unshipped — so the decision is made
@@ -397,7 +398,7 @@ preset_unshipped() {
   local role="$1" p="$2"
   case "$p" in
     nrf54l15dm_*) return 0 ;;
-    nrf54l15dk_cent_a1_2|nrf54l15dk_cent_a4_4)
+    nrf54l15dk_cent_a1_2|nrf54l15dk_cent_a4_4|ezurio_bl54l15u_cent_a4_4)
       [[ "$role" == initiator ]] && return 0 ;;
     nrf54l15dk_peri_a2_2|nrf54l15dk_peri_a4_4)
       [[ "$role" == reflector ]] && return 0 ;;
@@ -449,11 +450,11 @@ built/released — teach preset_unshipped in this script)"
 #     name in the role's CMakePresets.json except the deliberately-unshipped
 #     ones (preset_unshipped above). Enforced in both directions.
 #   * ci.yml's role list is a deliberate smoke subset of the shipped set (it
-#     builds 9 of the 16 shipped presets and omits, among others, the ublox,
-#     Ezurio and Fanstel carriers), so only the subset direction is enforced
-#     there: every preset ci.yml names must be shipped. Completeness stays
-#     anchored on the release/doc lists, which fail whenever the preset set
-#     changes — so the ci.yml subset has to be a conscious choice.
+#     omits the ublox, Ezurio and Fanstel carriers), so only the subset
+#     direction is enforced there: every preset ci.yml names must be shipped.
+#     Completeness stays anchored on the release/doc lists, which fail whenever
+#     the preset set changes — so the ci.yml subset has to be a conscious
+#     choice.
 check_preset_lists() {
   local ci_wf=".github/workflows/ci.yml"
   local rel_wf=".github/workflows/release.yml"
