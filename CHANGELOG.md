@@ -8,12 +8,6 @@ All notable changes to this project will be documented in this file. See [conven
 
 - - -
 
-## [v1.17.1](https://github.com/Metirionic/mars-cs-nrf54l/releases/tag/v1.17.1) - 2026-10-31
-#### Bug Fixes
-- bump NCS v3.4.0 -> v3.4.1 (DRGN-29459, DRGN-29669) - ([8309a82](https://github.com/Metirionic/mars-cs-nrf54l/commit/8309a82379d6dd59cea56182285ee4704f27fcb0)) - AttilaRoemer
-
-- - -
-
 ## [v1.17.0](https://github.com/Metirionic/mars-cs-nrf54l/releases/tag/v1.17.0) - 2026-09-09
 #### Features
 - (**board**) add KAGA FEI EC4L15BA1-EVB carrier support (A1 presets) - ([5b3d973](https://github.com/Metirionic/mars-cs-nrf54l/commit/5b3d973aaa4b2d0a8a9768205967f3ff3b9d406a)) - AttilaRoemer
