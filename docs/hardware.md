@@ -25,7 +25,7 @@ def, which already models the carrier (see the
 | nRF54L15DK | `boards/nrf54l15dk_nrf54l15_cpuapp.overlay` | `uart20` @ 921600 | `uart30` @ 921600 | `P1.09`, `P1.10` |
 | nRF54L15 TAG | `boards/nrf54l15tag_nrf54l15_cpuapp.overlay` | `uart20` @ 921600 | — (RTT via debug probe) | `P1.09`, `P1.10` |
 | U-Blox NINA-B40 | `boards/ublox_nrf54l15_cpuapp.overlay` | `uart30` @ 921600 | `uart20` @ 921600 | `P1.09`, `P1.08` |
-| Ezurio BL54L15u | `boards/ezurio_bl54l15u_nrf54l15_cpuapp.overlay` | `uart20` @ 921600 | `uart30` @ 921600 | `P1.09`, `P1.08` |
+| Ezurio BL54L15u | `boards/ezurio_bl54l15u_nrf54l15_cpuapp.overlay` | `uart20` @ 921600 | `uart30` @ 921600 | `P1.08`, `P1.09` |
 | Fanstel BM15C | `boards/fanstel_bm15c_nrf54l15_cpuapp.overlay` | `uart20` @ 921600 | `uart30` @ 921600 | — (no antenna-switch node) |
 | Minewsemi ME54BE01 | `boards/minew_me54be01_nrf54l15_cpuapp.overlay` | `uart20` @ 921600 | — (RTT via debug probe) | — (no antenna-switch node) |
 | Raytac AN54LV-K15 | `boards/raytac_an54lv_k15_nrf54l15_cpuapp.overlay` | `uart20` @ 921600 | — (RTT via debug probe) | `P0.03`, `P0.04` |
@@ -612,6 +612,7 @@ A3 4-path.
 | `ublox_cent_a1_4` | RAS | initiator | U-Blox NINA-B40 | `ublox_*.overlay` | `central.overlay;4_path_1_local.conf` | A1 / 4 |
 | `ublox_cent_a1_4_ipt` | IPT | initiator | U-Blox NINA-B40 | `ublox_*.overlay` | `central.overlay;inline_pct_initiator.conf;inline_pct_shared.conf;4_path_1_local.conf` | A1 / 4 |
 | `ezurio_bl54l15u_cent_a2_4` | RAS | initiator | Ezurio BL54L15u | `ezurio_*.overlay` | `central.overlay;4_path_2_local.conf` | A2 / 4 |
+| `ezurio_bl54l15u_cent_a4_4` | RAS | initiator | Ezurio BL54L15u | `ezurio_*.overlay` | `central.overlay;4_path_4_local.conf` | A4 / 4 |
 | `ezurio_bl54l15u_cent_a2_4_ipt` | IPT | initiator | Ezurio BL54L15u | `ezurio_*.overlay` | `central.overlay;inline_pct_initiator.conf;inline_pct_shared.conf;4_path_2_local.conf` | A2 / 4 |
 | `fanstel_bm15c_cent_a1_4` | RAS | initiator | Fanstel BM15C | `fanstel_*.overlay` | `central.overlay;4_path_1_local.conf` | A1 / 4 |
 | `fanstel_bm15c_cent_a1_4_ipt` | IPT | initiator | Fanstel BM15C | `fanstel_*.overlay` | `central.overlay;inline_pct_initiator.conf;inline_pct_shared.conf;4_path_1_local.conf` | A1 / 4 |
