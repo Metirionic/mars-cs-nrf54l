@@ -36,7 +36,7 @@ Two firmware roles plus a shared library:
 
 `initiator/CMakeLists.txt`:
 
-- Fetches the Rust crate `mars-bluetooth-hci@0.13.2` via CMake `FetchContent` (`:6-11`).
+- Fetches the Rust crate `mars-bluetooth-hci@0.15.0` via CMake `FetchContent` (`:6-11`).
 - Builds the shared `common` library as `cs_common` via `add_subdirectory(../common cs_common)` (`:22`).
 - Compiles `src/main.c`, `src/serialize.c`, and `common/rust_callbacks.c` straight into `app` (`:24-25`) — note `common/rust_callbacks.c` is compiled into `app`, not into `cs_common`.
 - Links `cs_common` (`:27`) and the Rust static archive (`:31-32`); exposes the generated Rust header to `cs_common` (`:28-29`).
@@ -75,9 +75,9 @@ headers without pulling the full Zephyr target (`:15`).
 | `ble_callbacks.{c,h}` | "Shared BLE connection and Channel Sounding callbacks" — owns the `BT_CONN_CB_DEFINE(conn_cb)` connection-callback table and the connection ref for the initiator; forwards CS subevent-data and config-created events to registered user callbacks; gives five of the setup semaphores. |
 | `ble_scanning.{c,h}` | "BLE scanning and Ranging Service UUID filtering" — `scan_init()` configures `bt_scan` with `connect_if_match` and a filter that selects the peer by **Ranging Service UUID** (RAS) or by **advertised name** (IPT — the reflector does not advertise that UUID, so the initiator matches `CONFIG_BT_DEVICE_NAME` instead). |
 | `cs_initiator.{c,h}` | "Shared Channel Sounding initiator connection and configuration flow" — the heart of the initiator: all setup semaphores, the step-data net buffers, the RAS feature bits, the MACs, and `cs_initiator_start()` which runs the full setup handshake; also defines the local `subevent_result_cb`. |
-| `cs_step_parse.{c,h}` | "Shared CS step data parsing into SubeventResultEvent structures" — `cs_step_parse()` (RAS) converts local + peer HCI Mode-2 step records into the Rust FFI `SubeventResultEvent_t` / `Step_t` / `Mode2_t` fields; also populates the Mode-0 calibration steps (kind per role from the step `data_len`, measured frequency offset passed through raw); `cs_step_parse_inline()` (IPT) parses the local steps only and synthesizes the peer event per step with a transparent identity (1.0 + 0.0j) Phase Correction Term for Mode-2 and a zeroed `MODE0_REFLECTOR` step for Mode-0, so the downstream combiner sees a structurally valid `ORIGIN_REFLECTOR` event with a no-op phase rotation. |
+| `cs_step_parse.{c,h}` | "Shared CS step data parsing into SubeventResultEvent structures" — `cs_step_parse_step()` (RAS) converts local + peer HCI Mode-0 and Mode-2 step records into the Rust FFI `SubeventResultEvent_t` / `Step_t` / `Mode2_t` fields; also populates the Mode-0 calibration steps (kind per role from the step `data_len`, measured frequency offset passed through raw); `cs_step_parse_inline()` (IPT) parses the local steps only and synthesizes the peer event per step with a transparent identity (1.0 + 0.0j) Phase Correction Term for Mode-2 and a zeroed `MODE0_REFLECTOR` step for Mode-0, so the downstream combiner sees a structurally valid `ORIGIN_REFLECTOR` event with a no-op phase rotation. |
 | `cs_watchdog.{c,h}` | "CS liveness watchdog" — the #116 recovery mechanism: a timer pets only on completed procedures with step data (initiator) or completed subevents with steps (reflector); on timeout it invokes the registered recovery callback (both apps force a disconnect that reboots the pair). Built into `cs_common`, so both roles link it. |
-| `subevent.{c,h}` | "CS subevent data parsing into SubeventResultEvent structures" — `subevent_populate()` (RAS) fills the initiator + reflector events from both the local and peer step buffers via `cs_step_parse()`; `subevent_populate_inline()` (IPT) fills them from the local step buffer only via `cs_step_parse_inline()` (the reflector's phase contribution is embedded in the local tones, so there is no peer buffer). Both seed the shared header through `fill_subevent_header()`. |
+| `subevent.{c,h}` | "CS subevent data parsing into SubeventResultEvent structures" — `subevent_populate()` (RAS) fills the initiator + reflector events from both the local and peer step buffers via `cs_step_parse_step()`; `subevent_populate_inline()` (IPT) fills them from the local step buffer only via `cs_step_parse_inline()` (the reflector's phase contribution is embedded in the local tones, so there is no peer buffer). Both seed the shared header through `fill_subevent_header()`. |
 | `rust_callbacks.c` | "Shared Rust FFI callback implementations" — the C functions the Rust runtime calls back into (`rust_panic_cb`, `rust_print_cb`). Compiled into the initiator `app` only. |
 | `rust_ffi_types.h` | A re-include shim: `#include "mars_bluetooth_hci.h"` so `cs_step_parse.h` can name the Rust-generated `SubeventResultEvent_t` without depending on the include path setup directly. |
 
@@ -90,12 +90,17 @@ itself lives in that external repo and is not reproduced here.
 
 **Fetch.** The crate is fetched by CMake `FetchContent` in
 `initiator/CMakeLists.txt:6-11` (`GIT_REPOSITORY …/mars-bluetooth-hci.git`,
-`GIT_TAG mars-bluetooth-hci@0.13.2`), then `FetchContent_MakeAvailable`. It is
+`GIT_TAG mars-bluetooth-hci@0.15.0`), then `FetchContent_MakeAvailable`. It is
 **not** a west project — `west.yml` fetches only NCS — and **not** a submodule. A
 clean build clones it from GitHub at CMake-configure time (network needed on the
 first configure; cached under `build/.../_deps` afterward).
 `MARS_BT_HCI_RUST_DIR` is set to the inner crate dir (`:13`) and added to
 `CMAKE_PREFIX_PATH` (`:16`) for `find_package(mars-bluetooth-hci-rust)` (`:17`).
+
+The pinned library uses compact CS subevent wire format v2: it transmits only
+`steps[..step_count]` and each step's selected mode payload. The internal C array
+retains its 160-step capacity. The demo must use a matching v2 decoder; the
+previous fixed-array measurement format is incompatible. Log framing is unchanged.
 
 **ARM build.** The crate's `mars-bluetooth-hci-rust-config.cmake` runs
 `cargo build --lib --target thumbv8m.main-none-eabihf --release` as the
@@ -162,7 +167,7 @@ End-to-end on the initiator:
    a semaphore (see the next section): scan (Ranging Service UUID filter) → connect
    → security → MTU exchange → GATT discovery of the Ranging Service → read RAS
    feature bits → exchange CS capabilities → create the CS config
-   (`BT_CONN_LE_CS_MAIN_MODE_2_SUB_MODE_1`, role `BT_CONN_LE_CS_ROLE_INITIATOR`,
+   (`BT_CONN_LE_CS_MAIN_MODE_2_NO_SUB_MODE`, role `BT_CONN_LE_CS_ROLE_INITIATOR`,
    `BT_CONN_LE_CS_RTT_TYPE_AA_ONLY`, `BT_CONN_LE_CS_CHSEL_TYPE_3B`) → enable CS
    security → set procedure parameters (using `get_antenna_config()` /
    `get_preferred_peer_antenna()`) → enable CS procedures. After it returns,
@@ -186,17 +191,13 @@ End-to-end on the initiator:
    (`common/cs_initiator.c:277`), which accumulates `result->step_data_buf` into
    the `latest_local_steps` net buffer.
 
-3. **Populate and serialize.** `ranging_data_cb` (`initiator/src/main.c:60-166`)
-   validates the peer ranging counter against the local one, drops on mismatch or
-   on an all-aborted procedure, and otherwise calls
-   `subevent_populate(&local_event, &peer_event, cs_initiator_get_local_mac(), cs_initiator_get_peer_mac(), cs_initiator_get_latest_subevent_header(), latest_local_steps, cs_initiator_get_peer_steps(), cs_config.role)`
-   (`:146-153`) — `subevent_populate()` (`common/subevent.c:77`) fills both event
-   headers via `fill_subevent_header()` and hands the local + peer step buffers to
-   `cs_step_parse()`, which fills the `steps[]` arrays — then calls
-   `serialize_run(&local_event, &peer_event)` (`:155`). It then resets the net
-   buffers and gives `sem_local_steps` and `sem_data_ready` (`:164-165`).
-   `cs_config.role` was saved earlier by `config_create_hook`
-   (`initiator/src/main.c:191-194`).
+3. **Populate and serialize each subevent.** `ranging_data_cb` validates the
+   ranging counter, then calls `subevent_populate()` on the procedure's local
+   headers and local/peer step buffers. The parser calls `serialize_run()` for
+   each matched subevent pair. Each device retains its own metadata and step
+   count. When RAS omits an aborted peer's steps, the local measurements are
+   emitted with an empty peer event. The callback then resets the buffers,
+   releases `sem_local_steps`, and signals the main loop.
 
 4. **Serialize + COBS over UART.** `serialize_run()` (`initiator/src/serialize.c:240-316`)
    gates on the `sem_tx_done` TX-complete handshake, then `serialize_append_event()`
@@ -204,7 +205,7 @@ End-to-end on the initiator:
    `:109`) for each of the local and peer events; the returned `SerializedData_t` is
    copied into the static `g_serialized[]` buffer by `serialize_cb()` and freed
    with `drop_bin()`, followed by a `serialize_log_message("Processing finished")`.
-   Finally `uart_tx(gp_cobs_uart_dev, g_serialized, g_total_written_size, SYS_FOREVER_MS)`
+   Finally `uart_tx(gp_cobs_uart_dev, g_serialized, g_total_written_size, SYS_FOREVER_US)`
    (`:298`) writes the COBS-encoded bytes to the UART. The UART device is acquired
    once at init: `gp_cobs_uart_dev = DEVICE_DT_GET(DT_CHOSEN(cobs_uart))` (`:44`).
    The async UART API is enabled (`CONFIG_UART_ASYNC_API=y`, `initiator/prj.conf:26`);
@@ -223,22 +224,18 @@ sequenceDiagram
     ACC->>ACC: accumulate step_data_buf into latest_local_steps
     Note over ACC: guarded by sem_local_steps (taken K_NO_WAIT)
     Note over ACC,RAS: realtime RD pushes peer steps<br/>on-demand RD pulls peer steps via CP
-    RAS->>POP: subevent_populate(local + peer steps, MACs, role)
-    POP-->>RAS: populated local_event + peer_event
-    RAS->>SER: serialize_run(local_event, peer_event)
+    RAS->>POP: subevent_populate(headers, local_steps, peer_steps)
+    POP->>SER: serialize_run for each subevent pair
     SER->>RUST: serialize_subevent_result_event(event, use_cobs=true)
     RUST-->>SER: SerializedData_t (COBS-encoded bytes)
-    SER->>SER: copy into g_serialized then drop_bin (free Rust alloc)
-    SER->>UART: uart_tx(g_serialized, len, SYS_FOREVER_MS)
-    RAS->>RAS: give sem_local_steps and sem_data_ready
-    Note over RAS: main loop wakes on sem_data_ready
+    SER->>SER: copy into g_serialized then drop_bin
+    SER->>UART: uart_tx(g_serialized, len, SYS_FOREVER_US)
+    RAS->>RAS: reset RX buffers and release sem_local_steps
 ```
 
-The serialize + UART write runs **synchronously inside `ranging_data_cb`** — there
-is no ring buffer, `k_work`, or `k_fifo` between the callback and the UART. The
-only synchronization is `sem_local_steps`, the binary lock guarding the step-data
-net buffers between the producer (`subevent_result_cb`) and the consumer
-(`ranging_data_cb`); see the next section.
+As on `main`, RAS parsing and serialization run in the Bluetooth callback.
+Sending multiple subevent pairs can wait for earlier UART transfers to finish
+and delay Bluetooth reception. IPT retains its existing main-thread handoff.
 
 ### IPT path
 
@@ -323,7 +320,7 @@ sequenceDiagram
     SER->>RUST: serialize_subevent_result_event(event, use_cobs=true)
     RUST-->>SER: SerializedData_t (COBS-encoded bytes)
     SER->>SER: copy into g_serialized then drop_bin (free Rust alloc)
-    SER->>UART: uart_tx(g_serialized, len, SYS_FOREVER_MS)
+    SER->>UART: uart_tx(g_serialized, len, SYS_FOREVER_US)
     MAIN->>MAIN: give sem_event_free (events reusable)
 ```
 
@@ -506,23 +503,10 @@ IPT table above). The antenna/path counts themselves come from the
 
 ## Design notes (contributor gotchas)
 
-- **Serialize + UART TX is gated on a TX-complete handshake — and runs off the
-  RX thread (IPT).** `serialize_run()` registers a `uart_callback_set` handler
-  that signals `UART_TX_DONE` / `UART_TX_ABORTED` via the `sem_tx_done`
-  semaphore, and takes that semaphore before reusing the static `g_serialized[]`
-  buffer, so `uart_tx()` is never called while a previous transfer is still
-  DMA-ing out of it (no on-wire COBS corruption, no `-EBUSY`)
-  (`initiator/src/serialize.c`). One event is ~26.6 KB ≈ 289 ms at 921600 baud
-  (≈3.5 events/s wire limit). In **RAS** that blocking still runs inside
-  `ranging_data_cb` (RX context) — at the default
-  `min/max_procedure_interval = 10/10` cadence the prior TX finishes within the
-  gap, so the gate returns immediately. In **IPT** the #173 fix moved the
-  blocking to the main loop thread (`cs_initiator_consume_pending_event()`);
-  running it back in the RX thread would starve the SDC's step-data delivery
-  and turn surplus procedures into controller aborts (the ~70 % empty
-  completions of #173). Keep this in mind before changing the serialize path or
-  the procedure cadence — and remember the RAS path still has the #173-shaped
-  coupling, so the same starvation is possible there at tightened cadences.
+- **UART buffer ownership.** The TX semaphore protects `g_serialized` until
+  `UART_TX_DONE` or `UART_TX_ABORTED`. RAS calls the serializer from its ranging
+  data callback; IPT uses its existing event handoff to the main loop.
+
 - **`mars_bluetooth_hci.h` is checked into the crate, not regenerated during the
   firmware build.** The crate's CMake runs only `cargo build --lib`, not the
   header-generator bin, so the firmware consumes the pre-generated header.
@@ -556,3 +540,12 @@ IPT table above). The antenna/path counts themselves come from the
   serialization library (authoritative wire-format source).
 - [nRF Connect SDK](https://developer.nordicsemi.com/nRF_Connect_SDK/) — the
   `bt_le_cs_*` / `bt_ras_rreq_*` APIs and the controller-owned antenna switch.
+
+### Subevent parser regression checks
+
+After configuring a RAS initiator build, run
+`python3 tests/subevents/run.py initiator/build_<preset>/initiator`. The tests
+compile the production parsers against that build's SDK and execute on ARM
+QEMU. They cover Mode 0/2 steps, rejection of unsupported modes,
+per-device metadata, separate subevent emission, malformed boundaries, and a
+peer-aborted subevent with preserved local steps followed by a valid subevent.
