@@ -40,7 +40,7 @@ static K_SEM_DEFINE(sem_local_steps, 1, 1);
 /** @brief IPT event handoff (#173): 1 = the event pair below is free for the
  * RX thread to populate; 0 = the main loop owns it (serializing). */
 static K_SEM_DEFINE(sem_event_free, 1, 1);
-/** @brief Completed procedures dropped because the serialize consumer was busy. */
+/** @brief Completed subevents dropped because the serialize consumer was busy. */
 static uint32_t g_event_backlog_drops;
 /** @brief Static event pair handed from the RX thread to the main loop. */
 static SubeventResultEvent_t g_local_event;
@@ -60,6 +60,17 @@ static uint32_t ras_feature_bits;
 #endif
 
 static struct bt_conn_le_cs_subevent_result g_latest_subevent_header;
+#if IS_ENABLED(CONFIG_BT_RAS_RREQ)
+/* Bound metadata storage like the step buffer; reject a procedure on overflow. */
+static struct cs_local_subevent g_subevents[BT_RAS_MAX_STEPS_PER_PROCEDURE];
+static size_t                   g_subevent_count;
+
+const struct cs_local_subevent * cs_initiator_get_subevents(size_t * p_count)
+{
+    *p_count = g_subevent_count;
+    return g_subevents;
+}
+#endif
 
 static uint64_t g_local_mac;
 static uint64_t g_peer_mac;
@@ -158,6 +169,9 @@ struct bt_conn_le_cs_subevent_result * cs_initiator_get_latest_subevent_header(v
 /** @brief Give the sem_local_steps semaphore (signal that local data buffer is available). */
 void cs_initiator_give_sem_local_steps(void)
 {
+#if IS_ENABLED(CONFIG_BT_RAS_RREQ)
+    g_subevent_count = 0;
+#endif
     k_sem_give(&sem_local_steps);
 }
 
@@ -305,16 +319,28 @@ static void subevent_result_cb(struct bt_conn * p_conn, struct bt_conn_le_cs_sub
             LOG_DBG("Dropped subevent results due to unfinished ranging data request.");
             return;
         }
+#if IS_ENABLED(CONFIG_BT_RAS_RREQ)
+        g_subevent_count = 0;
+#endif
     }
 
+#if IS_ENABLED(CONFIG_BT_RAS_RREQ)
+    if (g_subevent_count >= ARRAY_SIZE(g_subevents))
+    {
+        LOG_ERR("Too many subevents; dropping procedure %u", result->header.procedure_counter);
+        net_buf_simple_reset(&latest_local_steps);
+        dropped_ranging_counter = result->header.procedure_counter;
+        k_sem_give(&sem_local_steps);
+        return;
+    }
+    g_subevents[g_subevent_count].result.header        = result->header;
+    g_subevents[g_subevent_count].result.step_data_buf = NULL;
+    g_subevents[g_subevent_count++].data_len           = result->step_data_buf ? result->step_data_buf->len : 0;
+#endif
     g_latest_subevent_header.header        = result->header;
     g_latest_subevent_header.step_data_buf = NULL;
 
-    if (result->header.subevent_done_status == BT_CONN_LE_CS_SUBEVENT_ABORTED)
-    {
-        /* The steps from this subevent will not be used. */
-    }
-    else if (result->step_data_buf)
+    if (result->step_data_buf)
     {
         if (result->step_data_buf->len <= net_buf_simple_tailroom(&latest_local_steps))
         {
@@ -340,7 +366,12 @@ static void subevent_result_cb(struct bt_conn * p_conn, struct bt_conn_le_cs_sub
 
     dropped_ranging_counter = PROCEDURE_COUNTER_NONE;
 
+#if IS_ENABLED(CONFIG_MARS_CS_INLINE_PCT)
+    if (result->header.subevent_done_status == BT_CONN_LE_CS_SUBEVENT_COMPLETE ||
+        result->header.subevent_done_status == BT_CONN_LE_CS_SUBEVENT_ABORTED)
+#else
     if (result->header.procedure_done_status == BT_CONN_LE_CS_PROCEDURE_COMPLETE)
+#endif
     {
         local_ranging_counter = procedure_ranging_counter;
 
@@ -362,14 +393,14 @@ static void subevent_result_cb(struct bt_conn * p_conn, struct bt_conn_le_cs_sub
          *     buffer is not read after populate. */
         if (latest_local_steps.len == 0)
         {
-            LOG_WRN("IPT procedure produced no step data");
+            LOG_WRN("IPT subevent produced no step data");
         }
         else if (k_sem_take(&sem_event_free, K_NO_WAIT) < 0)
         {
             g_event_backlog_drops++;
             if (g_event_backlog_drops == 1U || (g_event_backlog_drops % 128U) == 0U)
             {
-                LOG_WRN("Serialize backlog: dropped %u procedures (UART slower than cadence)", g_event_backlog_drops);
+                LOG_WRN("Serialize backlog: dropped %u subevents (UART slower than cadence)", g_event_backlog_drops);
             }
         }
         else
@@ -386,7 +417,10 @@ static void subevent_result_cb(struct bt_conn * p_conn, struct bt_conn_le_cs_sub
         }
 
         net_buf_simple_reset(&latest_local_steps);
-        cs_initiator_give_sem_local_steps();
+        if (result->header.procedure_done_status != BT_CONN_LE_CS_PROCEDURE_INCOMPLETE)
+        {
+            cs_initiator_give_sem_local_steps();
+        }
 #endif  // IS_ENABLED(CONFIG_MARS_CS_INLINE_PCT)
     }
     else if (result->header.procedure_done_status == BT_CONN_LE_CS_PROCEDURE_ABORTED)

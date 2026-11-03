@@ -22,17 +22,10 @@ LOG_MODULE_DECLARE(app_main, LOG_LEVEL_INF);
 
 /** @brief Max COBS-serialized size of ONE SubeventResultEvent (160 steps).
  *
- * Sized for mars-bluetooth-hci 0.13.2: ModeRoleSpecificInfo serializes a
- * mode0 field (quality, RSSI, antenna, measured_freq_offset u16) on EVERY
- * step alongside the mode1/mode2 fields, so sizes now depend on values
- * (postcard varints: the freq offset is 1 B when 0, 3 B for the 0xC000
- * sentinel). Measured per-event COBS sizes (host harness, 160 steps):
- *   13,302 B  zeroed (lower bound)
- *   13,955 B  realistic FW population (real MACs, populated mode0 + mode2)
- *   13,968 B  worst case (every varint maximized)
- * 14,000 B keeps headroom over the measured worst case; g_serialized below
- * holds two events plus a log message plus ~1 KB margin. 0.8.0 was ~8,640
- * B/event with no mode1 field; 0.12.0 was 12,502 B/event zeroed.
+ * Compact wire format v2 transmits only step_count entries and each step's
+ * selected mode payload. Internal C storage still has capacity for 160 steps.
+ * Retain the previous 14,000-byte capacity per event as conservative headroom
+ * for the supported Mode-0/2 payloads; g_serialized holds two events plus logs.
  */
 #define CHUNK_SIZE 14000u
 
@@ -127,7 +120,7 @@ static int serialize_append_event(SubeventResultEvent_t * p_event)
  * deadlock against the k_sem_take() performed in serialize_run() (BT RX
  * workqueue context). UART_TX_ABORTED is not expected in practice (no
  * hardware flow control on the COBS UART overlays and uart_tx() uses
- * SYS_FOREVER_MS), but is handled defensively so the gate never sticks.
+ * SYS_FOREVER_US), but is handled defensively so the gate never sticks.
  */
 static void cobs_uart_async_cb(const struct device * p_dev, struct uart_event * p_evt, void * p_user_data)
 {
@@ -190,7 +183,7 @@ static int serialize_send_log_message_locked(const char * p_message)
 {
     serialize_init();
     (void)serialize_append_log_message(p_message);
-    return uart_tx(gp_cobs_uart_dev, g_serialized, g_total_written_size, SYS_FOREVER_MS);
+    return uart_tx(gp_cobs_uart_dev, g_serialized, g_total_written_size, SYS_FOREVER_US);
 }
 
 int serialize_send_log_message(const char * p_message)
@@ -216,7 +209,7 @@ int serialize_send_log_message(const char * p_message)
         return err;
     }
 
-    err = uart_tx(gp_cobs_uart_dev, g_serialized, g_total_written_size, SYS_FOREVER_MS);
+    err = uart_tx(gp_cobs_uart_dev, g_serialized, g_total_written_size, SYS_FOREVER_US);
     if (err)
     {
         /* TX never started: release the gate so the next run does not hang. */
@@ -295,7 +288,7 @@ void serialize_run(SubeventResultEvent_t * p_local_event, SubeventResultEvent_t 
         return;
     }
 
-    err = uart_tx(gp_cobs_uart_dev, g_serialized, g_total_written_size, SYS_FOREVER_MS);
+    err = uart_tx(gp_cobs_uart_dev, g_serialized, g_total_written_size, SYS_FOREVER_US);
 
     LOG_INF("Sending %u bytes", g_total_written_size);
 
@@ -306,7 +299,7 @@ void serialize_run(SubeventResultEvent_t * p_local_event, SubeventResultEvent_t 
          * failure marker and retry once so the host sees the cause instead
          * of a silent gap. */
         (void)serialize_append_log_message("UART TX error");
-        err = uart_tx(gp_cobs_uart_dev, g_serialized, g_total_written_size, SYS_FOREVER_MS);
+        err = uart_tx(gp_cobs_uart_dev, g_serialized, g_total_written_size, SYS_FOREVER_US);
         if (err)
         {
             /* Second failure: release the gate so the next run does not hang. */

@@ -111,26 +111,26 @@ static void pct_to_float(const uint8_t pct[3], float * p_i_value, float * p_q_va
  * skipped (step_index is not advanced), preventing over-reads when a procedure
  * negotiates fewer antenna paths than the controller's compile-time max.
  *
- * @param p_ctx         Parse context (holds n_ap and the output events).
+ * @param p_context         Parse context (holds n_ap and the output events).
  * @param p_local_step  Local (initiator) HCI subevent step (mode-2).
  * @param p_peer_step   Peer (reflector) HCI subevent step, or NULL for IPT.
  *
  * @return true if iteration should continue, false if the step array is full
  *         (step_index >= 160) and the caller should stop walking steps.
  */
-static bool fill_mode2_step(struct cs_step_parse_context *  ctx,
+static bool fill_mode2_step(struct cs_step_parse_context *  p_context,
                             struct bt_le_cs_subevent_step * p_local_step,
                             struct bt_le_cs_subevent_step * p_peer_step)
 {
-    if (ctx->step_index >= 160)
+    if (p_context->step_index >= 160)
     {
         return false;
     }
 
-    const uint8_t n_ap = ctx->n_ap;
+    const uint8_t n_ap = p_context->n_ap;
     const size_t  min_data_len =
         sizeof(struct bt_hci_le_cs_step_data_mode_2) + n_ap * sizeof(struct bt_hci_le_cs_step_data_tone_info);
-    if (p_local_step->data_len < min_data_len)
+    if (p_local_step->data_len < min_data_len || (p_peer_step != NULL && p_peer_step->data_len < min_data_len))
     {
         LOG_WRN("Mode-2 step data truncated: data_len=%u < required=%zu (n_ap=%u)",
                 (unsigned int)p_local_step->data_len,
@@ -145,10 +145,11 @@ static bool fill_mode2_step(struct cs_step_parse_context *  ctx,
 
     for (size_t event_index = 0; event_index < 2; event_index++)
     {
-        SubeventResultEvent_t * p_event      = (event_index == 0u) ? ctx->p_local_event : ctx->p_peer_event;
+        SubeventResultEvent_t * p_event      = (event_index == 0u) ? p_context->p_local_event : p_context->p_peer_event;
         const bool              is_initiator = (event_index == 0u);
-        Step_t *                p_step       = &p_event->steps.idx[ctx->step_index];
+        Step_t *                p_step       = &p_event->steps.idx[p_context->step_index];
 
+        memset(p_step, 0, sizeof(*p_step));
         p_step->mode      = p_local_step->mode;
         p_step->channel   = p_local_step->channel;
         p_step->info.kind = MODE_ROLE_SPECIFIC_INFO_KIND_MODE2;
@@ -204,7 +205,7 @@ static bool fill_mode2_step(struct cs_step_parse_context *  ctx,
         }
     }
 
-    ctx->step_index++;
+    p_context->step_index++;
     return true;
 }
 
@@ -229,18 +230,18 @@ static bool fill_mode2_step(struct cs_step_parse_context *  ctx,
  * Guards against malformed step data: a data_len that matches neither HCI
  * format is logged and skipped (step_index is not advanced).
  *
- * @param p_ctx         Parse context (holds the output events).
+ * @param p_context         Parse context (holds the output events).
  * @param p_local_step  Local (initiator) HCI subevent step (mode-0).
  * @param p_peer_step   Peer (reflector) HCI subevent step, or NULL for IPT.
  *
  * @return true if iteration should continue, false if the step array is full
  *         (step_index >= 160) and the caller should stop walking steps.
  */
-static bool fill_mode0_step(struct cs_step_parse_context *  ctx,
+static bool fill_mode0_step(struct cs_step_parse_context *  p_context,
                             struct bt_le_cs_subevent_step * p_local_step,
                             struct bt_le_cs_subevent_step * p_peer_step)
 {
-    if (ctx->step_index >= 160)
+    if (p_context->step_index >= 160)
     {
         return false;
     }
@@ -258,10 +259,11 @@ static bool fill_mode0_step(struct cs_step_parse_context *  ctx,
 
     for (size_t event_index = 0; event_index < 2; event_index++)
     {
-        SubeventResultEvent_t *               p_event    = (event_index == 0u) ? ctx->p_local_event : ctx->p_peer_event;
+        SubeventResultEvent_t * p_event = (event_index == 0u) ? p_context->p_local_event : p_context->p_peer_event;
         const struct bt_le_cs_subevent_step * p_src_step = (event_index == 0u) ? p_local_step : p_peer_step;
-        Step_t *                              p_step     = &p_event->steps.idx[ctx->step_index];
+        Step_t *                              p_step     = &p_event->steps.idx[p_context->step_index];
 
+        memset(p_step, 0, sizeof(*p_step));
         p_step->mode    = p_local_step->mode;
         p_step->channel = p_local_step->channel;
 
@@ -306,85 +308,55 @@ static bool fill_mode0_step(struct cs_step_parse_context *  ctx,
         }
     }
 
-    ctx->step_index++;
+    p_context->step_index++;
     return true;
 }
 
 #if IS_ENABLED(CONFIG_BT_RAS_RREQ)
-/** @brief Callback that extracts the antenna path count from the ranging header. */
-static bool process_ranging_header(struct ras_ranging_header * p_ranging_header, void * p_user_data)
+static bool parse_step(struct cs_step_parse_context *  p_context,
+                       struct bt_le_cs_subevent_step * p_local_step,
+                       struct bt_le_cs_subevent_step * p_peer_step)
 {
-    struct cs_step_parse_context * ctx = (struct cs_step_parse_context *)p_user_data;
-
-    ctx->n_ap =
-        MAX(1,
-            ((p_ranging_header->antenna_paths_mask & BIT(0)) + ((p_ranging_header->antenna_paths_mask & BIT(1)) >> 1) +
-             ((p_ranging_header->antenna_paths_mask & BIT(2)) >> 2) +
-             ((p_ranging_header->antenna_paths_mask & BIT(3)) >> 3)));
-
-    ctx->p_local_event->antenna_path_count = ctx->n_ap;
-    ctx->p_peer_event->antenna_path_count  = ctx->n_ap;
-
-    return true;
+    const uint8_t before = p_context->step_index;
+    bool          ok     = false;
+    switch (p_local_step->mode)
+    {
+    case 0:
+        ok = fill_mode0_step(p_context, p_local_step, p_peer_step);
+        break;
+    case 2:
+        ok = fill_mode2_step(p_context, p_local_step, p_peer_step);
+        break;
+    default:
+        if (p_peer_step != NULL)
+        {
+            LOG_ERR("Unsupported step mode %u", p_local_step->mode);
+        }
+        break;
+    }
+    return ok && p_context->step_index == before + 1;
 }
 
-/** @brief Callback that converts HCI Mode-2 and Mode-0 step data into SubeventResultEvent fields. */
-static bool process_step_data(struct bt_le_cs_subevent_step * p_local_step,
-                              struct bt_le_cs_subevent_step * p_peer_step,
-                              void *                          p_user_data)
+bool cs_step_parse_local_step(struct cs_step_parse_context * p_context, struct bt_le_cs_subevent_step * p_local_step)
 {
-    struct cs_step_parse_context * p_context = (struct cs_step_parse_context *)p_user_data;
-
-    if (p_local_step->mode == BT_HCI_OP_LE_CS_MAIN_MODE_2)
-    {
-        return fill_mode2_step(p_context, p_local_step, p_peer_step);
-    }
-    /* Mode-0 calibration steps. Zephyr defines no BT_HCI_OP_LE_CS_MAIN_MODE_0;
-     * the HCI step mode byte is 0x00 for Mode 0. */
-    if (p_local_step->mode == 0)
-    {
-        return fill_mode0_step(p_context, p_local_step, p_peer_step);
-    }
-
-    return true;
+    return parse_step(p_context, p_local_step, NULL);
 }
 
-/**
- * @brief Parse HCI step data and populate SubeventResultEvent step fields.
- *
- * Calls bt_ras_rreq_rd_subevent_data_parse with internal callbacks that
- * convert HCI Mode-2 and Mode-0 step data into SubeventResultEvent fields.
- * Sets step_count on both events after parsing.
- *
- * @param p_local_event  Output: initiator event to populate step data into.
- * @param p_peer_event   Output: reflector event to populate step data into.
- * @param p_peer_steps   Net buffer containing peer step data.
- * @param p_local_steps  Net buffer containing local step data.
- * @param role         CS role (initiator or reflector).
- */
-void cs_step_parse(SubeventResultEvent_t * p_local_event,
-                   SubeventResultEvent_t * p_peer_event,
-                   struct net_buf_simple * p_peer_steps,
-                   struct net_buf_simple * p_local_steps,
-                   enum bt_conn_le_cs_role role)
+bool cs_step_parse_step(struct cs_step_parse_context *  p_context,
+                        struct bt_le_cs_subevent_step * p_local_step,
+                        struct bt_le_cs_subevent_step * p_peer_step)
 {
-    struct cs_step_parse_context ctx = {
-        .p_local_event = p_local_event,
-        .p_peer_event  = p_peer_event,
-        .step_index    = 0,
-        .n_ap          = 0,
-    };
-
-    bt_ras_rreq_rd_subevent_data_parse(p_peer_steps,
-                                       p_local_steps,
-                                       role,
-                                       process_ranging_header,
-                                       NULL,
-                                       process_step_data,
-                                       &ctx);
-
-    p_local_event->step_count = ctx.step_index;
-    p_peer_event->step_count  = ctx.step_index;
+    if (p_local_step->mode != p_peer_step->mode || p_local_step->channel != p_peer_step->channel)
+    {
+        return false;
+    }
+    if (p_local_step->data == NULL || p_peer_step->data == NULL ||
+        (p_local_step->mode == 0 && p_peer_step->data_len != sizeof(struct bt_hci_le_cs_step_data_mode_0_initiator) &&
+         p_peer_step->data_len != sizeof(struct bt_hci_le_cs_step_data_mode_0_reflector)))
+    {
+        return false;
+    }
+    return parse_step(p_context, p_local_step, p_peer_step);
 }
 #endif /* CONFIG_BT_RAS_RREQ */
 
@@ -410,9 +382,10 @@ static inline uint8_t inline_n_ap(void)
  * semantics (local tone for quality/extension via tone_quality_from_hci /
  * extension_slot_from_hci, identity PCT for the peer event).
  */
-static void inline_process_step_mode2(struct cs_step_parse_context * ctx, struct bt_le_cs_subevent_step * local_step)
+static void inline_process_step_mode2(struct cs_step_parse_context *  p_context,
+                                      struct bt_le_cs_subevent_step * local_step)
 {
-    (void)fill_mode2_step(ctx, local_step, NULL);
+    (void)fill_mode2_step(p_context, local_step, NULL);
 }
 
 /** @brief Fill one Mode-0 step into both events for the inline (IPT) path.
@@ -421,9 +394,10 @@ static void inline_process_step_mode2(struct cs_step_parse_context * ctx, struct
  * semantics (real initiator fields on the local event, a zeroed reflector
  * step synthesized on the peer event).
  */
-static void inline_process_step_mode0(struct cs_step_parse_context * ctx, struct bt_le_cs_subevent_step * local_step)
+static void inline_process_step_mode0(struct cs_step_parse_context *  p_context,
+                                      struct bt_le_cs_subevent_step * local_step)
 {
-    (void)fill_mode0_step(ctx, local_step, NULL);
+    (void)fill_mode0_step(p_context, local_step, NULL);
 }
 
 void cs_step_parse_inline(SubeventResultEvent_t * p_local_event,
@@ -449,7 +423,7 @@ void cs_step_parse_inline(SubeventResultEvent_t * p_local_event,
     }
     n_ap = MIN(MAX(n_ap, 1u), MARS_CS_MAX_TONE_COUNT);
 
-    struct cs_step_parse_context ctx = {
+    struct cs_step_parse_context context = {
         .p_local_event = p_local_event,
         .p_peer_event  = p_peer_event,
         .step_index    = 0,
@@ -482,18 +456,18 @@ void cs_step_parse_inline(SubeventResultEvent_t * p_local_event,
 
         if (local_step.mode == BT_HCI_OP_LE_CS_MAIN_MODE_2)
         {
-            inline_process_step_mode2(&ctx, &local_step);
+            inline_process_step_mode2(&context, &local_step);
         }
         else if (local_step.mode == 0)
         {
             /* Mode-0 calibration step (HCI mode byte 0x00; Zephyr has no
              * BT_HCI_OP_LE_CS_MAIN_MODE_0 define). */
-            inline_process_step_mode0(&ctx, &local_step);
+            inline_process_step_mode0(&context, &local_step);
         }
 
         net_buf_simple_pull(p_local_steps, local_step.data_len);
     }
 
-    p_local_event->step_count = ctx.step_index;
-    p_peer_event->step_count  = ctx.step_index;
+    p_local_event->step_count = context.step_index;
+    p_peer_event->step_count  = context.step_index;
 }

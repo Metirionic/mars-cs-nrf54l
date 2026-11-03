@@ -17,29 +17,48 @@
 
 #include "mars_bluetooth_hci.h"
 
+struct cs_local_subevent;
+
+/** Called once per decoded subevent; event storage is reused after return. */
+typedef void (*subevent_emit_cb)(SubeventResultEvent_t * p_local_event, SubeventResultEvent_t * p_peer_event);
+
 /**
  * @brief Populate initiator and reflector SubeventResultEvent structures from CS subevent data (RAS).
  *
  * Parses both local and peer step data into SubeventResultEvent structures
- * suitable for feeding into a ranging flow or serializer.
+ * suitable for feeding into a ranging flow or serializer. Each decoded subevent
+ * pair is passed to p_emit separately, in order. Local headers and step slices
+ * must correspond to the peer's RAS subevents.
  *
- * @param p_local_event   Output: populated initiator event.
- * @param p_peer_event    Output: populated reflector event.
+ * The output event storage is reused after each callback returns. The callback
+ * must consume or copy the events before returning. Both step buffers are
+ * consumed during parsing.
+ *
+ * @param p_local_event   Output storage for the populated local event.
+ * @param p_peer_event    Output storage for the populated reflector/peer event.
  * @param local_mac       Local Bluetooth MAC address.
  * @param peer_mac        Peer Bluetooth MAC address.
- * @param p_result        Pointer to the local subevent result header.
+ * @param p_subevents     Local subevent headers and corresponding step-data lengths.
+ * @param subevent_count  Number of entries in p_subevents.
  * @param p_local_steps   Net buffer containing local step data.
  * @param p_peer_steps    Net buffer containing peer step data.
  * @param role            CS role (initiator or reflector).
+ * @param p_emit          Callback invoked for each decoded subevent pair.
+ *
+ * @return true if all subevents were decoded successfully; false for malformed
+ *         or mismatched data or a missing callback. Earlier valid pairs may
+ *         already have been emitted when parsing fails.
  */
-void subevent_populate(SubeventResultEvent_t *                p_local_event,
-                       SubeventResultEvent_t *                p_peer_event,
-                       uint64_t                               local_mac,
-                       uint64_t                               peer_mac,
-                       struct bt_conn_le_cs_subevent_result * p_result,
-                       struct net_buf_simple *                p_local_steps,
-                       struct net_buf_simple *                p_peer_steps,
-                       enum bt_conn_le_cs_role                role);
+bool subevent_populate(SubeventResultEvent_t *          p_local_event,
+                       SubeventResultEvent_t *          p_peer_event,
+                       uint64_t                         local_mac,
+                       uint64_t                         peer_mac,
+                       const struct cs_local_subevent * p_subevents,
+                       size_t                           subevent_count,
+                       struct net_buf_simple *          p_local_steps,
+                       struct net_buf_simple *          p_peer_steps,
+                       enum bt_conn_le_cs_role          role,
+                       subevent_emit_cb                 p_emit);
 
 /**
  * @brief Populate SubeventResultEvent structures from local-only CS subevent data (IPT mode).

@@ -55,7 +55,7 @@ static void process_subevent_cb(SubeventResultEvent_t * p_local_event, SubeventR
  * @brief Callback for ranging data received from peer (realtime or on-demand).
  *
  * Checks counter match, validates step data, populates SubeventResultEvents
- * via subevent_populate, serializes via UART COBS, and signals the main loop.
+ * via subevent_populate, serializes each subevent via UART COBS, and signals the main loop.
  */
 static void ranging_data_cb(struct bt_conn * p_conn, uint16_t ranging_counter, int err)
 {
@@ -143,16 +143,21 @@ static void ranging_data_cb(struct bt_conn * p_conn, uint16_t ranging_counter, i
     static SubeventResultEvent_t local_event;
     static SubeventResultEvent_t peer_event;
 
-    subevent_populate(&local_event,
-                      &peer_event,
-                      cs_initiator_get_local_mac(),
-                      cs_initiator_get_peer_mac(),
-                      cs_initiator_get_latest_subevent_header(),
-                      latest_local_steps,
-                      cs_initiator_get_peer_steps(),
-                      cs_config.role);
-
-    serialize_run(&local_event, &peer_event);
+    size_t                           subevent_count;
+    const struct cs_local_subevent * p_subevents = cs_initiator_get_subevents(&subevent_count);
+    if (!subevent_populate(&local_event,
+                           &peer_event,
+                           cs_initiator_get_local_mac(),
+                           cs_initiator_get_peer_mac(),
+                           p_subevents,
+                           subevent_count,
+                           latest_local_steps,
+                           cs_initiator_get_peer_steps(),
+                           cs_config.role,
+                           serialize_run))
+    {
+        LOG_ERR("Could not decode all subevents for ranging counter %u", ranging_counter);
+    }
 
     net_buf_simple_reset(latest_local_steps);
 
@@ -270,24 +275,12 @@ int main(void)
     cs_initiator_set_config_created_cb(config_create_hook);
 
     const struct cs_initiator_config config = {
-        /* Procedure cadence applies to ALL builds (RAS + IPT): this is
-         * intentional, not an IPT leak — the new cadence speeds up
-         * measurements across every antenna configuration (see #41).
-         * It supersedes the prior RAS-only defaults (procedure_phy=1M,
-         * min/max_procedure_interval=20/50, max_procedure_len=1000); any
-         * RAS fixture/calibration/range baseline assuming those must be
-         * re-baselined. Values match the Nordic ras_initiator sample:
-         * procedure_interval=10.
-         * The subevent length and connection interval are computed
-         * dynamically in cs_initiator_start from the negotiated config
-         * timings, channel map, and antenna paths; the connect-time
-         * interval in ble_scanning.c is intentionally conservative and is
-         * tightened after the capabilities exchange.
-         */
+        /* ~5.33 Hz at a 37.5 ms connection interval, with UART headroom for
+         * 75 Mode-0/2 steps at 921600 baud. Revisit if these settings change. */
         .cs_sync_phy            = BT_CONN_LE_CS_SYNC_1M_PHY,
         .procedure_phy          = BT_LE_CS_PROCEDURE_PHY_2M,
-        .min_procedure_interval = 10,
-        .max_procedure_interval = 10,
+        .min_procedure_interval = 5,
+        .max_procedure_interval = 5,
     };
 
     err = cs_initiator_start(&config);
