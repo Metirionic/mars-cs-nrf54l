@@ -20,6 +20,8 @@
 &uart20 {
     status = "okay";
     current-speed = <921600>;
+    /* DVK-BL54L15U: JMP1/JMP2 connect RTS/CTS to the USB bridge. */
+    hw-flow-control;
 };
 
 /* Antenna control below is implemented as described in the CS documentation.

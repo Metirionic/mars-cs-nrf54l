@@ -30,4 +30,5 @@ void serialize_run(SubeventResultEvent_t * p_local_event, SubeventResultEvent_t 
  */
 int serialize_send_log_message(const char * p_message);
 
+
 #endif /* SERIALIZE_H__ */

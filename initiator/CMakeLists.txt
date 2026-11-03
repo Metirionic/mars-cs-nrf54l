@@ -21,7 +21,7 @@ project(initiator)
 
 add_subdirectory(${CMAKE_CURRENT_LIST_DIR}/../common cs_common)
 
-target_sources(app PRIVATE src/main.c src/serialize.c
+target_sources(app PRIVATE src/main.c src/serialize.c src/ras_worker.c
                            ${CMAKE_CURRENT_LIST_DIR}/../common/rust_callbacks.c)
 target_include_directories(app PRIVATE src)
 target_link_libraries(app PRIVATE cs_common)

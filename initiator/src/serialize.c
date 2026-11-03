@@ -13,6 +13,7 @@
 #include <string.h>
 #include <zephyr/drivers/uart.h>
 #include <zephyr/logging/log.h>
+#include <zephyr/sys/atomic.h>
 
 #include "subevent.h"
 
@@ -55,6 +56,8 @@ static K_SEM_DEFINE(sem_tx_done, 1, 1);
 
 /** @brief One-time UART async init guard (callback registered on first TX). */
 static bool g_uart_async_init_done;
+/** Remains set until a complete transfer sends a delimiter and valid frames. */
+static atomic_t g_tx_resync_pending;
 
 /**
  * @brief Append data to the global UART TX buffer.
@@ -77,6 +80,11 @@ static int serialize_cb(void * p_data, size_t size)
 static void serialize_init(void)
 {
     g_total_written_size = 0u;
+    if (atomic_get(&g_tx_resync_pending))
+    {
+        /* End the previous partial COBS frame before starting a new one. */
+        g_serialized[g_total_written_size++] = 0;
+    }
 }
 
 /**
@@ -137,10 +145,12 @@ static void cobs_uart_async_cb(const struct device * p_dev, struct uart_event * 
     switch (p_evt->type)
     {
     case UART_TX_DONE:
+        atomic_set(&g_tx_resync_pending, p_evt->data.tx.len != g_total_written_size);
         k_sem_give(&sem_tx_done);
         break;
     case UART_TX_ABORTED:
         LOG_WRN("COBS UART TX aborted (%u bytes sent)", (unsigned)p_evt->data.tx.len);
+        atomic_set(&g_tx_resync_pending, 1);
         k_sem_give(&sem_tx_done);
         break;
     default:
@@ -192,6 +202,7 @@ static int serialize_send_log_message_locked(const char * p_message)
     (void)serialize_append_log_message(p_message);
     return uart_tx(gp_cobs_uart_dev, g_serialized, g_total_written_size, SYS_FOREVER_MS);
 }
+
 
 int serialize_send_log_message(const char * p_message)
 {

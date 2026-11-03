@@ -130,7 +130,7 @@ static bool fill_mode2_step(struct cs_step_parse_context *  ctx,
     const uint8_t n_ap = ctx->n_ap;
     const size_t  min_data_len =
         sizeof(struct bt_hci_le_cs_step_data_mode_2) + n_ap * sizeof(struct bt_hci_le_cs_step_data_tone_info);
-    if (p_local_step->data_len < min_data_len)
+    if (p_local_step->data_len < min_data_len || (p_peer_step != NULL && p_peer_step->data_len < min_data_len))
     {
         LOG_WRN("Mode-2 step data truncated: data_len=%u < required=%zu (n_ap=%u)",
                 (unsigned int)p_local_step->data_len,
@@ -149,6 +149,7 @@ static bool fill_mode2_step(struct cs_step_parse_context *  ctx,
         const bool              is_initiator = (event_index == 0u);
         Step_t *                p_step       = &p_event->steps.idx[ctx->step_index];
 
+        memset(p_step, 0, sizeof(*p_step));
         p_step->mode      = p_local_step->mode;
         p_step->channel   = p_local_step->channel;
         p_step->info.kind = MODE_ROLE_SPECIFIC_INFO_KIND_MODE2;
@@ -262,6 +263,7 @@ static bool fill_mode0_step(struct cs_step_parse_context *  ctx,
         const struct bt_le_cs_subevent_step * p_src_step = (event_index == 0u) ? p_local_step : p_peer_step;
         Step_t *                              p_step     = &p_event->steps.idx[ctx->step_index];
 
+        memset(p_step, 0, sizeof(*p_step));
         p_step->mode    = p_local_step->mode;
         p_step->channel = p_local_step->channel;
 
@@ -310,81 +312,128 @@ static bool fill_mode0_step(struct cs_step_parse_context *  ctx,
     return true;
 }
 
+/** Parse packet RTT data without inventing peer RTT measurements in IPT. */
+static bool fill_mode1_step(struct cs_step_parse_context *  ctx,
+                            struct bt_le_cs_subevent_step * local,
+                            struct bt_le_cs_subevent_step * peer)
+{
+    if (ctx->step_index >= 160)
+    {
+        return false;
+    }
+    for (size_t index = 0; index < 2; index++)
+    {
+        const struct bt_le_cs_subevent_step * src = index == 0 ? local : peer;
+        if (src != NULL &&
+            (src->data == NULL || (src->data_len != sizeof(struct bt_hci_le_cs_step_data_mode_1) &&
+                                   src->data_len != sizeof(struct bt_hci_le_cs_step_data_mode_1_ss_rtt))))
+        {
+            LOG_WRN("Invalid Mode-1 payload length %u", src->data_len);
+            return false;
+        }
+    }
+    for (size_t index = 0; index < 2; index++)
+    {
+        SubeventResultEvent_t *               event     = index == 0 ? ctx->p_local_event : ctx->p_peer_event;
+        const struct bt_le_cs_subevent_step * src       = index == 0 ? local : peer;
+        const bool                            initiator = event->origin == ORIGIN_INITIATOR;
+        const bool extended = src != NULL && src->data_len == sizeof(struct bt_hci_le_cs_step_data_mode_1_ss_rtt);
+        Step_t *   step     = &event->steps.idx[ctx->step_index];
+        memset(step, 0, sizeof(*step));
+        step->mode         = 1;
+        step->channel      = local->channel;
+        step->info.kind    = initiator ? (extended ? MODE_ROLE_SPECIFIC_INFO_KIND_MODE1_INITIATOR_PBR_RTT
+                                                   : MODE_ROLE_SPECIFIC_INFO_KIND_MODE1_INITIATOR)
+                                       : (extended ? MODE_ROLE_SPECIFIC_INFO_KIND_MODE1_REFLECTOR_PBR_RTT
+                                                   : MODE_ROLE_SPECIFIC_INFO_KIND_MODE1_REFLECTOR);
+        Mode1Data_t * data = &step->info.mode1;
+        if (src == NULL)
+        {
+            data->packet.packet_quality.access_address_check_result = 0x0f;
+            data->packet.packet_normalized_attack_detector_metric   = 0xff;
+            data->packet.packet_received_signal_strength_indicator  = 127;
+            data->timing.kind                                       = ROUND_TRIP_TIME_ROLE_TIMING_KIND_UNAVAILABLE;
+            data->timing.role_specific_timing_value                 = INT16_MIN;
+            continue;
+        }
+        const struct bt_hci_le_cs_step_data_mode_1 * raw        = (const void *)src->data;
+        data->packet.packet_quality.access_address_check_result = raw->packet_quality_aa_check;
+        data->packet.packet_quality.payload_bit_error_count     = raw->packet_quality_bit_errors;
+        data->packet.packet_normalized_attack_detector_metric   = raw->packet_nadm;
+        data->packet.packet_received_signal_strength_indicator  = (int8_t)raw->packet_rssi;
+        data->packet.packet_antenna                             = raw->packet_antenna;
+        /* Read explicitly as little-endian, preserving signed timing/sentinels. */
+        data->timing.role_specific_timing_value = (int16_t)((uint16_t)src->data[3] | ((uint16_t)src->data[4] << 8));
+        data->timing.kind = initiator ? ROUND_TRIP_TIME_ROLE_TIMING_KIND_TIME_OF_ARRIVAL_TIME_OF_DEPARTURE_INITIATOR
+                                      : ROUND_TRIP_TIME_ROLE_TIMING_KIND_TIME_OF_DEPARTURE_TIME_OF_ARRIVAL_REFLECTOR;
+        data->has_packet_phase_correction_terms = extended;
+        if (extended)
+        {
+            const struct bt_hci_le_cs_step_data_mode_1_ss_rtt * ss = (const void *)src->data;
+            pct_to_float(ss->packet_pct1,
+                         &data->packet_phase_correction_terms.first_phase_correction_term.i,
+                         &data->packet_phase_correction_terms.first_phase_correction_term.q);
+            pct_to_float(ss->packet_pct2,
+                         &data->packet_phase_correction_terms.second_phase_correction_term.i,
+                         &data->packet_phase_correction_terms.second_phase_correction_term.q);
+        }
+    }
+    ctx->step_index++;
+    return true;
+}
+
 #if IS_ENABLED(CONFIG_BT_RAS_RREQ)
-/** @brief Callback that extracts the antenna path count from the ranging header. */
-static bool process_ranging_header(struct ras_ranging_header * p_ranging_header, void * p_user_data)
+bool cs_step_parse_local_step(struct cs_step_parse_context * ctx, struct bt_le_cs_subevent_step * local)
 {
-    struct cs_step_parse_context * ctx = (struct cs_step_parse_context *)p_user_data;
-
-    ctx->n_ap =
-        MAX(1,
-            ((p_ranging_header->antenna_paths_mask & BIT(0)) + ((p_ranging_header->antenna_paths_mask & BIT(1)) >> 1) +
-             ((p_ranging_header->antenna_paths_mask & BIT(2)) >> 2) +
-             ((p_ranging_header->antenna_paths_mask & BIT(3)) >> 3)));
-
-    ctx->p_local_event->antenna_path_count = ctx->n_ap;
-    ctx->p_peer_event->antenna_path_count  = ctx->n_ap;
-
-    return true;
+    const uint8_t before = ctx->step_index;
+    bool          ok     = false;
+    if (local->mode == 0)
+    {
+        ok = fill_mode0_step(ctx, local, NULL);
+    }
+    else if (local->mode == 1)
+    {
+        ok = fill_mode1_step(ctx, local, NULL);
+    }
+    else if (local->mode == 2)
+    {
+        ok = fill_mode2_step(ctx, local, NULL);
+    }
+    return ok && ctx->step_index == before + 1;
 }
 
-/** @brief Callback that converts HCI Mode-2 and Mode-0 step data into SubeventResultEvent fields. */
-static bool process_step_data(struct bt_le_cs_subevent_step * p_local_step,
-                              struct bt_le_cs_subevent_step * p_peer_step,
-                              void *                          p_user_data)
+bool cs_step_parse_step(struct cs_step_parse_context *  ctx,
+                        struct bt_le_cs_subevent_step * local,
+                        struct bt_le_cs_subevent_step * peer)
 {
-    struct cs_step_parse_context * p_context = (struct cs_step_parse_context *)p_user_data;
-
-    if (p_local_step->mode == BT_HCI_OP_LE_CS_MAIN_MODE_2)
+    if (local->mode != peer->mode || local->channel != peer->channel)
     {
-        return fill_mode2_step(p_context, p_local_step, p_peer_step);
+        return false;
     }
-    /* Mode-0 calibration steps. Zephyr defines no BT_HCI_OP_LE_CS_MAIN_MODE_0;
-     * the HCI step mode byte is 0x00 for Mode 0. */
-    if (p_local_step->mode == 0)
+    if (local->data == NULL || peer->data == NULL ||
+        (local->mode == 0 && peer->data_len != sizeof(struct bt_hci_le_cs_step_data_mode_0_initiator) &&
+         peer->data_len != sizeof(struct bt_hci_le_cs_step_data_mode_0_reflector)))
     {
-        return fill_mode0_step(p_context, p_local_step, p_peer_step);
+        return false;
     }
-
-    return true;
-}
-
-/**
- * @brief Parse HCI step data and populate SubeventResultEvent step fields.
- *
- * Calls bt_ras_rreq_rd_subevent_data_parse with internal callbacks that
- * convert HCI Mode-2 and Mode-0 step data into SubeventResultEvent fields.
- * Sets step_count on both events after parsing.
- *
- * @param p_local_event  Output: initiator event to populate step data into.
- * @param p_peer_event   Output: reflector event to populate step data into.
- * @param p_peer_steps   Net buffer containing peer step data.
- * @param p_local_steps  Net buffer containing local step data.
- * @param role         CS role (initiator or reflector).
- */
-void cs_step_parse(SubeventResultEvent_t * p_local_event,
-                   SubeventResultEvent_t * p_peer_event,
-                   struct net_buf_simple * p_peer_steps,
-                   struct net_buf_simple * p_local_steps,
-                   enum bt_conn_le_cs_role role)
-{
-    struct cs_step_parse_context ctx = {
-        .p_local_event = p_local_event,
-        .p_peer_event  = p_peer_event,
-        .step_index    = 0,
-        .n_ap          = 0,
-    };
-
-    bt_ras_rreq_rd_subevent_data_parse(p_peer_steps,
-                                       p_local_steps,
-                                       role,
-                                       process_ranging_header,
-                                       NULL,
-                                       process_step_data,
-                                       &ctx);
-
-    p_local_event->step_count = ctx.step_index;
-    p_peer_event->step_count  = ctx.step_index;
+    const uint8_t before = ctx->step_index;
+    bool          ok     = false;
+    switch (local->mode)
+    {
+    case 0:
+        ok = fill_mode0_step(ctx, local, peer);
+        break;
+    case 1:
+        ok = fill_mode1_step(ctx, local, peer);
+        break;
+    case 2:
+        ok = fill_mode2_step(ctx, local, peer);
+        break;
+    default:
+        LOG_ERR("Unsupported step mode %u", local->mode);
+        break;
+    }
+    return ok && ctx->step_index == before + 1;
 }
 #endif /* CONFIG_BT_RAS_RREQ */
 
@@ -483,6 +532,14 @@ void cs_step_parse_inline(SubeventResultEvent_t * p_local_event,
         if (local_step.mode == BT_HCI_OP_LE_CS_MAIN_MODE_2)
         {
             inline_process_step_mode2(&ctx, &local_step);
+        }
+        else if (local_step.mode == 1)
+        {
+            if (!fill_mode1_step(&ctx, &local_step, NULL))
+            {
+                LOG_WRN("Inline parse: malformed Mode-1 step or step capacity exceeded");
+                break;
+            }
         }
         else if (local_step.mode == 0)
         {

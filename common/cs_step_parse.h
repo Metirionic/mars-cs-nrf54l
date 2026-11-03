@@ -24,15 +24,19 @@ struct cs_step_parse_context
 {
     SubeventResultEvent_t * p_local_event; /**< Output: initiator event being populated. */
     SubeventResultEvent_t * p_peer_event;  /**< Output: reflector event being populated. */
-    uint8_t                 step_index;    /**< Current step index within the procedure. */
+    uint8_t                 step_index;    /**< Current step index within the subevent. */
     uint8_t                 n_ap;          /**< Number of antenna paths in current ranging header. */
 };
 
-void cs_step_parse(SubeventResultEvent_t * p_local_event,
-                   SubeventResultEvent_t * p_peer_event,
-                   struct net_buf_simple * p_peer_steps,
-                   struct net_buf_simple * p_local_steps,
-                   enum bt_conn_le_cs_role role);
+/** Parse a local step when the peer omitted its aborted subevent's data.
+ * The caller emits the peer with zero steps; synthesized peer slots are unused.
+ */
+bool cs_step_parse_local_step(struct cs_step_parse_context * ctx, struct bt_le_cs_subevent_step * local);
+
+/** Parse one paired RAS step. False means malformed data or exhausted capacity. */
+bool cs_step_parse_step(struct cs_step_parse_context *  ctx,
+                        struct bt_le_cs_subevent_step * local,
+                        struct bt_le_cs_subevent_step * peer);
 
 /**
  * @brief Parse local-only step data and populate SubeventResultEvent step fields (IPT).

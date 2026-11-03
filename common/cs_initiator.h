@@ -63,9 +63,8 @@
 #else  // defined(CONFIG_BT_RAS_RREQ) || defined(CONFIG_BT_RAS_RRSP)
 /* IPT-mode local step buffer sizing.
  *
- * The negotiated CS mode is MAIN_MODE_2 with no sub-mode or with sub-mode-1
- * (which inserts mode-0 steps), so the local buffer only ever holds mode-0 and
- * mode-2 step data. Mode-1 / mode-3 / sounding-sequence RTT are never produced.
+ * IPT negotiates MAIN_MODE_2 with no sub-mode. The buffer holds mode-0
+ * calibration and mode-2 tone steps; mode-1 and mode-3 are not negotiated.
  *
  * Mirrors the RAS sizing in bluetooth/services/ras.h, but parameterises it on
  * the controller's antenna-path Kconfig and accounts for the IPT step framing
@@ -93,9 +92,9 @@
  * @brief Target-specific CS initiator configuration parameters.
  *
  * Passed to cs_initiator_start() to control PHY selection and procedure
- * cadence. Subevent length, CS event length, and connection interval are
- * computed dynamically from the negotiated capabilities (antenna paths,
- * timings, channel map) and are no longer configured here.
+ * cadence. Timing is selected in cs_initiator_start(): dynamically from
+ * negotiated capabilities for IPT, or fixed 16 ms subevents with a 90 ms
+ * procedure budget for the RAS multi-subevent trial.
  */
 struct cs_initiator_config
 {
@@ -135,11 +134,11 @@ typedef void (*cs_initiator_config_created_cb)(struct bt_conn_le_cs_config * p_c
 /**
  * @brief Callback type for processing populated SubeventResultEvents (IPT mode).
  *
- * Called from the shared IPT procedure-completion skeleton in cs_initiator.c
+ * Called from the shared IPT subevent-completion skeleton in cs_initiator.c
  * after the local and peer events have been populated via
  * subevent_populate_inline(). The app does its work here — serialize over
  * UART (COBS initiator), feed into a ranging flow, or nothing (the main loop
- * does the ranging). Called only on a successful, non-empty procedure.
+ * does the ranging). Called for each handed-off, non-empty subevent.
  *
  * @param p_local_event  Populated initiator SubeventResultEvent.
  * @param p_peer_event   Populated reflector SubeventResultEvent (identity PCT).
@@ -160,9 +159,19 @@ struct net_buf_simple *                cs_initiator_get_local_steps(void);
 struct net_buf_simple *                cs_initiator_get_peer_steps(void);
 int32_t                                cs_initiator_get_local_ranging_counter(void);
 struct bt_conn_le_cs_subevent_result * cs_initiator_get_latest_subevent_header(void);
-void                                   cs_initiator_give_sem_local_steps(void);
-void                                   cs_initiator_give_sem_data_ready(void);
-void                                   cs_initiator_take_sem_data_ready(void);
+#if defined(CONFIG_BT_RAS_RREQ)
+/** One local subevent and its slice of the procedure's raw step buffer. */
+struct cs_local_subevent
+{
+    struct bt_conn_le_cs_subevent_result result;
+    uint16_t                             data_len;
+};
+/** Retained until cs_initiator_give_sem_local_steps(). */
+const struct cs_local_subevent * cs_initiator_get_subevents(size_t * count);
+#endif
+void cs_initiator_give_sem_local_steps(void);
+void cs_initiator_give_sem_data_ready(void);
+void cs_initiator_take_sem_data_ready(void);
 #if defined(CONFIG_MARS_CS_INLINE_PCT)
 /** @brief Consume the pending IPT event pair on the caller's thread (IPT only).
  *

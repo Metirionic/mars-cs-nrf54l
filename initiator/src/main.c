@@ -25,6 +25,9 @@
 #include "cs_initiator.h"
 #include "cs_watchdog.h"
 #include "serialize.h"
+#if IS_ENABLED(CONFIG_BT_RAS_RREQ)
+#include "ras_worker.h"
+#endif
 #include "subevent.h"
 
 LOG_MODULE_REGISTER(app_main, LOG_LEVEL_INF);
@@ -55,7 +58,7 @@ static void process_subevent_cb(SubeventResultEvent_t * p_local_event, SubeventR
  * @brief Callback for ranging data received from peer (realtime or on-demand).
  *
  * Checks counter match, validates step data, populates SubeventResultEvents
- * via subevent_populate, serializes via UART COBS, and signals the main loop.
+ * via an owned snapshot queued to the main-loop worker. No UART waits run here.
  */
 static void ranging_data_cb(struct bt_conn * p_conn, uint16_t ranging_counter, int err)
 {
@@ -69,7 +72,7 @@ static void ranging_data_cb(struct bt_conn * p_conn, uint16_t ranging_counter, i
         char msg[64];
 
         snprintf(msg, sizeof(msg), "RD error: counter %u, err %d", ranging_counter, err);
-        (void)serialize_send_log_message(msg);
+        ras_worker_log(msg);
 
         /* Mirror the mismatch/aborted recovery below: the sem was taken at
          * the new-procedure gate in cs_initiator.c, and without this give
@@ -99,7 +102,7 @@ static void ranging_data_cb(struct bt_conn * p_conn, uint16_t ranging_counter, i
         char msg[64];
 
         snprintf(msg, sizeof(msg), "RD dropped: peer %u, local %u", ranging_counter, local_ranging_counter);
-        (void)serialize_send_log_message(msg);
+        ras_worker_log(msg);
 
         net_buf_simple_reset(cs_initiator_get_local_steps());
 
@@ -123,7 +126,7 @@ static void ranging_data_cb(struct bt_conn * p_conn, uint16_t ranging_counter, i
         char msg[64];
 
         snprintf(msg, sizeof(msg), "All subevents aborted: counter %u", local_ranging_counter);
-        (void)serialize_send_log_message(msg);
+        ras_worker_log(msg);
 
         net_buf_simple_reset(latest_local_steps);
         cs_initiator_give_sem_local_steps();
@@ -140,19 +143,15 @@ static void ranging_data_cb(struct bt_conn * p_conn, uint16_t ranging_counter, i
      * the abort-storm RDs keep arriving at 5/s but never reach this point. */
     cs_watchdog_pet();
 
-    static SubeventResultEvent_t local_event;
-    static SubeventResultEvent_t peer_event;
-
-    subevent_populate(&local_event,
-                      &peer_event,
-                      cs_initiator_get_local_mac(),
-                      cs_initiator_get_peer_mac(),
-                      cs_initiator_get_latest_subevent_header(),
-                      latest_local_steps,
-                      cs_initiator_get_peer_steps(),
-                      cs_config.role);
-
-    serialize_run(&local_event, &peer_event);
+    size_t                           subevent_count;
+    const struct cs_local_subevent * subevents = cs_initiator_get_subevents(&subevent_count);
+    (void)ras_worker_submit(subevents,
+                            subevent_count,
+                            latest_local_steps,
+                            cs_initiator_get_peer_steps(),
+                            cs_initiator_get_local_mac(),
+                            cs_initiator_get_peer_mac(),
+                            cs_config.role);
 
     net_buf_simple_reset(latest_local_steps);
 
@@ -162,7 +161,6 @@ static void ranging_data_cb(struct bt_conn * p_conn, uint16_t ranging_counter, i
     }
 
     cs_initiator_give_sem_local_steps();
-    cs_initiator_give_sem_data_ready();
 }
 
 /** @brief Callback for RAS "data ready" — requests on-demand ranging data from peer. */
@@ -234,6 +232,7 @@ int main(void)
 {
     int err;
 
+
     const struct device * rf_switch_supply_gpio = DEVICE_DT_GET(RF_SWITCH_SUPPLY_GPIO_NODE);
     if (!device_is_ready(rf_switch_supply_gpio))
     {
@@ -278,16 +277,22 @@ int main(void)
          * RAS fixture/calibration/range baseline assuming those must be
          * re-baselined. Values match the Nordic ras_initiator sample:
          * procedure_interval=10.
-         * The subevent length and connection interval are computed
-         * dynamically in cs_initiator_start from the negotiated config
-         * timings, channel map, and antenna paths; the connect-time
+         * IPT timing is computed dynamically in cs_initiator_start from
+         * the negotiated config. The RAS multi-subevent trial instead uses
+         * 16 ms subevents and a 90 ms procedure budget; the connect-time
          * interval in ble_scanning.c is intentionally conservative and is
          * tightened after the capabilities exchange.
          */
         .cs_sync_phy            = BT_CONN_LE_CS_SYNC_1M_PHY,
         .procedure_phy          = BT_LE_CS_PROCEDURE_PHY_2M,
+#if IS_ENABLED(CONFIG_BT_RAS_RREQ)
+        /* Single-subevent trial; 9 connection events at 32.5 ms = 292.5 ms. */
+        .min_procedure_interval = 9,
+        .max_procedure_interval = 9,
+#else
         .min_procedure_interval = 10,
         .max_procedure_interval = 10,
+#endif
     };
 
     err = cs_initiator_start(&config);
@@ -305,7 +310,7 @@ int main(void)
          * thread; #173). */
         cs_initiator_consume_pending_event();
 #else
-        cs_initiator_take_sem_data_ready();
+        ras_worker_process();
 #endif
     }
 
