@@ -22,7 +22,7 @@
 #define CS_WATCHDOG_H
 
 /**
- * @brief Recovery callback invoked on watchdog expiry (system workqueue context).
+ * @brief Recovery callback invoked on watchdog expiry (dedicated workqueue context).
  *
  * Must force recovery: disconnect the connection (both boards reboot via the
  * existing disconnected_cb -> sys_reboot path) or reboot directly.
@@ -30,7 +30,7 @@
 typedef void (*cs_watchdog_recovery_t)(void);
 
 /**
- * @brief Initialize the CS liveness watchdog.
+ * @brief Initialize the CS liveness watchdog once, before the first pet.
  *
  * @param recovery  Callback invoked on expiry; may be NULL (log-only).
  */
