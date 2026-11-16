@@ -285,7 +285,10 @@ int main(void)
     err = cs_initiator_start(&config);
     if (err)
     {
-        LOG_ERR("CS initiator start failed (err %d)", err);
+        LOG_ERR("CS initiator start failed (err %d); rebooting", err);
+        /* Reset pending callbacks and connection state before retrying setup. */
+        k_sleep(K_SECONDS(1));
+        sys_reboot(SYS_REBOOT_COLD);
         return 0;
     }
 

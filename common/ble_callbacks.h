@@ -15,6 +15,19 @@
 #include <zephyr/bluetooth/cs.h>
 #include <zephyr/kernel.h>
 
+/** One setup phase: callbacks store a negative errno or zero before waking the waiter. */
+struct ble_setup_completion
+{
+    struct k_sem done;
+    int          result;
+};
+
+static inline void ble_setup_complete(struct ble_setup_completion * completion, int result)
+{
+    completion->result = result;
+    k_sem_give(&completion->done);
+}
+
 struct bt_conn * ble_callbacks_get_connection(void);
 
 /**
@@ -31,11 +44,12 @@ typedef void (*bt_le_cs_subevent_data_available_cb)(struct bt_conn *            
  */
 typedef void (*bt_le_cs_config_created_cb)(struct bt_conn_le_cs_config * p_config);
 
-void ble_callbacks_register(struct k_sem * p_sem_connected,
-                            struct k_sem * p_sem_security,
-                            struct k_sem * p_sem_remote_capabilities_obtained,
-                            struct k_sem * p_sem_config_created,
-                            struct k_sem * p_sem_cs_security_enabled);
+void ble_callbacks_register(struct ble_setup_completion * p_setup_connected,
+                            struct ble_setup_completion * p_setup_security,
+                            struct ble_setup_completion * p_setup_remote_capabilities_obtained,
+                            struct ble_setup_completion * p_setup_config_created,
+                            struct ble_setup_completion * p_setup_cs_security_enabled,
+                            struct ble_setup_completion * p_setup_procedure_enabled);
 
 void ble_callbacks_set_subevent_data_cb(bt_le_cs_subevent_data_available_cb p_cb);
 

@@ -11,6 +11,7 @@
 #include "cs_initiator.h"
 
 #include <bluetooth/scan.h>
+#include <errno.h>
 #include <zephyr/bluetooth/conn.h>
 #include <zephyr/bluetooth/cs.h>
 #include <zephyr/bluetooth/gatt.h>
@@ -28,13 +29,30 @@
 
 LOG_MODULE_DECLARE(app_main, LOG_LEVEL_INF);
 
-/* Semaphores */
+/** Wait for an asynchronous setup result; a missing callback is a timeout. */
+static int wait_for_setup(struct ble_setup_completion * completion, const char * phase)
+{
+    int err = k_sem_take(&completion->done, K_MSEC(CONFIG_MARS_CS_SETUP_TIMEOUT_MS));
+    if (err)
+    {
+        LOG_ERR("Setup timed out: %s", phase);
+        return -ETIMEDOUT;
+    }
+    if (completion->result)
+    {
+        LOG_ERR("Setup failed: %s (err %d)", phase, completion->result);
+    }
+    return completion->result;
+}
+
+/* Setup completions and data handoff semaphores. */
 static K_SEM_DEFINE(sem_data_ready, 0, 1);
-static K_SEM_DEFINE(sem_remote_capabilities_obtained, 0, 1);
-static K_SEM_DEFINE(sem_config_created, 0, 1);
-static K_SEM_DEFINE(sem_cs_security_enabled, 0, 1);
-static K_SEM_DEFINE(sem_connected, 0, 1);
-static K_SEM_DEFINE(sem_security, 0, 1);
+static struct ble_setup_completion setup_remote_capabilities_obtained;
+static struct ble_setup_completion setup_config_created;
+static struct ble_setup_completion setup_cs_security_enabled;
+static struct ble_setup_completion setup_connected;
+static struct ble_setup_completion setup_security;
+static struct ble_setup_completion setup_procedure_enabled;
 static K_SEM_DEFINE(sem_local_steps, 1, 1);
 #if IS_ENABLED(CONFIG_MARS_CS_INLINE_PCT)
 /** @brief IPT event handoff (#173): 1 = the event pair below is free for the
@@ -47,9 +65,9 @@ static SubeventResultEvent_t g_local_event;
 static SubeventResultEvent_t g_peer_event;
 #endif
 #if IS_ENABLED(CONFIG_BT_RAS_RREQ)
-static K_SEM_DEFINE(sem_discovery_done, 0, 1);
-static K_SEM_DEFINE(sem_mtu_exchange_done, 0, 1);
-static K_SEM_DEFINE(sem_ras_features, 0, 1);
+static struct ble_setup_completion setup_discovery_done;
+static struct ble_setup_completion setup_mtu_exchange_done;
+static struct ble_setup_completion setup_ras_features;
 NET_BUF_SIMPLE_DEFINE_STATIC(latest_peer_steps, BT_RAS_PROCEDURE_MEM);
 #endif
 NET_BUF_SIMPLE_DEFINE_STATIC(latest_local_steps, LOCAL_PROCEDURE_MEM);
@@ -274,7 +292,7 @@ static void ras_features_read_cb(struct bt_conn * p_conn, uint32_t feature_bits,
         ras_feature_bits = feature_bits;
     }
 
-    k_sem_give(&sem_ras_features);
+    ble_setup_complete(&setup_ras_features, err < 0 ? err : (err ? -EIO : 0));
 }
 #endif  // CONFIG_BT_RAS_RREQ
 
@@ -434,11 +452,12 @@ static void mtu_exchange_cb(struct bt_conn * p_conn, uint8_t err, struct bt_gatt
     if (err)
     {
         LOG_ERR("MTU exchange failed (err %d)", err);
+        ble_setup_complete(&setup_mtu_exchange_done, -EIO);
         return;
     }
 
     LOG_INF("MTU exchange success (%u)", bt_gatt_get_mtu(p_conn));
-    k_sem_give(&sem_mtu_exchange_done);
+    ble_setup_complete(&setup_mtu_exchange_done, 0);
 }
 
 /** @brief Callback for GATT discovery completion — allocates RAS handles. */
@@ -458,27 +477,27 @@ static void discovery_completed_cb(struct bt_gatt_dm * p_dm, void * p_context)
         LOG_ERR("RAS RREQ alloc init failed (err %d)", err);
     }
 
-    err = bt_gatt_dm_data_release(p_dm);
-    if (err)
+    int release_err = bt_gatt_dm_data_release(p_dm);
+    if (release_err)
     {
-        LOG_ERR("Could not release the discovery data (err %d)", err);
+        LOG_ERR("Could not release the discovery data (err %d)", release_err);
     }
 
-    k_sem_give(&sem_discovery_done);
+    ble_setup_complete(&setup_discovery_done, err ? err : release_err);
 }
 
 /** @brief Callback for GATT service not found during discovery. */
 static void discovery_service_not_found_cb(struct bt_conn * p_conn, void * p_context)
 {
-    LOG_INF("The service could not be found during the discovery, disconnecting");
-    bt_conn_disconnect(ble_callbacks_get_connection(), BT_HCI_ERR_REMOTE_USER_TERM_CONN);
+    LOG_ERR("Ranging Service not found");
+    ble_setup_complete(&setup_discovery_done, -ENOENT);
 }
 
 /** @brief Callback for GATT discovery error. */
 static void discovery_error_found_cb(struct bt_conn * p_conn, int err, void * p_context)
 {
     LOG_INF("The discovery procedure failed (err %d)", err);
-    bt_conn_disconnect(ble_callbacks_get_connection(), BT_HCI_ERR_REMOTE_USER_TERM_CONN);
+    ble_setup_complete(&setup_discovery_done, err < 0 ? err : -EIO);
 }
 
 static struct bt_gatt_dm_cb discovery_cb = {
@@ -510,11 +529,32 @@ int cs_initiator_start(const struct cs_initiator_config * p_config)
 {
     int err;
 
-    ble_callbacks_register(&sem_connected,
-                           &sem_security,
-                           &sem_remote_capabilities_obtained,
-                           &sem_config_created,
-                           &sem_cs_security_enabled);
+    /* Startup is one-shot; the application reboots after any setup failure. */
+    struct ble_setup_completion * completions[] = {
+        &setup_connected,
+        &setup_security,
+        &setup_remote_capabilities_obtained,
+        &setup_config_created,
+        &setup_cs_security_enabled,
+        &setup_procedure_enabled,
+#if IS_ENABLED(CONFIG_BT_RAS_RREQ)
+        &setup_mtu_exchange_done,
+        &setup_discovery_done,
+        &setup_ras_features,
+#endif
+    };
+    for (size_t i = 0; i < ARRAY_SIZE(completions); i++)
+    {
+        k_sem_init(&completions[i]->done, 0, 1);
+        completions[i]->result = -EINPROGRESS;
+    }
+
+    ble_callbacks_register(&setup_connected,
+                           &setup_security,
+                           &setup_remote_capabilities_obtained,
+                           &setup_config_created,
+                           &setup_cs_security_enabled,
+                           &setup_procedure_enabled);
     ble_callbacks_set_subevent_data_cb(subevent_result_cb);
     ble_callbacks_set_config_created_cb(config_created_forwarder);
 
@@ -532,7 +572,13 @@ int cs_initiator_start(const struct cs_initiator_config * p_config)
         return err;
     }
 
-    k_sem_take(&sem_connected, K_FOREVER);
+    /* A reflector may be absent indefinitely; only setup after connection has a deadline. */
+    k_sem_take(&setup_connected.done, K_FOREVER);
+    err = setup_connected.result;
+    if (err)
+    {
+        return err;
+    }
 
     bt_addr_le_t local_addrs[1];
     size_t       local_count = 1;
@@ -548,13 +594,30 @@ int cs_initiator_start(const struct cs_initiator_config * p_config)
         return err;
     }
 
-    k_sem_take(&sem_security, K_FOREVER);
+    /* An already encrypted link needs no new security callback. */
+    if (bt_conn_get_security(ble_callbacks_get_connection()) < BT_SECURITY_L2)
+    {
+        err = wait_for_setup(&setup_security, "security");
+        if (err)
+        {
+            return err;
+        }
+    }
 
 #if !IS_ENABLED(CONFIG_MARS_CS_INLINE_PCT)
     /* RAS mode: exchange MTU and discover the Ranging Service before subscribing. */
-    bt_gatt_exchange_mtu(ble_callbacks_get_connection(), &mtu_exchange_params);
+    err = bt_gatt_exchange_mtu(ble_callbacks_get_connection(), &mtu_exchange_params);
+    if (err)
+    {
+        LOG_ERR("Could not start MTU exchange (err %d)", err);
+        return err;
+    }
 
-    k_sem_take(&sem_mtu_exchange_done, K_FOREVER);
+    err = wait_for_setup(&setup_mtu_exchange_done, "MTU exchange");
+    if (err)
+    {
+        return err;
+    }
 
     err = bt_gatt_dm_start(ble_callbacks_get_connection(), BT_UUID_RANGING_SERVICE, &discovery_cb, NULL);
     if (err)
@@ -563,7 +626,11 @@ int cs_initiator_start(const struct cs_initiator_config * p_config)
         return err;
     }
 
-    k_sem_take(&sem_discovery_done, K_FOREVER);
+    err = wait_for_setup(&setup_discovery_done, "GATT discovery");
+    if (err)
+    {
+        return err;
+    }
 #endif  // !IS_ENABLED(CONFIG_MARS_CS_INLINE_PCT)
 
     const struct bt_le_cs_set_default_settings_param default_settings = {
@@ -589,7 +656,11 @@ int cs_initiator_start(const struct cs_initiator_config * p_config)
         return err;
     }
 
-    k_sem_take(&sem_ras_features, K_FOREVER);
+    err = wait_for_setup(&setup_ras_features, "RAS features");
+    if (err)
+    {
+        return err;
+    }
 
     const bool realtime_rd = ras_feature_bits & RAS_FEAT_REALTIME_RD;
 
@@ -641,7 +712,11 @@ int cs_initiator_start(const struct cs_initiator_config * p_config)
         return err;
     }
 
-    k_sem_take(&sem_remote_capabilities_obtained, K_FOREVER);
+    err = wait_for_setup(&setup_remote_capabilities_obtained, "CS capability exchange");
+    if (err)
+    {
+        return err;
+    }
 
     struct bt_le_cs_create_config_params config_params = {
         .id                     = CS_CONFIG_ID,
@@ -674,7 +749,11 @@ int cs_initiator_start(const struct cs_initiator_config * p_config)
         return err;
     }
 
-    k_sem_take(&sem_config_created, K_FOREVER);
+    err = wait_for_setup(&setup_config_created, "CS config creation");
+    if (err)
+    {
+        return err;
+    }
 
     err = bt_le_cs_security_enable(ble_callbacks_get_connection());
     if (err)
@@ -683,7 +762,11 @@ int cs_initiator_start(const struct cs_initiator_config * p_config)
         return err;
     }
 
-    k_sem_take(&sem_cs_security_enabled, K_FOREVER);
+    err = wait_for_setup(&setup_cs_security_enabled, "CS security enable");
+    if (err)
+    {
+        return err;
+    }
 
     const uint8_t ANTENNA_CONFIG         = antenna_get_config_for_role(BT_CONN_LE_CS_ROLE_INITIATOR);
     const uint8_t PREFERRED_PEER_ANTENNA = antenna_get_peer_mask();
@@ -821,5 +904,5 @@ int cs_initiator_start(const struct cs_initiator_config * p_config)
         return err;
     }
 
-    return 0;
+    return wait_for_setup(&setup_procedure_enabled, "CS procedure enable");
 }
