@@ -11,6 +11,7 @@
 #include "ble_callbacks.h"
 
 #include <dk_buttons_and_leds.h>
+#include <errno.h>
 #include <zephyr/bluetooth/cs.h>
 #include <zephyr/logging/log.h>
 #include <zephyr/sys/byteorder.h>
@@ -24,11 +25,12 @@ LOG_MODULE_DECLARE(app_main, LOG_LEVEL_INF);
 
 static struct bt_conn * gp_connection;
 
-static struct k_sem * gp_sem_connected;
-static struct k_sem * gp_sem_security;
-static struct k_sem * gp_sem_remote_capabilities_obtained;
-static struct k_sem * gp_sem_config_created;
-static struct k_sem * gp_sem_cs_security_enabled;
+static struct ble_setup_completion * gp_setup_connected;
+static struct ble_setup_completion * gp_setup_security;
+static struct ble_setup_completion * gp_setup_remote_capabilities_obtained;
+static struct ble_setup_completion * gp_setup_config_created;
+static struct ble_setup_completion * gp_setup_cs_security_enabled;
+static struct ble_setup_completion * gp_setup_procedure_enabled;
 
 static bt_le_cs_subevent_data_available_cb gp_subevent_data_cb;
 static bt_le_cs_config_created_cb          gp_config_created_cb;
@@ -41,26 +43,20 @@ struct bt_conn * ble_callbacks_get_connection(void)
     return gp_connection;
 }
 
-/**
- * @brief Register semaphore pointers used by the BLE callbacks.
- *
- * @param p_sem_connected                      Semaphore given on BLE connection.
- * @param p_sem_security                       Semaphore given on security change.
- * @param p_sem_remote_capabilities_obtained   Semaphore given on CS capability exchange.
- * @param p_sem_config_created                 Semaphore given on CS config creation.
- * @param p_sem_cs_security_enabled            Semaphore given on CS security enable.
- */
-void ble_callbacks_register(struct k_sem * p_sem_connected,
-                            struct k_sem * p_sem_security,
-                            struct k_sem * p_sem_remote_capabilities_obtained,
-                            struct k_sem * p_sem_config_created,
-                            struct k_sem * p_sem_cs_security_enabled)
+/** @brief Register setup results before starting BLE operations. */
+void ble_callbacks_register(struct ble_setup_completion * p_setup_connected,
+                            struct ble_setup_completion * p_setup_security,
+                            struct ble_setup_completion * p_setup_remote_capabilities_obtained,
+                            struct ble_setup_completion * p_setup_config_created,
+                            struct ble_setup_completion * p_setup_cs_security_enabled,
+                            struct ble_setup_completion * p_setup_procedure_enabled)
 {
-    gp_sem_connected                    = p_sem_connected;
-    gp_sem_security                     = p_sem_security;
-    gp_sem_remote_capabilities_obtained = p_sem_remote_capabilities_obtained;
-    gp_sem_config_created               = p_sem_config_created;
-    gp_sem_cs_security_enabled          = p_sem_cs_security_enabled;
+    gp_setup_procedure_enabled            = p_setup_procedure_enabled;
+    gp_setup_connected                    = p_setup_connected;
+    gp_setup_security                     = p_setup_security;
+    gp_setup_remote_capabilities_obtained = p_setup_remote_capabilities_obtained;
+    gp_setup_config_created               = p_setup_config_created;
+    gp_setup_cs_security_enabled          = p_setup_cs_security_enabled;
 }
 
 /**
@@ -106,12 +102,13 @@ static void connected_cb(struct bt_conn * p_conn, uint8_t err)
     {
         bt_conn_unref(p_conn);
         gp_connection = NULL;
+        ble_setup_complete(gp_setup_connected, -ECONNREFUSED);
     }
     else
     {
         gp_connection = bt_conn_ref(p_conn);
 
-        k_sem_give(gp_sem_connected);
+        ble_setup_complete(gp_setup_connected, 0);
 
         dk_set_led_on(CON_STATUS_LED);
     }
@@ -139,11 +136,12 @@ static void remote_capabilities_cb(struct bt_conn * p_conn, uint8_t status, stru
     {
         antenna_set_peer_count(params->num_antennas_supported);
         LOG_INF("CS capability exchange completed. (peer antennas: %u)", params->num_antennas_supported);
-        k_sem_give(gp_sem_remote_capabilities_obtained);
+        ble_setup_complete(gp_setup_remote_capabilities_obtained, 0);
     }
     else
     {
         LOG_WRN("CS capability exchange failed. (HCI status 0x%02x)", status);
+        ble_setup_complete(gp_setup_remote_capabilities_obtained, -EIO);
     }
 }
 
@@ -221,11 +219,12 @@ static void config_create_cb(struct bt_conn * p_conn, uint8_t status, struct bt_
             gp_config_created_cb(config);
         }
 
-        k_sem_give(gp_sem_config_created);
+        ble_setup_complete(gp_setup_config_created, 0);
     }
     else
     {
         LOG_WRN("CS config creation failed. (HCI status 0x%02x)", status);
+        ble_setup_complete(gp_setup_config_created, -EIO);
     }
 }
 
@@ -237,11 +236,12 @@ static void security_enable_cb(struct bt_conn * p_conn, uint8_t status)
     if (status == BT_HCI_ERR_SUCCESS)
     {
         LOG_INF("CS security enabled.");
-        k_sem_give(gp_sem_cs_security_enabled);
+        ble_setup_complete(gp_setup_cs_security_enabled, 0);
     }
     else
     {
         LOG_WRN("CS security enable failed. (HCI status 0x%02x)", status);
+        ble_setup_complete(gp_setup_cs_security_enabled, -EIO);
     }
 }
 
@@ -251,6 +251,8 @@ static void procedure_enable_cb(struct bt_conn *                                
                                 struct bt_conn_le_cs_procedure_enable_complete * params)
 {
     ARG_UNUSED(p_conn);
+
+    ble_setup_complete(gp_setup_procedure_enabled, status == BT_HCI_ERR_SUCCESS && params->state == 1 ? 0 : -EIO);
 
     if (status == BT_HCI_ERR_SUCCESS)
     {
@@ -296,7 +298,7 @@ static bool le_param_req(struct bt_conn * p_conn, struct bt_le_conn_param * para
     return false;
 }
 
-/** @brief Callback for security level change — signals semaphore on success. */
+/** @brief Report security completion, including failure to reach the requested level. */
 static void security_changed(struct bt_conn * p_conn, bt_security_t level, enum bt_security_err err)
 {
     char addr[BT_ADDR_LE_STR_LEN];
@@ -306,11 +308,12 @@ static void security_changed(struct bt_conn * p_conn, bt_security_t level, enum 
     if (err)
     {
         LOG_ERR("Security failed: %s level %u err %d %s", addr, level, err, bt_security_err_to_str(err));
+        ble_setup_complete(gp_setup_security, -EACCES);
         return;
     }
 
     LOG_INF("Security changed: %s level %u", addr, level);
-    k_sem_give(gp_sem_security);
+    ble_setup_complete(gp_setup_security, level >= BT_SECURITY_L2 ? 0 : -EACCES);
 }
 
 BT_CONN_CB_DEFINE(conn_cb) = {

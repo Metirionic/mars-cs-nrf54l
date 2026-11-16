@@ -25,6 +25,17 @@ config MARS_CS_INLINE_PCT
 	  configuration is forced to BT_CONN_LE_CS_MAIN_MODE_2_NO_SUB_MODE
 	  in this mode.
 
+config MARS_CS_SETUP_TIMEOUT_MS
+	int "Maximum wait for each initiator setup phase (ms)"
+	default 30000
+	range 1000 300000
+	depends on BT_CHANNEL_SOUNDING
+	help
+	  Bound each asynchronous security, GATT, and Channel Sounding setup
+	  phase after connection. Scanning waits indefinitely for a peer.
+	  A failure or timeout ends setup and the
+	  initiator reboots to retry with fresh connection and callback state.
+
 config MARS_CS_LIVENESS_WATCHDOG
 	bool "Enable CS liveness watchdog (forced disconnect + reboot on stall)"
 	default y

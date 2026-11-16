@@ -72,9 +72,9 @@ headers without pulling the full Zephyr target (`:15`).
 |------|---------------------|
 | `addr_utils.{c,h}` | "Shared BLE address utility functions" — `addr_to_u64()` packs a `bt_addr_le_t` into a `uint64_t`. |
 | `antenna.{c,h}` | "Antenna configuration lookup tables for Channel Sounding" — `get_antenna_config()` / `get_preferred_peer_antenna()` map the Kconfig antenna/path counts to a CS tone-antenna config and a preferred-peer bitmask. |
-| `ble_callbacks.{c,h}` | "Shared BLE connection and Channel Sounding callbacks" — owns the `BT_CONN_CB_DEFINE(conn_cb)` connection-callback table and the connection ref for the initiator; forwards CS subevent-data and config-created events to registered user callbacks; gives five of the setup semaphores. |
+| `ble_callbacks.{c,h}` | "Shared BLE connection and Channel Sounding callbacks" — owns the `BT_CONN_CB_DEFINE(conn_cb)` connection-callback table and the connection ref for the initiator; forwards CS subevent-data and config-created events to registered user callbacks; reports setup success or failure. |
 | `ble_scanning.{c,h}` | "BLE scanning and Ranging Service UUID filtering" — `scan_init()` configures `bt_scan` with `connect_if_match` and a filter that selects the peer by **Ranging Service UUID** (RAS) or by **advertised name** (IPT — the reflector does not advertise that UUID, so the initiator matches `CONFIG_BT_DEVICE_NAME` instead). |
-| `cs_initiator.{c,h}` | "Shared Channel Sounding initiator connection and configuration flow" — the heart of the initiator: all setup semaphores, the step-data net buffers, the RAS feature bits, the MACs, and `cs_initiator_start()` which runs the full setup handshake; also defines the local `subevent_result_cb`. |
+| `cs_initiator.{c,h}` | "Shared Channel Sounding initiator connection and configuration flow" — the heart of the initiator: all setup completions, the step-data net buffers, the RAS feature bits, the MACs, and `cs_initiator_start()` which runs the full setup handshake; also defines the local `subevent_result_cb`. |
 | `cs_step_parse.{c,h}` | "Shared CS step data parsing into SubeventResultEvent structures" — `cs_step_parse_step()` (RAS) converts local + peer HCI Mode-0, Mode-1, Mode-2, and Mode-3 step records into the Rust FFI `SubeventResultEvent_t` / `Step_t` / `Mode2_t` fields; also populates the Mode-0 calibration steps (kind per role from the step `data_len`, measured frequency offset passed through raw); `cs_step_parse_inline()` (IPT) parses the local steps only and synthesizes the peer event per step with a transparent identity (1.0 + 0.0j) Phase Correction Term for Mode-2 and a zeroed `MODE0_REFLECTOR` step for Mode-0, so the downstream combiner sees a structurally valid `ORIGIN_REFLECTOR` event with a no-op phase rotation. |
 | `cs_watchdog.{c,h}` | Detects stalled ranging after the first healthy measurement. On timeout, a dedicated worker attempts recovery by disconnecting; a fallback timer forces a reboot after 2 s if recovery stalls. The initiator links it through `cs_common`; the reflector compiles it directly. |
 | `subevent.{c,h}` | "CS subevent data parsing into SubeventResultEvent structures" — `subevent_populate()` (RAS) fills the initiator + reflector events from both the local and peer step buffers via `cs_step_parse_step()`; `subevent_populate_inline()` (IPT) fills them from the local step buffer only via `cs_step_parse_inline()` (the reflector's phase contribution is embedded in the local tones, so there is no peer buffer). Both seed the shared header through `fill_subevent_header()`. |
@@ -341,33 +341,24 @@ thread via `cs_initiator_consume_pending_event()`.
 
 ## Semaphore-driven initiator main loop
 
-There are ten `k_sem` instances in a RAS build — seven unconditional
-(`common/cs_initiator.c:32-38`) plus three RAS-only (`:50-52`, under
-`#if IS_ENABLED(CONFIG_BT_RAS_RREQ)`) — in three groups; an IPT build compiles
-the seven plus the IPT-only handoff `sem_event_free`
-(`common/cs_initiator.c:42`), since it does no MTU exchange, GATT discovery, or
-RAS-feature read.
+Setup completions pace `cs_initiator_start()`. Each contains a semaphore and
+an explicit success or failure result. Both RAS and IPT wait for connection,
+link security, CS capabilities, config creation, CS security, and procedure
+enable completion. RAS also waits for MTU exchange, GATT discovery, and the
+RAS feature read.
 
-**One-shot setup semaphores** (`K_SEM_DEFINE(..., 0, 1)`) pace
-`cs_initiator_start()`. Five are shared by both modes; three (MTU, GATT
-discovery, RAS features) are RAS-only. Each is given by a BLE callback and taken
-`K_FOREVER` in sequence inside the setup flow:
+Each phase has a deadline controlled by `CONFIG_MARS_CS_SETUP_TIMEOUT_MS`
+(default 30 s) after connection. Scanning waits indefinitely for a peer.
+Immediate API errors and
+asynchronous callback failures return a negative errno; a missing completion
+returns `-ETIMEDOUT`. The initiator logs the error and reboots after 1 s to
+retry with fresh connection and callback state. An already encrypted link
+skips the security wait.
 
-| Semaphore | Given by | Taken at | Mode |
-|-----------|----------|----------|------|
-| `sem_connected` | `connected_cb`, `common/ble_callbacks.c:114` | `common/cs_initiator.c:510` | both |
-| `sem_security` | `security_changed`, `common/ble_callbacks.c:313` | `common/cs_initiator.c:526` | both |
-| `sem_mtu_exchange_done` | `mtu_exchange_cb`, `common/cs_initiator.c:416` | `common/cs_initiator.c:532` | RAS only |
-| `sem_discovery_done` | `discovery_completed_cb`, `common/cs_initiator.c:442` | `common/cs_initiator.c:541` | RAS only |
-| `sem_ras_features` | `ras_features_read_cb`, `common/cs_initiator.c:272` | `common/cs_initiator.c:567` | RAS only |
-| `sem_remote_capabilities_obtained` | `remote_capabilities_cb`, `common/ble_callbacks.c:142` | `common/cs_initiator.c:619` | both |
-| `sem_config_created` | `config_create_cb`, `common/ble_callbacks.c:224` | `common/cs_initiator.c:652` | both |
-| `sem_cs_security_enabled` | `security_enable_cb`, `common/ble_callbacks.c:240` | `common/cs_initiator.c:661` | both |
-
-Five of these are registered to the connection-callback table via
-`ble_callbacks_register()` (`common/cs_initiator.c:488-492`); the other three
-(MTU, GATT discovery, RAS features — all RAS-only) are given by callbacks defined
-directly in `common/cs_initiator.c`.
+`ble_callbacks_register()` connects the shared BLE callbacks to their setup
+results. MTU, discovery, and RAS-feature callbacks complete their results
+directly in `cs_initiator.c`. Discovery errors are returned to the startup
+thread rather than attempting a blocking disconnect inside the callback.
 
 **`sem_local_steps`** (`K_SEM_DEFINE(sem_local_steps, 1, 1)`,
 `common/cs_initiator.c:38`) is a **binary producer/consumer lock** (initial count
