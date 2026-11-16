@@ -194,15 +194,6 @@ void cs_initiator_take_sem_data_ready(void)
  * (sem_data_ready), runs the app's process callback — the blocking serialize +
  * UART TX path — then releases the handoff (sem_event_free) so the RX thread
  * may populate the next procedure.
- *
- * This moves the blocking serialize path OFF the BT RX thread. Running it
- * inline in the RX thread (the pre-#173 behaviour) starves the SDC's
- * step-data delivery until the controller aborts the surplus subevents —
- * the COMPLETE-but-empty procedures of #173. While the consumer is busy, the
- * RX thread drops surplus completed procedures at the handoff gate instead
- * (counted in g_event_backlog_drops, LOG_WRN every 128th drop). The serialize
- * cost and the procedure-rate ceiling it imposes are quantified in
- * docs/architecture.md.
  */
 void cs_initiator_consume_pending_event(void)
 {
