@@ -86,13 +86,13 @@ static ExtensionSlot_t extension_slot_from_hci(uint8_t local_extension_slot, uin
 /**
  * @brief Convert Phase Correction Term (PCT) IQ values to normalized floats.
  *
- * Parses the 3-byte PCT via bt_le_cs_parse_pct() and normalizes by 2^15
+ * Parses the 3-byte PCT via bt_le_cs_parse_pct() and normalizes by 2^11
  * to produce floats in [-1.0, 1.0].
  */
 static void pct_to_float(const uint8_t pct[3], float * p_i_value, float * p_q_value)
 {
     struct bt_le_cs_iq_sample iq            = bt_le_cs_parse_pct(pct);
-    const float               NORMALIZATION = 32768.0f;
+    const float               NORMALIZATION = 2048.0f;
     *p_i_value                              = (float)iq.i / NORMALIZATION;
     *p_q_value                              = (float)iq.q / NORMALIZATION;
 }
