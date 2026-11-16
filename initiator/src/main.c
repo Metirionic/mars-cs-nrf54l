@@ -209,23 +209,22 @@ static void reboot_fallback_handler(struct k_timer * timer)
 static K_TIMER_DEFINE(reboot_fallback, reboot_fallback_handler, NULL);
 
 /**
- * @brief CS liveness watchdog recovery (#116) — runs on the system workqueue.
+ * @brief Recover stalled ranging on a dedicated worker thread.
  *
- * Emits a COBS banner (the host's only window into the initiator), then
- * forces a disconnect so the existing disconnected_cb -> sys_reboot path
- * recovers both boards. The 2 s fallback timer covers a wedged controller
- * that never completes the HCI disconnect command (bt_hci_disconnect has no
- * timeout); a failed disconnect means the link is already gone, so reboot.
+ * Notify the host, then disconnect to trigger a reboot. Arm a 2 s fallback
+ * first so blocked logging or disconnect cannot prevent a reboot.
  */
 static void cs_watchdog_recovery_cb(void)
 {
+    /* Arm before either UART output or the synchronous HCI command can block. */
+    k_timer_start(&reboot_fallback, K_MSEC(2000), K_NO_WAIT);
+
     (void)serialize_send_log_message("CS watchdog: no completed procedure, forcing disconnect");
 
     struct bt_conn * conn = ble_callbacks_get_connection();
 
     if (conn != NULL && bt_conn_disconnect(conn, BT_HCI_ERR_LOCALHOST_TERM_CONN) == 0)
     {
-        k_timer_start(&reboot_fallback, K_MSEC(2000), K_NO_WAIT);
         return;
     }
 

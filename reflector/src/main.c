@@ -298,18 +298,18 @@ BT_CONN_CB_DEFINE(cs_watchdog_conn_cb) = {
 };
 
 /**
- * @brief Watchdog recovery: force disconnect (reboots both boards) or reboot.
+ * @brief Recover stalled ranging on a dedicated worker thread.
  *
- * Runs on the system workqueue. A successful disconnect lets the existing
- * disconnected_cb -> sys_reboot path recover the pair; the 2 s fallback timer
- * covers a wedged controller that never completes the HCI disconnect command
- * (bt_hci_disconnect has no timeout).
+ * Disconnect to trigger a reboot. Arm a 2 s fallback first so a blocked
+ * disconnect cannot prevent a reboot.
  */
 static void cs_watchdog_recovery_cb(void)
 {
+    /* Arm before the synchronous HCI command, which may never return. */
+    k_timer_start(&reboot_fallback, K_MSEC(2000), K_NO_WAIT);
+
     if (gp_connection != NULL && bt_conn_disconnect(gp_connection, BT_HCI_ERR_LOCALHOST_TERM_CONN) == 0)
     {
-        k_timer_start(&reboot_fallback, K_MSEC(2000), K_NO_WAIT);
         return;
     }
 

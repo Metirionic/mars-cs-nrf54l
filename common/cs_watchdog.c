@@ -12,19 +12,13 @@
 LOG_MODULE_DECLARE(app_main, LOG_LEVEL_INF);
 
 static cs_watchdog_recovery_t gp_recovery;
+static struct k_work_q        recovery_queue;
+K_THREAD_STACK_DEFINE(recovery_stack, 2048);
 
-/**
- * @brief Watchdog expiry — runs on the system workqueue.
- *
- * bt_conn_disconnect (from the recovery callback) blocks only on the HCI
- * command semaphore, released by the BT RX thread's command-complete
- * processing — the same hazard class as the existing GATT-discovery error
- * path in cs_initiator.c. serialize_send_log_message (initiator recovery) is
- * sem-gated with the give in the UARTE ISR, so it cannot deadlock either.
- */
-static void timeout_handler(struct k_timer * timer)
+/** @brief Run blocking recovery on its own queue, leaving the system queue free. */
+static void recovery_handler(struct k_work * work)
 {
-    ARG_UNUSED(timer);
+    ARG_UNUSED(work);
 
     LOG_ERR("CS liveness watchdog: no completed procedure with step data for %u ms; forcing recovery",
             CONFIG_MARS_CS_LIVENESS_WATCHDOG_TIMEOUT_MS);
@@ -35,11 +29,22 @@ static void timeout_handler(struct k_timer * timer)
     }
 }
 
+static K_WORK_DEFINE(recovery_work, recovery_handler);
+
+/** @brief Timer expiry runs in interrupt context; defer all recovery work. */
+static void timeout_handler(struct k_timer * timer)
+{
+    ARG_UNUSED(timer);
+
+    (void)k_work_submit_to_queue(&recovery_queue, &recovery_work);
+}
+
 static K_TIMER_DEFINE(watchdog_timer, timeout_handler, NULL);
 
 void cs_watchdog_init(cs_watchdog_recovery_t recovery)
 {
     gp_recovery = recovery;
+    k_work_queue_start(&recovery_queue, recovery_stack, K_THREAD_STACK_SIZEOF(recovery_stack), K_PRIO_PREEMPT(5), NULL);
 }
 
 void cs_watchdog_pet(void)
