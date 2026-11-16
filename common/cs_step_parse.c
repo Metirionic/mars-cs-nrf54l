@@ -396,6 +396,89 @@ static bool fill_mode1_step(struct cs_step_parse_context *  p_context,
     return true;
 }
 
+/** Mode 3 combines a Mode-1 packet prefix with Mode-2 tone data.
+ * Build views of those two parts so the shared decoders retain their role and
+ * local-only semantics. Include the additional tone extension slot.
+ */
+static bool fill_mode3_step(struct cs_step_parse_context *  p_context,
+                            struct bt_le_cs_subevent_step * p_local_step,
+                            struct bt_le_cs_subevent_step * p_peer_step)
+{
+    if (p_context->step_index >= ARRAY_SIZE(p_context->p_local_event->steps.idx))
+    {
+        return false;
+    }
+    if (p_context->n_ap == 0 || p_context->n_ap >= MARS_CS_MAX_TONE_COUNT)
+    {
+        LOG_WRN("Mode-3 antenna path count invalid: %u", p_context->n_ap);
+        return true;
+    }
+
+    const size_t tone_len = sizeof(struct bt_hci_le_cs_step_data_mode_2) +
+                            (p_context->n_ap + 1u) * sizeof(struct bt_hci_le_cs_step_data_tone_info);
+    const struct bt_le_cs_subevent_step * sources[]  = {p_local_step, p_peer_step};
+    struct bt_le_cs_subevent_step         packets[2] = {0};
+    struct bt_le_cs_subevent_step         tones[2]   = {0};
+    for (size_t i = 0; i < ARRAY_SIZE(sources); i++)
+    {
+        const struct bt_le_cs_subevent_step * p_src = sources[i];
+        if (p_src == NULL)
+        {
+            continue;
+        }
+        size_t packet_len;
+        if (p_src->data_len == sizeof(struct bt_hci_le_cs_step_data_mode_1) + tone_len)
+        {
+            packet_len = sizeof(struct bt_hci_le_cs_step_data_mode_1);
+        }
+        else if (p_src->data_len == sizeof(struct bt_hci_le_cs_step_data_mode_1_ss_rtt) + tone_len)
+        {
+            packet_len = sizeof(struct bt_hci_le_cs_step_data_mode_1_ss_rtt);
+        }
+        else
+        {
+            LOG_WRN("Mode-3 step data malformed: data_len=%u", (unsigned int)p_src->data_len);
+            return true;
+        }
+        if (p_src->data == NULL)
+        {
+            return true;
+        }
+        packets[i]          = *p_src;
+        packets[i].data_len = packet_len;
+        tones[i]            = *p_src;
+        tones[i].data       = p_src->data + packet_len;
+        tones[i].data_len   = tone_len;
+    }
+
+    const uint8_t index = p_context->step_index;
+    (void)fill_mode1_step(p_context, &packets[0], p_peer_step != NULL ? &packets[1] : NULL);
+    Mode1Data_t packet_data[]                 = {p_context->p_local_event->steps.idx[index].info.mode1,
+                                                 p_context->p_peer_event->steps.idx[index].info.mode1};
+    p_context->step_index                     = index;
+    struct cs_step_parse_context tone_context = *p_context;
+    tone_context.n_ap++;
+    (void)fill_mode2_step(&tone_context, &tones[0], p_peer_step != NULL ? &tones[1] : NULL);
+    for (size_t i = 0; i < ARRAY_SIZE(sources); i++)
+    {
+        SubeventResultEvent_t * p_event   = i == 0u ? p_context->p_local_event : p_context->p_peer_event;
+        Step_t *                p_step    = &p_event->steps.idx[index];
+        const bool              initiator = p_event->origin == ORIGIN_INITIATOR;
+        const bool              has_pct   = packet_data[i].has_packet_phase_correction_terms;
+        p_step->info.mode1                = packet_data[i];
+        p_step->info.kind                 = initiator ? (has_pct ? MODE_ROLE_SPECIFIC_INFO_KIND_MODE3_INITIATOR_PBR_RTT
+                                                                 : MODE_ROLE_SPECIFIC_INFO_KIND_MODE3_INITIATOR)
+                                                      : (has_pct ? MODE_ROLE_SPECIFIC_INFO_KIND_MODE3_REFLECTOR_PBR_RTT
+                                                                 : MODE_ROLE_SPECIFIC_INFO_KIND_MODE3_REFLECTOR);
+        if (sources[i] != NULL)
+        {
+            p_step->info.mode2.antenna_permutation_index = tones[i].data[0];
+        }
+    }
+    p_context->step_index++;
+    return true;
+}
+
 #if IS_ENABLED(CONFIG_BT_RAS_RREQ)
 static bool parse_step(struct cs_step_parse_context *  p_context,
                        struct bt_le_cs_subevent_step * p_local_step,
@@ -413,6 +496,9 @@ static bool parse_step(struct cs_step_parse_context *  p_context,
         break;
     case 2:
         ok = fill_mode2_step(p_context, p_local_step, p_peer_step);
+        break;
+    case 3:
+        ok = fill_mode3_step(p_context, p_local_step, p_peer_step);
         break;
     default:
         if (p_peer_step != NULL)
@@ -548,6 +634,10 @@ void cs_step_parse_inline(SubeventResultEvent_t * p_local_event,
         else if (local_step.mode == BT_HCI_OP_LE_CS_MAIN_MODE_1)
         {
             (void)fill_mode1_step(&context, &local_step, NULL);
+        }
+        else if (local_step.mode == BT_HCI_OP_LE_CS_MAIN_MODE_3)
+        {
+            (void)fill_mode3_step(&context, &local_step, NULL);
         }
         else if (local_step.mode == 0)
         {
