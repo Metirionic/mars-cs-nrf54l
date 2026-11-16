@@ -698,7 +698,7 @@ int cs_initiator_start(const struct cs_initiator_config * p_config)
      * timings (the SDC reports the minimums it supports), then size the
      * subevent and the connection interval:
      *
-     * - Every mode-2 step carries one tone measurement per antenna path
+     * - Every mode-2 or mode-3 step carries one tone measurement per antenna path
      *   (P = N_AP phase measurement periods per step; the step's HCI data
      *   holds N_AP PCT slots with per-path quality indicators, all reported
      *   High on a 4-path link), so covering every (channel, path) pair takes
@@ -719,9 +719,26 @@ int cs_initiator_start(const struct cs_initiator_config * p_config)
     const uint32_t step_margin_us   = CLAMP(CS_STEP_MARGIN_BASE_US + (antenna_paths - 1U) * CS_STEP_MARGIN_PER_PATH_US,
                                             CS_STEP_MARGIN_BASE_US,
                                             CS_STEP_MARGIN_MAX_US);
-    const uint32_t step_duration_us = g_created_config.t_pm_time_us + g_created_config.t_ip1_time_us +
+    uint32_t       step_duration_us = g_created_config.t_pm_time_us + g_created_config.t_ip1_time_us +
                                       g_created_config.t_fcs_time_us + g_created_config.t_ip2_time_us +
                                       g_created_config.t_pm_time_us + CS_T_SW_US + step_margin_us;
+
+    if (BT_CONN_LE_CS_MODE_MAIN_MODE_PART(g_created_config.mode) == BT_HCI_OP_LE_CS_MAIN_MODE_3)
+    {
+        /* Core Vol 6, Part H, 4.3.4: two CS_SYNCs, two guards, both
+         * (N_AP + 1)-slot tone trains, ramp-downs, T_IP2, then T_FCS.
+         * The configured AA-only CS_SYNC lasts 44 us at 1M or 26 us at 2M.
+         * Revisit this duration if changing RTT type to add a sequence.
+         */
+        const uint32_t sync_us           = g_created_config.cs_sync_phy == BT_CONN_LE_CS_SYNC_1M_PHY ? 44U : 26U;
+        const uint32_t guard_us          = 10U;
+        const uint32_t ramp_down_us      = 5U;
+        const uint32_t tone_us           = (CS_T_SW_US + g_created_config.t_pm_time_us) * (antenna_paths + 1U);
+        const uint32_t mode3_duration_us = 2U * (sync_us + guard_us + tone_us + ramp_down_us) +
+                                           g_created_config.t_ip2_time_us + g_created_config.t_fcs_time_us +
+                                           step_margin_us;
+        step_duration_us                 = MAX(step_duration_us, mode3_duration_us);
+    }
 
     uint32_t channels = 0;
     for (size_t i = 0; i < sizeof(g_created_config.channel_map); i++)
