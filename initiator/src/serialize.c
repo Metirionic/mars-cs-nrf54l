@@ -25,7 +25,7 @@ LOG_MODULE_DECLARE(app_main, LOG_LEVEL_INF);
  * Compact wire format v2 transmits only step_count entries and each step's
  * selected mode payload. Internal C storage still has capacity for 160 steps.
  * Retain the previous 14,000-byte capacity per event as conservative headroom
- * for the supported Mode-0/2 payloads; g_serialized holds two events plus logs.
+ * for the supported Mode-0/1/2 payloads; g_serialized holds two events plus logs.
  */
 #define CHUNK_SIZE 14000u
 

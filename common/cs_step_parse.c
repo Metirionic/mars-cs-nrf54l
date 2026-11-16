@@ -12,6 +12,7 @@
 
 #include <string.h>
 #include <zephyr/logging/log.h>
+#include <zephyr/sys/byteorder.h>
 #include <zephyr/sys/util.h>
 
 #include "cs_initiator.h"
@@ -312,6 +313,89 @@ static bool fill_mode0_step(struct cs_step_parse_context *  p_context,
     return true;
 }
 
+/** Decode packet PCTs using the wire model's signed 12-bit normalization. */
+static void packet_pct_to_float(const uint8_t pct[4], PhaseCorrectionTerm_t * p_term)
+{
+    struct bt_le_cs_iq_sample iq = bt_le_cs_parse_pct(pct);
+    p_term->i                    = (float)iq.i / 2048.0f;
+    p_term->q                    = (float)iq.q / 2048.0f;
+}
+
+/** Fill Mode-1 packet/RTT data, including optional sounding-sequence PCTs.
+ * Validate both inputs before changing either event. With no peer data, mark
+ * peer measurements unavailable rather than inventing a zero RTT measurement.
+ */
+static bool fill_mode1_step(struct cs_step_parse_context *  p_context,
+                            struct bt_le_cs_subevent_step * p_local_step,
+                            struct bt_le_cs_subevent_step * p_peer_step)
+{
+    if (p_context->step_index >= ARRAY_SIZE(p_context->p_local_event->steps.idx))
+    {
+        return false;
+    }
+
+    const struct bt_le_cs_subevent_step * sources[] = {p_local_step, p_peer_step};
+    for (size_t i = 0; i < ARRAY_SIZE(sources); i++)
+    {
+        if (sources[i] != NULL &&
+            (sources[i]->data == NULL || (sources[i]->data_len != sizeof(struct bt_hci_le_cs_step_data_mode_1) &&
+                                          sources[i]->data_len != sizeof(struct bt_hci_le_cs_step_data_mode_1_ss_rtt))))
+        {
+            LOG_WRN("Mode-1 step data malformed: data_len=%u", (unsigned int)sources[i]->data_len);
+            return true;
+        }
+    }
+
+    for (size_t i = 0; i < ARRAY_SIZE(sources); i++)
+    {
+        SubeventResultEvent_t *               p_event = (i == 0u) ? p_context->p_local_event : p_context->p_peer_event;
+        const struct bt_le_cs_subevent_step * p_src   = sources[i];
+        const bool                            initiator = p_event->origin == ORIGIN_INITIATOR;
+        const bool has_pct = p_src != NULL && p_src->data_len == sizeof(struct bt_hci_le_cs_step_data_mode_1_ss_rtt);
+        Step_t *   p_step  = &p_event->steps.idx[p_context->step_index];
+        memset(p_step, 0, sizeof(*p_step));
+        p_step->mode      = p_local_step->mode;
+        p_step->channel   = p_local_step->channel;
+        p_step->info.kind = initiator ? (has_pct ? MODE_ROLE_SPECIFIC_INFO_KIND_MODE1_INITIATOR_PBR_RTT
+                                                 : MODE_ROLE_SPECIFIC_INFO_KIND_MODE1_INITIATOR)
+                                      : (has_pct ? MODE_ROLE_SPECIFIC_INFO_KIND_MODE1_REFLECTOR_PBR_RTT
+                                                 : MODE_ROLE_SPECIFIC_INFO_KIND_MODE1_REFLECTOR);
+
+        Mode1Data_t * p_mode1 = &p_step->info.mode1;
+        p_mode1->timing.kind = initiator ? ROUND_TRIP_TIME_ROLE_TIMING_KIND_TIME_OF_ARRIVAL_TIME_OF_DEPARTURE_INITIATOR
+                                         : ROUND_TRIP_TIME_ROLE_TIMING_KIND_TIME_OF_DEPARTURE_TIME_OF_ARRIVAL_REFLECTOR;
+        if (p_src == NULL)
+        {
+            p_mode1->packet.packet_quality.access_address_check_result =
+                BT_HCI_LE_CS_PACKET_QUALITY_AA_CHECK_AA_NOT_FOUND;
+            p_mode1->packet.packet_normalized_attack_detector_metric  = BT_HCI_LE_CS_PACKET_NADM_UNKNOWN;
+            p_mode1->packet.packet_received_signal_strength_indicator = BT_HCI_LE_CS_PACKET_RSSI_NOT_AVAILABLE;
+            p_mode1->timing.role_specific_timing_value                = BT_HCI_LE_CS_TIME_DIFFERENCE_NOT_AVAILABLE;
+            continue;
+        }
+
+        const struct bt_hci_le_cs_step_data_mode_1 * p_data = (const struct bt_hci_le_cs_step_data_mode_1 *)p_src->data;
+        p_mode1->packet.packet_quality.access_address_check_result = p_data->packet_quality_aa_check;
+        p_mode1->packet.packet_quality.payload_bit_error_count     = p_data->packet_quality_bit_errors;
+        p_mode1->packet.packet_normalized_attack_detector_metric   = p_data->packet_nadm;
+        p_mode1->packet.packet_received_signal_strength_indicator  = (int8_t)p_data->packet_rssi;
+        p_mode1->packet.packet_antenna                             = p_data->packet_antenna;
+        /* Preserve raw 0.5 ns units and the unavailable sentinel. */
+        p_mode1->timing.role_specific_timing_value = (int16_t)sys_get_le16(p_src->data + 3);
+        p_mode1->has_packet_phase_correction_terms = has_pct;
+        if (has_pct)
+        {
+            const struct bt_hci_le_cs_step_data_mode_1_ss_rtt * p_ss =
+                (const struct bt_hci_le_cs_step_data_mode_1_ss_rtt *)p_src->data;
+            PacketPhaseCorrectionTerms_t * p_pct = &p_mode1->packet_phase_correction_terms;
+            packet_pct_to_float(p_ss->packet_pct1, &p_pct->first_phase_correction_term);
+            packet_pct_to_float(p_ss->packet_pct2, &p_pct->second_phase_correction_term);
+        }
+    }
+    p_context->step_index++;
+    return true;
+}
+
 #if IS_ENABLED(CONFIG_BT_RAS_RREQ)
 static bool parse_step(struct cs_step_parse_context *  p_context,
                        struct bt_le_cs_subevent_step * p_local_step,
@@ -323,6 +407,9 @@ static bool parse_step(struct cs_step_parse_context *  p_context,
     {
     case 0:
         ok = fill_mode0_step(p_context, p_local_step, p_peer_step);
+        break;
+    case 1:
+        ok = fill_mode1_step(p_context, p_local_step, p_peer_step);
         break;
     case 2:
         ok = fill_mode2_step(p_context, p_local_step, p_peer_step);
@@ -457,6 +544,10 @@ void cs_step_parse_inline(SubeventResultEvent_t * p_local_event,
         if (local_step.mode == BT_HCI_OP_LE_CS_MAIN_MODE_2)
         {
             inline_process_step_mode2(&context, &local_step);
+        }
+        else if (local_step.mode == BT_HCI_OP_LE_CS_MAIN_MODE_1)
+        {
+            (void)fill_mode1_step(&context, &local_step, NULL);
         }
         else if (local_step.mode == 0)
         {
