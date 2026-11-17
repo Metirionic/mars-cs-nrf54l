@@ -1,48 +1,16 @@
 #!/usr/bin/env bash
 # SPDX-License-Identifier: MIT
 #
-# Docs link & reference checker for mars-cs-nrf54l.
+# Validate tracked README.md and docs/**/*.md guides:
+# - Local inline links to existing files/directories and Markdown heading anchors.
+# - Firmware archive naming across the flash guide and release workflow.
+# - Hardware-table completeness against the CMake presets (prototypes excluded).
+# - Release-list completeness and valid CI/build-guide preset selections.
 #
-# Catches the most likely documentation/reference drift before a user hits it:
-#   1. Internal Markdown links between README.md and the docs/ guides are
-#      validated — every [text](href) must resolve to a tracked file (and to a
-#      real heading when an #anchor is present), so a renamed or moved guide is
-#      caught.
-#   2. The release-artifact name referenced by docs/flash-quickstart.md must
-#      match the archive .github/workflows/release.yml produces/publishes.
-#   3. The preset names in docs/hardware.md's "### Presets" table must match the
-#      configurePresets in initiator/CMakePresets.json and
-#      reflector/CMakePresets.json — every preset must be listed, and every
-#      listed preset must still exist — so a preset added to the build but left
-#      out of the docs (or dropped from the build but left in the docs) is
-#      caught. The two nRF54L15 DM presets are excluded (deliberately
-#      undocumented; see issue #89).
-#   4. The preset lists hand-copied at the six list sites — the ci.yml build
-#      matrix, the release.yml build-all commands, and the two mirrored
-#      commands in docs/build-from-source.md — must enumerate the shipped
-#      configurePresets of their role's CMakePresets.json (see
-#      check_preset_lists), so a misspelled or dropped preset name in one of
-#      those lists is caught at docs-check time instead of by a release run or
-#      a user reproducing the documented command.
-#
-# External http(s)/mailto: URLs are deliberately NOT checked (out of scope; they
-# would add network flakiness). Only internal links, and the release-artifact,
-# preset-table, and preset-list cross-references are validated.
-#
-# Only inline [text](href) links are parsed — reference-style links
-# ([text][ref] + [ref]: url) and autolinks (<url>) are not. The repo's docs use
-# inline links exclusively, so this covers every link actually in use.
-#
-# Heading anchors are matched against a GitHub-style slug (lowercase; Unicode
-# letters and digits kept — NOT transliterated or stripped; punctuation and
-# other characters stripped; whitespace runs -> single hyphens), computed by
-# the inline python3 helper in heading_slugs. github.com keeps Unicode letters
-# in slugs (e.g. a "### Würth ..." heading anchors as "würth-..."), which
-# POSIX tr/sed cannot reproduce byte-safely. GitHub's duplicate-heading -N
-# suffix and inline formatting inside a heading are not modeled; no current
-# doc has duplicate headings or formatting in an anchor-target heading.
-#
-# Runs in CI via .github/workflows/docs.yml and locally: `bash scripts/check-docs.sh`.
+# External URLs, reference-style links, and autolinks are not checked.
+# Requires Bash, Git, Python 3, and standard shell utilities. No network access.
+# Run: bash scripts/check-docs.sh
+# Exits nonzero on errors; also writes GITHUB_STEP_SUMMARY when set.
 
 set -euo pipefail
 
@@ -51,16 +19,15 @@ cd "$(git rev-parse --show-toplevel)"
 errors=0
 summary_lines=()
 
-# Probe once whether realpath supports the GNU -m --relative-to flags we use.
-# BSD realpath (macOS 12.3+) exists but lacks these flags, so normalize_relpath
-# is the fallback there and on systems without realpath at all.
+# Use GNU realpath when available; otherwise normalize paths in Bash.
 if realpath -m --relative-to=. / >/dev/null 2>&1; then
   HAS_REALPATH=1
 else
   HAS_REALPATH=0
 fi
 
-# add_error <message> — record one problem on stderr and in the CI summary list.
+
+# Record an error for stderr and the optional GitHub Actions summary.
 add_error() {
   local msg="$1"
   printf '  - %s\n' "$msg" >&2
@@ -70,34 +37,25 @@ add_error() {
 
 # --- link parsing -----------------------------------------------------------
 
-# emit_links <file> -> "lineno:[text](href)" per inline link, one match per
-# line. grep -o emits each match separately (handles lines with >1 link).
-# Code-span tokens (e.g. `cs-ranging-firmware.zip`, `*.hex`) lack the
-# [text](href) syntax and so are never matched.
+# Emit line-numbered inline Markdown links. This is a regex parser, not a Markdown parser.
 emit_links() {
   grep -noE '\[[^]]+\]\([^)]+\)' "$1" || true
 }
 
 # --- href resolution --------------------------------------------------------
 
-# normalize_relpath <path> -> collapse ./ and ../ segments (pure bash, portable
-# fallback for environments whose realpath lacks -m / --relative-to, e.g. macOS).
+# Normalize path segments without requiring GNU realpath; symlinks are not resolved.
 normalize_relpath() {
   local p="$1" part idx
   local -a parts=() stack=()
-  # local IFS scopes the '/' to this function (auto-restored on return): it
-  # splits the read into parts and joins ${stack[*]} back with '/'.
+  # Split and rejoin paths using a function-local separator.
   local IFS='/'
   read -r -a parts <<< "$p"
   for part in "${parts[@]}"; do
     case "$part" in
       ''|'.') ;;
       '..')
-        # Pop a real component; otherwise keep/push a '..' so '..' overflow
-        # isn't silently dropped. Matches GNU `realpath -m --relative-to` for
-        # every in-repo path (no symlinked dirs); GNU additionally collapses at
-        # the filesystem root, which no link here reaches. Compute the top index
-        # once so the pop test and the unset can't drift apart.
+        # Preserve leading ".." segments when no component can be removed.
         idx=$((${#stack[@]}-1))
         if ((idx >= 0)) && [[ "${stack[idx]}" != '..' ]]; then
           unset "stack[idx]"
@@ -108,16 +66,13 @@ normalize_relpath() {
     esac
   done
   local out="${stack[*]}"
-  # GNU `realpath -m --relative-to` returns "." when all segments cancel; an
-  # empty stack would otherwise yield "" (and a confusing "target ''" message).
+  # Represent an empty normalized path as the current directory.
   [[ -n "$out" ]] || out='.'
   printf '%s\n' "$out"
 }
 
-# resolve_href <linker_file> <href> -> sets RESOLVED_TARGET, RESOLVED_ANCHOR.
-# The path part is resolved relative to the LINKING file's directory (not the
-# repo root), because link text frequently lies (text="docs/foo.md" but
-# href="foo.md"). Anchor-only links (#anchor) resolve to the linking file itself.
+
+# Resolve a destination relative to its document; set RESOLVED_TARGET and RESOLVED_ANCHOR.
 resolve_href() {
   local linker="$1" href="$2" anchor="" base target
   if [[ "$href" == *'#'* ]]; then
@@ -141,21 +96,8 @@ resolve_href() {
 
 # --- anchor validation ------------------------------------------------------
 
-# heading_slugs <md_file> -> one GitHub-style slug per ATX heading. The
-# trailing `|| true` keeps the function returning 0 when grep finds no
-# headings — without it, `set -e`+`pipefail` would abort the pipeline before
-# any trailing `return`, both when captured via $(...) and when called
-# directly in a pipeline (e.g. the diagnostic slug dump in the main loop).
-#
-# The slug is computed by the inline python3 helper below, not by tr/sed:
-# POSIX byte tools cannot keep Unicode letters while stripping punctuation,
-# and github.com slugs DO keep them — "### Würth ..." anchors as
-# "würth-...", while `tr -cd 'a-z0-9 _-'` strips the ü and would validate a
-# dead ASCII-stripped anchor. The helper reproduces the github-slugger
-# algorithm (verified against the package): lowercase; keep Unicode letters
-# and digits; strip every other character; whitespace runs -> single hyphens.
-# Not modeled, as before: GitHub's duplicate-heading -N suffix and inline
-# formatting inside a heading (no current doc has either in an anchor target).
+# Generate approximate GitHub anchors for ATX headings, preserving Unicode letters.
+# Duplicate-heading suffixes and rendered inline formatting are not supported.
 heading_slugs() {
   local file="$1"
   grep -nE '^#{1,6} ' "$file" 2>/dev/null \
@@ -166,16 +108,9 @@ import sys
 import unicodedata
 
 for line in sys.stdin:
-    # GitHub slugs the RENDERED heading text, where CommonMark has stripped
-    # the line-edge whitespace and collapsed internal whitespace runs — do
-    # both first, then strip characters, so a stripped character still leaves
-    # its own gap as github-slugger produces ("a - b" -> "a---b",
-    # "a — b" -> "a--b").
+    # Normalize heading whitespace before removing punctuation.
     h = re.sub(r"\s+", " ", line.strip().lower())
-    # Keep Unicode letters and digits — never transliterate ("Würth" slugs as
-    # "würth"; NFD combining marks drop out, exactly as github-slugger drops
-    # them) — plus "-", "_" and the collapsed spaces; strip everything else.
-    # No edge-hyphen trimming: github-slugger keeps those hyphens.
+    # Preserve Unicode letters, numbers, hyphens, and underscores.
     h = "".join(ch for ch in h if ch in "-_ "
                 or unicodedata.category(ch)[0] == "L"
                 or unicodedata.category(ch) in ("Nd", "Nl"))
@@ -183,7 +118,8 @@ for line in sys.stdin:
 ' || true
 }
 
-# anchor_exists <md_file> <anchor> -> 0 if a heading slug equals the anchor.
+
+# Return success when a Markdown heading matches the requested anchor.
 anchor_exists() {
   local file="$1" anchor="$2"
   [[ -f "$file" ]] || return 1
@@ -192,18 +128,13 @@ anchor_exists() {
 
 # --- release-artifact cross-reference ---------------------------------------
 
-# Assert the archive name release.yml PRODUCES (zip -j) and PUBLISHES (files:)
-# matches the name docs/flash-quickstart.md tells users to download. Three
-# sources, so a restructuring of any single line fails loudly instead of
-# silently passing.
+# Require the documented archive name to match both release workflow references.
 check_release_artifact() {
   local ryml=".github/workflows/release.yml"
   local fq="docs/flash-quickstart.md"
   local zip_arg files_arg doc_arg
 
-  # Each extraction pipeline ends in `|| true` so a no-match (or an unreadable
-  # source file) under `set -e`+`pipefail` falls through to the empty-string
-  # fail-loud check below instead of aborting the script with a bare exit 1.
+  # Allow empty extraction results so the checks below can report missing references.
   zip_arg="$(sed -nE 's/^[[:space:]]*run: zip -j ([A-Za-z0-9._-]+).*/\1/p' "$ryml" 2>/dev/null | head -n1)" || true
   files_arg="$(sed -nE 's/^[[:space:]]*files:[[:space:]]+([A-Za-z0-9._-]+).*/\1/p' "$ryml" 2>/dev/null | head -n1)" || true
   doc_arg="$(grep -oE '`[A-Za-z0-9._-]+\.zip`' "$fq" 2>/dev/null | sed -E 's/`//g' | head -n1)" || true
@@ -225,47 +156,30 @@ the archive the release workflow actually produces"
 
 # --- preset-table completeness ----------------------------------------------
 
-# preset_names_from_json <file> -> one configurePresets name per line. The only
-# "name" keys in CMakePresets.json are preset names inside configurePresets
-# ("displayName" never matches the quoted "name" key — different case and no
-# leading quote — and no value carries a "name" substring between quotes), so a
-# flat grep suffices and avoids a jq dependency. The trailing `|| true` keeps a
-# missing/unreadable file from aborting under set -e; an empty result is caught
-# by check_preset_table's fail-loud guards.
+# Extract preset names. Assumes every "name" key belongs to configurePresets.
 preset_names_from_json() {
   grep -oE '"name"[[:space:]]*:[[:space:]]*"[^"]+"' "$1" 2>/dev/null \
     | sed -E 's/^"name"[[:space:]]*:[[:space:]]*"//; s/"$//' || true
 }
 
-# preset_names_from_table <md> -> the first-column backticked name of every row
-# in the "### Presets" table. The table is scoped by its unique "| Preset | Mode
-# | ..." header (no other table in hardware.md has a "Preset" first column); the
-# header and separator rows are skipped, and parsing stops at the first
-# non-table line. Only backticked first cells are emitted, so any row without
-# one is silently ignored rather than misparsed.
+
+# Extract both role columns from the combined hardware preset table.
 preset_names_from_table() {
   awk '
-    /^\| Preset \|/ { intable=1; next }
-    intable && /^\|[-[:space:]]+\|/ { next }
+    /^\| Module or board \|/ { intable=1; next }
     intable && /^\|/ {
       line=$0
-      sub(/^\|[[:space:]]*/, "", line)
-      if (match(line, /^`[^`]+`/)) print substr(line, 2, RLENGTH-2)
+      while (match(line, /`[^`]+`/)) {
+        print substr(line, RSTART+1, RLENGTH-2)
+        line=substr(line, RSTART+RLENGTH)
+      }
     }
     intable && !/^\|/ { intable=0 }
   ' "$1" || true
 }
 
-# Assert every configurePresets name in initiator/CMakePresets.json and
-# reflector/CMakePresets.json appears in docs/hardware.md's "### Presets" table,
-# and every preset the table names still exists in some CMakePresets.json. This
-# is the gap that let the _ipt presets ship via the release archive while the
-# docs table silently omitted them (see #87). The two nRF54L15 DM presets
-# (nrf54l15dm_*) are deliberately undocumented — a non-purchasable prototype,
-# per #89 — so they are excluded from the "must appear in the table" direction
-# and flagged if they appear in the table at all. Only configurePresets names
-# are read (buildPresets and the other name-bearing arrays are not the docs
-# surface).
+
+# Require all public presets in the hardware table and reject unknown or prototype presets.
 check_preset_table() {
   local hw="docs/hardware.md"
   local init_json="initiator/CMakePresets.json"
@@ -273,9 +187,7 @@ check_preset_table() {
   local before=$errors
   local init_names refl_names table_presets json_presets p
 
-  # Fail loud per source (mirrors check_release_artifact's fail-loud pattern,
-  # but per-file so one missing CMakePresets.json can't silently degrade the
-  # check to "only the other role's presets matter").
+  # Check each input before comparing preset sets.
   if [[ ! -f "$init_json" ]]; then
     add_error "preset-table check: source '$init_json' not found"
   fi
@@ -303,7 +215,7 @@ check_preset_table() {
   fi
   if [[ -z "$table_presets" ]]; then
     add_error "preset-table check: no preset rows parsed from the '### Presets' \
-table in '$hw' (expected a header row beginning '| Preset | Mode | Role |')"
+table in '$hw' (expected a header row beginning '| Module or board |')"
   fi
   if (( errors > before )); then
     return 0
@@ -311,7 +223,7 @@ table in '$hw' (expected a header row beginning '| Preset | Mode | Role |')"
 
   json_presets="$(printf '%s\n%s' "$init_names" "$refl_names")"
 
-  # Direction (a): every documented (non-DM) preset must appear in the table.
+  # Every public preset must appear in the table.
   while IFS= read -r p; do
     [[ "$p" == nrf54l15dm_* ]] && continue
     if ! grep -qxF "$p" <<< "$table_presets"; then
@@ -320,12 +232,11 @@ the docs/hardware.md '### Presets' table (add the row or drop the preset)"
     fi
   done <<< "$json_presets"
 
-  # Direction (b): every table row must name a preset that still exists, and
-  # must not name a deliberately-undocumented DM preset.
+  # Table entries must exist and must not be prototype presets.
   while IFS= read -r p; do
     if [[ "$p" == nrf54l15dm_* ]]; then
       add_error "preset '$p' is listed in the docs/hardware.md '### Presets' \
-table but is a deliberately-undocumented DM preset (see #89) — remove the row"
+table but is an undocumented prototype preset — remove the row"
     elif ! grep -qxF "$p" <<< "$json_presets"; then
       add_error "preset '$p' is listed in the docs/hardware.md '### Presets' \
 table but no longer exists in any CMakePresets.json (drop the row or restore \
@@ -340,31 +251,19 @@ the preset)"
 
 # --- preset-list cross-reference ---------------------------------------------
 
-# preset_names_from_workflow <workflow> <role> -> one --preset name per line,
-# de-duplicated, from every `bash ci/build.sh --target <role> --preset <list>`
-# invocation in the workflow (a list is comma-separated). In ci.yml that
-# unions the build-matrix step with the single-preset onboarding steps; in
-# release.yml it is the build-all step. The trailing `|| true` keeps a
-# missing/unreadable file from aborting under set -e (an empty result is caught
-# by check_preset_lists' fail-loud guards, as in check_preset_table).
+# Extract comma-separated presets from single-line build-wrapper invocations for a role.
 preset_names_from_workflow() {
   local wf="$1" role="$2"
-  # '|' as the sed delimiter: the pattern itself contains slashes (ci/build.sh).
+  # Use a delimiter that does not conflict with the script path.
   sed -nE 's|^[[:space:]]*bash ci/build\.sh --target '"$role"' --preset ([^[:space:]]+).*|\1|p' \
     "$wf" 2>/dev/null | tr ',' '\n' | sort -u || true
 }
 
-# preset_names_from_doc <md> <role> -> one --preset name per line,
-# de-duplicated, from the role's command in "### Multiple presets (driven like
-# CI)" in docs/build-from-source.md. The section is scoped by its unique
-# heading, so the single-preset pair examples earlier in the guide are not
-# swept in; the role of a continuation line ('  --preset <names> \') is the
-# --target seen on the command's first line.
+
+# Extract example presets for a role, including commands split across continuation lines.
 preset_names_from_doc() {
   local md="$1" role="$2"
   awk -v wanted="$role" '
-    /^[[:space:]]*#+ / { insec = ($0 ~ /Multiple presets \(driven like CI\)/); next }
-    !insec { next }
     {
       if (match($0, /--target[[:space:]]+(initiator|reflector)/)) {
         role = substr($0, RSTART, RLENGTH)
@@ -380,19 +279,8 @@ preset_names_from_doc() {
   ' "$md" 2>/dev/null | tr ',' '\n' | sort -u || true
 }
 
-# preset_unshipped <role> <preset> -> 0 when the preset is deliberately NOT
-# built by the release workflow, i.e. must be absent from (and is not demanded
-# of) the list sites:
-#   * nrf54l15dm_* — deliberately undocumented prototypes (see #89, as in
-#     check_preset_table), and
-#   * the non-shipped nRF54L15 DK antenna variants — documented in
-#     docs/hardware.md as bench configurations but deliberately not released
-#     (nrf54l15dk_cent_a1_2 / nrf54l15dk_cent_a4_4 for the initiator,
-#     nrf54l15dk_peri_a2_2 / nrf54l15dk_peri_a4_4 for the reflector).
-# A preset added to (or dropped from) a CMakePresets.json fails
-# check_preset_lists until it is either shipped by the release/doc lists or
-# taught to this predicate as deliberately unshipped — so the decision is made
-# in one place, loudly.
+
+# Identify prototypes and DK antenna variants excluded from release archives.
 preset_unshipped() {
   local role="$1" p="$2"
   case "$p" in
@@ -405,10 +293,8 @@ preset_unshipped() {
   return 1
 }
 
-# preset_list_unknown_errors <role> <json> <json_names> <site> <names> —
-# direction (a): every preset name listed at one site must be a shipped preset
-# of that role. A misspelling, a preset dropped from the build, a name copied
-# from the other role, and a deliberately-unshipped preset all land here.
+
+# Require each listed preset to exist for its role and be eligible for release.
 preset_list_unknown_errors() {
   local role="$1" json="$2" json_names="$3" site="$4" names="$5" p
   while IFS= read -r p; do
@@ -425,10 +311,8 @@ from the list or start shipping it"
   done <<< "$names"
 }
 
-# preset_list_missing_errors <role> <json> <site> <site_names> <shipped> —
-# direction (b): completeness. Every shipped preset of the role must be
-# enumerated by the site's list, so a preset added to or dropped from
-# CMakePresets.json forces the published lists to move with it.
+
+# Require every shipped preset in the release list.
 preset_list_missing_errors() {
   local role="$1" json="$2" site="$3" site_names="$4" shipped="$5" p
   while IFS= read -r p; do
@@ -441,19 +325,8 @@ built/released — teach preset_unshipped in this script)"
   done <<< "$shipped"
 }
 
-# The six list sites enumerate the preset matrix by hand; this asserts they
-# match the CMakePresets.json files. Expectation per role (initiator vs
-# reflector), derived from how the sites read today:
-#   * release.yml's role list and docs/build-from-source.md's role list must
-#     enumerate exactly the role's SHIPPED preset set — every configurePresets
-#     name in the role's CMakePresets.json except the deliberately-unshipped
-#     ones (preset_unshipped above). Enforced in both directions.
-#   * ci.yml's role list is a deliberate smoke subset of the shipped set (it
-#     builds 9 of the 16 shipped presets and omits, among others, the ublox,
-#     Ezurio and Fanstel carriers), so only the subset direction is enforced
-#     there: every preset ci.yml names must be shipped. Completeness stays
-#     anchored on the release/doc lists, which fail whenever the preset set
-#     changes — so the ci.yml subset has to be a conscious choice.
+
+# Require complete release lists; CI and build-guide examples may use subsets.
 check_preset_lists() {
   local ci_wf=".github/workflows/ci.yml"
   local rel_wf=".github/workflows/release.yml"
@@ -472,8 +345,7 @@ check_preset_lists() {
     bfs_names="$(preset_names_from_doc "$bfs_md" "$role")"
     ci_names="$(preset_names_from_workflow "$ci_wf" "$role")"
 
-    # Fail loud per extraction (mirrors check_preset_table): a restructured
-    # or unreadable source must not silently pass as "no mismatch".
+    # Report missing inputs or extraction failures before comparing lists.
     if [[ -z "$json_names" ]]; then
       add_error "preset-list check: no configurePresets parsed from '$json' \
 (is the file valid JSON with a non-empty configurePresets array?)"
@@ -484,8 +356,7 @@ check_preset_lists() {
     fi
     if [[ -z "$bfs_names" ]]; then
       add_error "preset-list check: no '$role' presets parsed from the \
-'Multiple presets (driven like CI)' section of '$bfs_md' (expected a \
-'--target $role' command with a '  --preset <names>' continuation line)"
+build examples in '$bfs_md' (expected a command with --target $role and --preset)"
     fi
     if [[ -z "$ci_names" ]]; then
       add_error "preset-list check: no '$role' presets parsed from '$ci_wf' \
@@ -495,7 +366,7 @@ check_preset_lists() {
       return 0
     fi
 
-    # The shipped set for this role (see preset_unshipped for the exclusions).
+    # Build the expected release set, excluding deliberately unshipped presets.
     shipped=""
     while IFS= read -r p; do
       [[ -z "$p" ]] && continue
@@ -509,20 +380,16 @@ check_preset_lists() {
     preset_list_unknown_errors "$role" "$json" "$json_names" "$bfs_md" "$bfs_names"
 
     preset_list_missing_errors "$role" "$json" "$rel_wf" "$rel_names" "$shipped"
-    preset_list_missing_errors "$role" "$json" "$bfs_md" "$bfs_names" "$shipped"
   done
 
   if (( errors == before )); then
-    printf 'preset lists consistent: release.yml and docs/build-from-source.md enumerate every shipped preset for both roles; ci.yml builds a subset of the shipped set\n'
+    printf 'preset lists consistent: release.yml enumerates every shipped preset; build-guide examples and CI presets exist\n'
   fi
 }
 
 # --- main -------------------------------------------------------------------
 
-# Scope per issue #16: README.md + docs/*.md, tracked files only. git ls-files
-# never lists gitignored content (e.g. docs/agents/*.md), so a checkout has no
-# live links into gitignored files to false-positive on. CHANGELOG.md is
-# excluded (not a guide, auto-generated, no internal links).
+# Check tracked guides only; omit the generated changelog.
 MD_FILES=()
 while IFS= read -r f; do MD_FILES+=("$f"); done < \
   <(git ls-files | grep -E '^(README\.md|docs/.+\.md)$' || true)
@@ -536,21 +403,16 @@ for file in "${MD_FILES[@]}"; do
     lineno="${BASH_REMATCH[1]}"
     text="${BASH_REMATCH[2]}"
     href="${BASH_REMATCH[3]}"
-    # Strip an optional link title and any leading whitespace: CommonMark allows
-    # whitespace after '(' and an optional "title" after the destination, while
-    # the destination itself contains no raw spaces. Trim leading whitespace
-    # first (else a leading space would collapse the href to empty and the link
-    # would silently resolve to the linking file itself), then cut at the first
-    # whitespace to drop any title / trailing whitespace.
+    # Remove leading whitespace and an optional title from the link destination.
     while [[ "$href" == [[:space:]]* ]]; do href="${href#?}"; done
     href="${href%%[[:space:]]*}"
-    # Skip external URLs — out of scope (no network checks, no flakiness).
+    # External links are outside this offline check.
     [[ "$href" =~ $ext_re ]] && continue
 
     resolve_href "$file" "$href"
     target="$RESOLVED_TARGET"; anchor="$RESOLVED_ANCHOR"
 
-    if [[ ! -f "$target" ]]; then
+    if [[ ! -f "$target" && ! -d "$target" ]]; then
       add_error "$file:$lineno: link target not found: text='$text' href='$href' -> '$target'"
       continue
     fi
@@ -561,7 +423,7 @@ for file in "${MD_FILES[@]}"; do
     if [[ -n "$anchor" && "$target" == *.md ]]; then
       if ! anchor_exists "$target" "$anchor"; then
         add_error "$file:$lineno: anchor '#$anchor' not found in '$target' (text='$text')"
-        # Dump the target's actual heading slugs to aid diagnosis.
+        # List available anchors to help locate the broken reference.
         printf '    available heading slugs in %s:\n' "$target" >&2
         heading_slugs "$target" | sed 's/^/      - /' >&2
       fi

@@ -1,35 +1,14 @@
 #!/usr/bin/env bash
 # SPDX-License-Identifier: MIT
 #
-# NCS version consistency guard for mars-cs-nrf54l.
+# Check recognized NCS references against west.yml's nrf revision.
+# Run: bash scripts/check-ncs-version.sh
+# Requires Bash and the dependencies of ncs-version-lib.sh.
 #
-# Asserts that every live NCS version literal in the repo agrees with the
-# canonical source (west.yml's `nrf` project revision), and — on CI runs
-# outside pull requests — that the `vars.NCS_VERSION` GitHub repo variable
-# agrees with it too. Catches stale literals (container image tags, cache
-# keys, README/docs, script comments) before a bump leaves a half-built state
-# or a tagless container image.
-#
-# In CI (.github/workflows/ci.yml `verify-ncs-version` job, and release.yml's
-# build job) the workflow injects the repo variable via `env: NCS_VERSION:
-# ${{ vars.NCS_VERSION }}`. Locally, run `bash scripts/check-ncs-version.sh`
-# with no NCS_VERSION env: it just verifies every literal matches west.yml.
-#
-# Also exports the resolved version to $GITHUB_OUTPUT (as `ncs_version`) so
-# ci.yml's build jobs can source the container image tag and cache keys from
-# west.yml — which is checked out on fork PRs too — instead of vars.NCS_VERSION
-# (withheld on fork-PR pull_request runs). No-op outside Actions.
-#
-# PR note: ci.yml sets ENFORCE_NCS_VAR=false on every pull_request run, so the
-# guard skips the variable cross-check and runs the literal-only scan. That is
-# required for fork PRs, where GitHub does not pass repo variables (public
-# repo; the "send vars to fork PRs" toggle is private-repo-only), and it lets a
-# same-repo version-bump PR be green while vars.NCS_VERSION still holds the
-# previous version. Pushes to the default branch and release.yml
-# (ENFORCE_NCS_VAR defaulting true) enforce the full check.
-#
-# Mirrors scripts/check-docs.sh: set -euo pipefail, an errors counter + summary
-# list, a GITHUB_STEP_SUMMARY block, and a 1/0 exit with a pass/fail message.
+# In GitHub Actions, also require NCS_VERSION to match unless
+# ENFORCE_NCS_VAR=false (used for pull requests). Local runs check files only.
+# Write ncs_version to GITHUB_OUTPUT and a report to GITHUB_STEP_SUMMARY when set.
+# Exit nonzero on a version mismatch or an unreadable manifest.
 
 set -euo pipefail
 
@@ -42,7 +21,7 @@ cd "$(find_repo_root)"
 errors=0
 summary_lines=()
 
-# add_error <message> — record one problem on stderr and in the CI summary.
+# Record an error for stderr and the optional CI summary.
 add_error() {
   local msg="$1"
   printf '  - %s\n' "$msg" >&2
@@ -55,21 +34,13 @@ expected="$(ncs_version_from_west)" || {
   exit 1
 }
 
-# Export the resolved version so downstream jobs source the NCS image tag and
-# cache keys from west.yml (the canonical source) instead of vars.NCS_VERSION,
-# which GitHub withholds from fork-PR pull_request runs. ci.yml's build jobs
-# read needs.verify-ncs-version.outputs.ncs_version. No-op outside Actions.
+# Publish the manifest version for downstream build jobs.
 if [[ -n "${GITHUB_OUTPUT:-}" ]]; then
   printf 'ncs_version=%s\n' "$expected" >> "$GITHUB_OUTPUT"
 fi
 
-# CI-only: the workflow injects vars.NCS_VERSION as NCS_VERSION. An empty value
-# here would expand container.image to a tagless image and cache keys to
-# 'ncs-ws--…' — an opaque failure far from the cause. Fail loudly with the
-# remediation instead. Locally (GITHUB_ACTIONS unset) this block is skipped and
-# west.yml is the reference. ci.yml also sets ENFORCE_NCS_VAR=false on every
-# pull_request run (see header note), so this block is skipped there too — the
-# literal-only scan below still guards staleness.
+# Workflows supply the repository variable as NCS_VERSION. Pull-request jobs
+# disable this check so SDK updates can be reviewed before the variable changes.
 if [[ "${GITHUB_ACTIONS:-}" == "true" && "${ENFORCE_NCS_VAR:-true}" == "true" ]]; then
   if [[ -z "${NCS_VERSION:-}" ]]; then
     add_error "NCS_VERSION repo variable is not set; run: gh variable set NCS_VERSION ${expected}"
@@ -78,8 +49,7 @@ if [[ "${GITHUB_ACTIONS:-}" == "true" && "${ENFORCE_NCS_VAR:-true}" == "true" ]]
   fi
 fi
 
-# Every NCS literal in the repo (excluding west.yml, the source) must equal the
-# canonical revision.
+# Check the references recognized by the shared scanner.
 while IFS=: read -r file lineno version; do
   [[ -z "${version:-}" ]] && continue
   if [[ "$version" != "$expected" ]]; then
@@ -98,7 +68,7 @@ if [[ -n "${GITHUB_STEP_SUMMARY:-}" ]]; then
       printf '  - %s\n' "${summary_lines[@]}"
       printf '```\n'
     else
-      printf '**Passed** — all NCS literals agree with west.yml (nrf @ %s).\n' "$expected"
+      printf '**Passed** — all recognized NCS references agree with west.yml (nrf @ %s).\n' "$expected"
     fi
   } >> "$GITHUB_STEP_SUMMARY" 2>/dev/null || true
 fi
@@ -107,4 +77,4 @@ if (( errors > 0 )); then
   printf 'ncs version check failed: %d problem(s) (see above)\n' "$errors" >&2
   exit 1
 fi
-printf 'ncs version check passed: all NCS literals agree with west.yml (nrf @ %s)\n' "$expected"
+printf 'ncs version check passed: all recognized NCS references agree with west.yml (nrf @ %s)\n' "$expected"

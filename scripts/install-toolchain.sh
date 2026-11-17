@@ -1,21 +1,12 @@
 #!/usr/bin/env bash
 # SPDX-License-Identifier: MIT
 #
-# Install codifier for the native NCS toolchain used by mars-cs-nrf54l.
-#
-# One invocation hides the entire native install behind a single command:
-#   host apt packages -> isolated Python venv -> west workspace ->
-#   Zephyr/NCS pip requirements -> Zephyr SDK (ARM-only; version from SDK_VERSION).
-#
-# Idempotent: every stage guards on existing state, so re-running on an already
-# installed venv / west workspace / SDK, or resuming after a partial failure,
-# completes without re-downloading or breaking state.
-#
-# The reflector build does not need Rust; pass --with-rust to also install the
-# thumbv8m.main-none-eabihf target required by the initiator.
-#
-# The nrfutil toolchain-manager path is intentionally NOT used: the pip-distributed
-# legacy nrfutil is broken on Python 3.12.
+# Install the native Debian/Ubuntu build environment: host packages, a Python
+# venv, the NCS workspace, and the ARM Zephyr SDK. Add --with-rust for initiators.
+# Requires internet access and root/sudo when system packages are missing.
+# SDK sources are placed beside the repository; tools and the venv default to HOME.
+# Reruns reuse existing installations but still update workspace and Python dependencies.
+
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
@@ -29,19 +20,19 @@ usage() {
   cat <<'EOF'
 Usage: install-toolchain.sh [--with-rust] [options]
 
-Installs the native NCS toolchain (host packages, isolated venv, west
-workspace, Zephyr SDK ARM-only; version derived from SDK_VERSION) behind a
-single idempotent invocation.
+Install the Debian/Ubuntu build environment for this repository.
+Requires internet access and root/sudo for missing system packages.
 
 Options:
-  --with-rust        Also install the thumbv8m.main-none-eabihf Rust target
-                     (required by the initiator; the reflector does not need it).
-  --repo-root PATH   Manifest repo to run `west init -l` from
-                     (default: parent of this script's directory).
-  --venv-dir PATH    Isolated venv location (default: $HOME/.ncs-venv).
+  --with-rust        Install Rust and its ARM target if needed for the initiator.
+  --repo-root PATH   Manifest repository (default: this script's repository).
+  --venv-dir PATH    Python environment (default: $HOME/.ncs-venv).
   -h, --help         Show this help.
 
-Environment overrides: REPO_ROOT, VENV_DIR.
+Environment overrides: REPO_ROOT, VENV_DIR; command-line options take precedence.
+SDK sources are downloaded into the repository's parent directory.
+The Zephyr SDK defaults to $HOME/zephyr-sdk-<version>; Rust uses rustup defaults.
+Reruns reuse installed tools and refresh workspace and Python dependencies.
 EOF
 }
 
@@ -67,14 +58,10 @@ install_host_packages() {
     git python3 python3-venv curl ca-certificates
   )
 
-  # Fast path: if every required package is already installed, there is nothing
-  # to do and no root is needed. Lets the script re-run idempotently on a host
-  # that is already provisioned without forcing sudo.
+  # Avoid apt and sudo when all required packages are installed.
   local missing=()
   for pkg in "${packages[@]}"; do
-    # `dpkg -s` exits 0 for any package known to dpkg, including ones in `rc`
-    # (removed-but-not-purged) state whose binaries are absent. Require the full
-    # "install ok installed" status so a half-removed package is reinstalled.
+    # A known but removed package is not an installed dependency.
     if ! dpkg-query -W -f='${Status}' "$pkg" 2>/dev/null | grep -q '^install ok installed$'; then
       missing+=("$pkg")
     fi
@@ -108,23 +95,14 @@ create_venv() {
   set +u
   source "${VENV_DIR}/bin/activate"
   set -u
-  # Pin setuptools<81: the NCS requirements (installed later) pull spsdk, which
-  # requires setuptools<81. A blanket --upgrade would pull the latest setuptools
-  # (>=81) and break that constraint. <81 is the latest spsdk-compatible major;
-  # bump it when the NCS/spsdk setuptools bound moves.
+  # NCS depends on spsdk, which requires setuptools below version 81.
   pip install --upgrade pip wheel "setuptools<81" west
 }
 
 # --- 3. west workspace ---
 init_workspace() {
   cd "${REPO_ROOT}"
-  # `west manifest --path` prints the active workspace's manifest file and fails
-  # (non-zero) when no `.west` ancestor exists. Comparing it to
-  # ${REPO_ROOT}/west.yml is a one-shot test that THIS repo is the manifest
-  # project of the surrounding workspace — robust to repo renaming because it
-  # uses absolute paths, not basename matching. A foreign ancestor workspace
-  # (manifest points elsewhere) is refused rather than silently bound, which
-  # would otherwise make `west update` clone the wrong manifest's projects.
+  # Refuse an existing workspace whose manifest belongs to another project.
   local manifest_path
   if manifest_path="$(west manifest --path 2>/dev/null)"; then
     if [[ "${manifest_path}" == "${REPO_ROOT}/west.yml" ]]; then
@@ -174,16 +152,7 @@ install_sdk() {
     return 0
   fi
   log "Installing Zephyr SDK ${sdk_version} (ARM-only, no host tools) via west sdk install"
-  # west sdk install auto-detects the version from ${ZEPHYR_BASE}/SDK_VERSION
-  # (read above into ${sdk_version}) and installs to the default
-  # ${HOME}/zephyr-sdk-<version> path, which Zephyr auto-discovers — so no -d.
-  #
-  # -H / --no-hosttools: skip the SDK's bundled host tools (cmake/ninja/gperf/
-  # dtc). This repo installs its own host tools via apt, and the SDK's
-  # host-tools install fails on minimal containers (e.g. ubuntu:24.04) that
-  # lack the shared libraries the bundled host-tool binaries require. The build
-  # uses system host tools from PATH and only needs the arm-zephyr-eabi
-  # toolchain, which Zephyr auto-discovers at its default install path.
+  # Use the workspace SDK version and apt-provided host tools.
   west sdk install -t arm-zephyr-eabi -H
 }
 
@@ -196,9 +165,7 @@ install_rust() {
     # shellcheck disable=SC1091
     source "${HOME}/.cargo/env"
   fi
-  # Idempotent fast path: `rustup target add` tolerates an already-added
-  # target, but guarding explicitly matches the script's per-stage idempotency
-  # contract and avoids re-touching the toolchain on every re-run.
+  # Reuse an installed ARM target.
   if rustup target list --installed | grep -qx 'thumbv8m.main-none-eabihf'; then
     log "Rust target thumbv8m.main-none-eabihf already installed, skipping"
     return 0
