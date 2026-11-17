@@ -25,7 +25,7 @@ The ranging mode is a build-time choice, set by `CONFIG_MARS_CS_INLINE_PCT`:
 
 - **RAS** (Ranging Service) — the initiator pulls the reflector's step data over
   a BLE GATT service and combines it with its own.
-- **IPT** (Inline PCT) — the reflector's phase contribution is embedded in
+- **IPT** (Inline PCT Transfer) — the reflector's phase contribution is embedded in
   the local tones, so the initiator uses its own step data only (no GATT service).
 
 Both modes emit the same COBS-encoded ranging stream over UART. See
