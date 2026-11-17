@@ -1,67 +1,45 @@
 # mars-cs-nrf54l
 
-Nordic nRF54L15 Channel Sounding firmware samples. Runs on top of
-[nRF Connect SDK v3.4.1](https://developer.nordicsemi.com/nRF_Connect_SDK/)
-and uses [mars-bluetooth-hci](https://github.com/Metirionic/mars-bluetooth-hci)
-for COBS serialization of CS measurement data.
+Bluetooth® Channel Sounding firmware for Nordic nRF54L15-based boards, built
+with nRF Connect SDK v3.4.1. An initiator and a reflector collect ranging
+measurements; the initiator streams them to a host over UART.
 
 ## Get started
 
-Channel Sounding needs a pair of boards — one initiator, one reflector. Pick a path:
+You need two supported boards: one initiator and one reflector, both using the
+same ranging mode.
 
-- **Flash prebuilt firmware** — no build step; flash and run. See [docs/flash-quickstart.md](docs/flash-quickstart.md).
-- **Build from source** — native toolchain + build. See [docs/build-from-source.md](docs/build-from-source.md).
+- [Flash prebuilt firmware](docs/flash-quickstart.md) to try the firmware without a build setup.
+- [Build from source](docs/build-from-source.md) to develop or customize the firmware.
+- [Choose your board and presets](docs/hardware.md) for wiring, UART connections, and hardware settings.
+
+To view live distances and export measurements, use the
+[Metirionic Channel Sounding Evaluation Application](https://github.com/Metirionic/mars-ranging-demo).
 
 ## Firmware variants
 
-Each build targets a BLE role and a ranging mode.
+| Role | Responsibility |
+|------|----------------|
+| Initiator (BLE central) | Connects to the reflector, configures ranging, and streams measurements to the host. |
+| Reflector (BLE peripheral) | Advertises and participates in ranging procedures. |
 
-| Target | Description |
-|--------|-------------|
-| `initiator` | BLE Central that connects to a CS reflector, collects ranging data, and outputs COBS-encoded binary over UART |
-| `reflector` | BLE Peripheral that advertises and responds to CS procedures |
+Two acquisition modes are available:
 
-The ranging mode is a build-time choice, set by `CONFIG_MARS_CS_INLINE_PCT`:
+- **RAS (Ranging Service):** the reflector transfers its measurements over GATT
+  for the initiator to combine with its local data.
+- **IPT (Inline PCT Transfer):** the reflector's phase contribution is embedded
+  in the initiator's local tone measurements, avoiding a separate RAS data transfer.
 
-- **RAS** (Ranging Service) — the initiator pulls the reflector's step data over
-  a BLE GATT service and combines it with its own.
-- **IPT** (Inline PCT Transfer) — the reflector's phase contribution is embedded in
-  the local tones, so the initiator uses its own step data only (no GATT service).
+Both modes produce the same COBS-framed measurement format through
+[mars-bluetooth-hci](https://github.com/Metirionic/mars-bluetooth-hci).
+Board types and antenna counts may differ between devices; see the
+[hardware reference](docs/hardware.md#presets) for available configurations.
 
-Both modes emit the same COBS-encoded ranging stream over UART. See
-[docs/architecture.md](docs/architecture.md#ranging-data-flow) for the full
-RAS-vs-IPT contrast and per-mode data flow.
+## Development
 
-## Presets at a glance
-
-The recommended starting pairs on the nRF54L15 DK — RAS and IPT, peer choices:
-
-| Mode | Role | Preset | Antennas | Paths |
-|------|------|--------|----------|-------|
-| RAS | Initiator (BLE Central) | `nrf54l15dk_cent_a1_4` | 1 | 4 |
-| RAS | Reflector (BLE Peripheral) | `nrf54l15dk_peri_a1_4` | 1 | 4 |
-| IPT | Initiator (BLE Central) | `nrf54l15dk_cent_a1_4_ipt` | 1 | 4 |
-| IPT | Reflector (BLE Peripheral) | `nrf54l15dk_peri_a1_4_ipt` | 1 | 4 |
-
-Preset names follow `<board>_<cent|peri>_a<antennas>_<paths>`, with an `_ipt`
-suffix for IPT. For all boards and antenna/path configurations, see
-[docs/hardware.md](docs/hardware.md#presets).
-
-## Hardware reference
-
-For board overlays, UART assignments, and the full antenna/path↔preset mapping, see
-[docs/hardware.md](docs/hardware.md).
-
-## Architecture
-
-For the firmware module map, ranging-data flow, and initiator main loop, see
-[docs/architecture.md](docs/architecture.md).
-
-## Contributing
-
-For the commit convention, pre-commit hooks, and pull-request flow, see
-[docs/contributing.md](docs/contributing.md).
+- [Architecture](docs/architecture.md) — component responsibilities, measurement flow, and execution model.
+- [Contributing](docs/contributing.md) — development conventions, checks, and pull requests.
 
 ## License
 
-MIT
+[MIT](LICENSE)

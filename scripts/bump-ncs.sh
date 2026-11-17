@@ -1,19 +1,13 @@
 #!/usr/bin/env bash
 # SPDX-License-Identifier: MIT
 #
-# Bump the NCS version across the repo in one operation.
-#
-# The single way to move the NCS version: rewrites west.yml's `nrf` revision
-# (the canonical source) and every NCS version literal the shared scanner finds
-# (README/docs/scripts), sets the `vars.NCS_VERSION` GitHub repo variable to
-# match, and opens a PR. scripts/check-ncs-version.sh is the backstop that
-# catches anything this script missed.
-#
-# Docs "update automatically when the SDK is bumped" by construction: this
-# script IS the bump.
-#
-# `--dry-run` rewrites the files and runs the self-check but skips
-# `gh variable set` and PR creation, so it is safe to run locally for testing.
+# Update the pinned NCS version and matching references, then validate them.
+# Normal runs also update GitHub's NCS_VERSION variable, commit all working-tree
+# changes on a new branch, push it, and request a pull request.
+# --dry-run still edits local files but skips those GitHub and Git operations.
+# Use a clean working tree: validation failure restores affected tracked files.
+# Requires Bash, Git, GNU sed, and the version-checker's dependencies;
+# normal runs also require authenticated gh with repository-variable access.
 
 set -euo pipefail
 
@@ -28,15 +22,17 @@ usage() {
   cat <<'EOF'
 Usage: bump-ncs.sh [options] <version>
 
-Bump the NCS version across the repo: west.yml's `nrf` revision, every NCS
-literal the scanner finds (README/docs/scripts), the `vars.NCS_VERSION` GitHub
-repo variable, and open a PR.
+Update west.yml and matching NCS references, then run the version check.
+By default, also update GitHub's NCS_VERSION variable, create a branch,
+commit all working-tree changes, push, and open a pull request.
 
-  <version>      Target NCS version, e.g. v3.4.1 (must match vMAJOR.MINOR.PATCH).
-  --dry-run      Rewrite files and run the self-check, but skip `gh variable
-                 set` and PR creation. Safe for local testing; review with
-                 `git diff` and revert with `git checkout -- .`.
+  <version>      Target version in vMAJOR.MINOR.PATCH format.
+  --dry-run      Edit and validate local files only; review with git diff.
   -h, --help     Show this help.
+
+Start from a clean working tree. --dry-run modifies files too.
+If validation fails, affected tracked files are restored from Git.
+Normal runs require authenticated gh with repository-variable access.
 EOF
 }
 
@@ -50,9 +46,7 @@ while [[ $# -gt 0 ]]; do
   esac
 done
 
-# Options are accepted in any position: silently dropping a trailing
-# `--dry-run` (the old break-at-first-positional parser did) would run the
-# variable-set/commit/push/PR tail, which is the one thing the flag prevents.
+# Accept options before or after the version argument.
 if [[ ${#POSITIONAL_ARGS[@]} -gt 1 ]]; then
   echo "Error: unexpected argument: ${POSITIONAL_ARGS[1]}" >&2
   usage >&2
@@ -78,24 +72,18 @@ if [[ "$NEW_VERSION" == "$OLD_VERSION" ]]; then
   exit 0
 fi
 
-# Escape the semver dots for use as a sed/grep pattern (otherwise '.' matches
-# any char). Fixed-string grep (-F) needs no escaping, but the sed substitution
-# does.
+# Escape version dots for literal matching in sed.
 OLD_SEMVER="${OLD_VERSION#v}"
 NEW_SEMVER="${NEW_VERSION#v}"
 OLD_SEMVER_ESC="${OLD_SEMVER//./\\.}"
 
 log "Bumping NCS ${OLD_VERSION} -> ${NEW_VERSION}"
 
-# Collect the unique files that currently contain an NCS literal, plus
-# west.yml (the source, always rewritten).
+# Update files selected by the shared scanner, plus the manifest.
 mapfile -t FILES < <(find_ncs_refs | cut -d: -f1 | sort -u)
 FILES+=("west.yml")
 
-# Rewrite the old semver to the new in every target file. Safe in practice:
-# the scanner confirmed each file carries an NCS reference, and the sed
-# replaces only that exact old NCS semver — unrelated versions in the same
-# file (e.g. Zephyr SDK 1.0.1, pre-commit hook revs) keep their value.
+# Replace every occurrence of the old v-prefixed version in each selected file.
 for f in "${FILES[@]}"; do
   path="${REPO_ROOT}/${f}"
   [[ -f "$path" ]] || continue
@@ -105,8 +93,7 @@ for f in "${FILES[@]}"; do
   fi
 done
 
-# Self-check: the guard must pass against the new west.yml. On failure, revert
-# the working-tree edits so a half-bump doesn't linger.
+# Restore affected tracked files if the rewritten versions fail validation.
 log "running guard self-check"
 if ! bash "${SCRIPT_DIR}/check-ncs-version.sh"; then
   echo "Error: guard failed after rewrite; some literal was missed." >&2
@@ -120,7 +107,7 @@ if [[ "$DRY_RUN" -eq 1 ]]; then
   exit 0
 fi
 
-# Set the GitHub repo variable so CI's vars.NCS_VERSION tracks the manifest.
+# Keep the CI repository variable aligned with the manifest.
 log "setting vars.NCS_VERSION=${NEW_VERSION}"
 gh variable set NCS_VERSION --body "$NEW_VERSION"
 
@@ -131,17 +118,12 @@ git -C "$REPO_ROOT" checkout -b "$BRANCH"
 git -C "$REPO_ROOT" add -A
 git -C "$REPO_ROOT" commit -m "chore: bump NCS ${OLD_VERSION} -> ${NEW_VERSION}
 
-Bumps the NCS version across west.yml, CI, docs, and scripts via the single
-bump operation (scripts/bump-ncs.sh).
-
-Co-Authored-By: Claude <noreply@anthropic.com>"
+Updates the manifest and matching CI, documentation, and script references."
 git -C "$REPO_ROOT" push -u origin "$BRANCH"
 gh pr create --title "chore: bump NCS ${OLD_VERSION} -> ${NEW_VERSION}" \
   --body "Bumps NCS ${OLD_VERSION} -> ${NEW_VERSION} via \`scripts/bump-ncs.sh\`.
 
 - west.yml \`nrf\` revision -> ${NEW_VERSION}
 - README/docs/script literals -> ${NEW_VERSION}
-- \`vars.NCS_VERSION\` repo variable -> ${NEW_VERSION}
-
-Refs #19." || true
+- \`vars.NCS_VERSION\` repo variable -> ${NEW_VERSION}" || true
 log "done: PR opened on ${BRANCH}"

@@ -1,181 +1,94 @@
-# Flash prebuilt firmware (quickstart)
+# Flash prebuilt firmware
 
-This guide is for evaluators who want to run Channel Sounding by flashing
-prebuilt firmware and never build anything. To build from source instead,
-see [docs/build-from-source.md](build-from-source.md).
+Use this guide to run Channel Sounding on two nRF54L15 DKs with prebuilt
+firmware. To compile your own firmware, see [build from source](build-from-source.md).
 
 ## What you need
 
-- Two nRF54L15 DK boards (Channel Sounding needs a pair — see
-  [Channel Sounding needs two boards](#channel-sounding-needs-two-boards)).
-- A USB cable for each DK (the onboard J-Link is used for flashing and
-  exposes the serial ports — see
-  [Read the ranging output](#read-the-ranging-output)).
-- A host flashing tool: the Nordic GUI Programmer ([nRF Connect for
-  Desktop](https://www.nordicsemi.com/Products/Development-tools/nrf-connect-for-desktop))
-  or the `nrfjprog` CLI from Nordic's command-line tools.
+- Two nRF54L15 DKs and a USB cable for each board.
+- [nRF Connect for Desktop](https://www.nordicsemi.com/Products/Development-tools/nrf-connect-for-desktop)
+  with its **Programmer** app installed.
+- The [Metirionic Channel Sounding Evaluation Application](https://github.com/Metirionic/mars-ranging-demo)
+  to view measurements, or a serial application to inspect the raw stream.
 
-## Channel Sounding needs two boards
+For other boards, choose the corresponding firmware from the
+[hardware preset table](hardware.md#presets) and follow that board's wiring
+notes. Some boards need an external debugger or USB-to-UART adapter.
 
-Channel Sounding is a two-device protocol. You must flash **one board as the
-initiator and a second board as the reflector** — flashing only one board
-yields nothing. This guide uses the recommended starting pairs on the nRF54L15 DK — RAS and
-IPT, peer choices (see
-[docs/architecture.md](architecture.md#ranging-data-flow) for what differs
-between the modes). Flash a **matched** pair — both boards in the same mode
-(RAS **or** IPT); the two modes use different BLE discovery and won't pair
-with each other:
+## Download a firmware pair
 
-| Mode | Role | Preset | Antennas | Paths |
-|------|------|--------|----------|-------|
-| RAS | Initiator (BLE Central) | `nrf54l15dk_cent_a1_4` | 1 | 4 |
-| RAS | Reflector (BLE Peripheral) | `nrf54l15dk_peri_a1_4` | 1 | 4 |
-| IPT | Initiator (BLE Central) | `nrf54l15dk_cent_a1_4_ipt` | 1 | 4 |
-| IPT | Reflector (BLE Peripheral) | `nrf54l15dk_peri_a1_4_ipt` | 1 | 4 |
+Download `cs-ranging-firmware.zip` from the
+[GitHub releases page](https://github.com/Metirionic/mars-cs-nrf54l/releases)
+and extract it.
 
-Preset names follow `<board>_<cent|peri>_a<antennas>_<paths>`, with an `_ipt`
-suffix for IPT: `cent`/`peri` is the BLE role, `a1` is the antenna count, and
-the trailing number is the antenna-path count. Other presets for third-party
-boards ship in the same archive; see the [preset table](hardware.md#presets).
+Choose **one** pair below. Each pair contains an initiator and a reflector;
+both boards must use the same mode and release.
 
-## Download the firmware
+| Mode | Initiator file | Reflector file |
+|------|----------------|----------------|
+| RAS (Ranging Service) | `initiator_nrf54l15dk_cent_a1_4.hex` | `reflector_nrf54l15dk_peri_a1_4.hex` |
+| IPT (Inline PCT Transfer) | `initiator_nrf54l15dk_cent_a1_4_ipt.hex` | `reflector_nrf54l15dk_peri_a1_4_ipt.hex` |
 
-1. Go to the repo's **Releases** page on GitHub and download
-   `cs-ranging-firmware.zip` from the latest release.
-2. Unzip it. The archive is flat — 36 `.hex` files at the root, named
-   `<role>_<preset>.hex`. That is ten RAS presets and ten `_ipt` presets
-   per role (18 initiator + 18 reflector); no build step is needed.
-3. Locate the two files for your chosen pair. IPT files use the same
-   `<role>_<preset>.hex` name with an `_ipt` suffix before `.hex`:
-   - **RAS pair** — `initiator_nrf54l15dk_cent_a1_4.hex` +
-     `reflector_nrf54l15dk_peri_a1_4.hex`
-   - **IPT pair** — `initiator_nrf54l15dk_cent_a1_4_ipt.hex` +
-     `reflector_nrf54l15dk_peri_a1_4_ipt.hex`
-
-The repo ships no prebuilt `.hex` files itself — the release archive is the
-only source.
+See the [architecture overview](architecture.md#measurement-flow) for how the
+two modes acquire measurements.
 
 ## Flash the boards
 
-Flash the initiator hex to one DK and the reflector hex to the other. Connect
-each DK by USB (its onboard J-Link), then use either path below.
+Program one board at a time to keep the roles easy to identify:
 
-### Option A — Nordic GUI Programmer (recommended)
+1. Connect the first DK through its **debug USB port** and turn it on.
+2. Open **Programmer** in nRF Connect for Desktop and select the connected DK.
+3. Use **Add file** to load the initiator `.hex` from your chosen pair.
+4. Click **Erase & write** and wait for programming to finish.
+5. Disconnect that board and repeat with the second DK and the reflector file.
 
-1. Open
-   [nRF Connect for Desktop](https://www.nordicsemi.com/Products/Development-tools/nrf-connect-for-desktop)
-   and install the **Programmer** app.
-2. Launch Programmer and select the DK's onboard J-Link from the device
-   drop-down.
-3. Click **Add file** and choose the matching `.hex` for your chosen pair —
-   the initiator file for the initiator board, the reflector file for the
-   reflector board (e.g. `initiator_nrf54l15dk_cent_a1_4.hex` and
-   `reflector_nrf54l15dk_peri_a1_4.hex` for RAS; the same names with `_ipt`
-   for IPT).
-4. Click **Erase & write** to flash. Repeat on the second board with its file.
-
-### Option B — `nrfjprog` CLI (for scripted use)
-
-```bash
-# RAS pair — initiator board, then reflector board:
-nrfjprog --program initiator_nrf54l15dk_cent_a1_4.hex --verify --reset
-nrfjprog --program reflector_nrf54l15dk_peri_a1_4.hex --verify --reset
-
-# IPT pair — same names with the _ipt suffix:
-nrfjprog --program initiator_nrf54l15dk_cent_a1_4_ipt.hex --verify --reset
-nrfjprog --program reflector_nrf54l15dk_peri_a1_4_ipt.hex --verify --reset
-```
-
-The modern alternative is `nrfutil device program --firmware <file>.hex` from
-the nRF Connect Device Command Line Tool (it auto-selects a connected device,
-or pass `--device <serial-number>`).
+These steps follow Nordic's
+[programming procedure](https://docs.nordicsemi.com/r/bundle/nrf-connect-for-desktop/page/app/pc-nrfconnect-programmer/programming_dk.html/general-programming-procedure).
+Label the boards, then power both within Bluetooth range. The initiator finds
+the reflector and starts ranging automatically.
 
 ## Read the ranging output
 
-Only the **initiator** streams ranging results, on a dedicated COBS UART. The
-reflector is silent on this UART. The DK routes both this UART and the
-console/log UART to its onboard J-Link, which exposes them as two virtual COM
-ports over the single debug USB cable — no external USB-to-serial adapter is
-needed.
+Use the [Metirionic Channel Sounding Evaluation Application](https://github.com/Metirionic/mars-ranging-demo)
+to view live distances and export measurements. See its README for requirements,
+downloads, and setup.
 
-With the **initiator** DK connected by its debug USB, two virtual COM ports
-appear on the host:
+### Serial connection
 
-| Virtual COM port | DK UART | Pins | Carries |
-|------------------|---------|------|---------|
-| Serial Port 0 (1st) | uart30 | P0.00 / P0.01 | console / log output |
-| Serial Port 1 (2nd) | uart20 | P1.04 / P1.05 | ranging stream (COBS) |
+Only the **initiator** sends measurement data. Its debug USB connection exposes
+two virtual serial ports:
 
-Open **Serial Port 1** (the second virtual COM port) at **921600 baud, 8N1, no
-flow control**:
+| Port | UART / pins | Output |
+|------|-------------|--------|
+| Serial Port 0 (first) | `uart30`, P0.00 / P0.01 | Console logs |
+| Serial Port 1 (second) | `uart20`, P1.04 / P1.05 | COBS-framed binary measurements |
+
+Open the initiator's **Serial Port 1** at **921600 baud, 8N1, no flow control**.
+No external UART adapter is needed on the DK. To inspect the raw stream with a
+terminal instead, for example on Linux:
 
 ```bash
-picocom -b 921600 /dev/ttyACM1
+picocom -b 921600 --flow n /dev/ttyACM1
 ```
 
-(`screen /dev/ttyACM1 921600`, or on Windows PuTTY/Tera Term, work too. The
-exact device name and number depend on your OS and how many devices are
-connected — pick the second of the two ports the DK enumerates.)
+Replace `/dev/ttyACM1` with the actual port on your computer. Port numbering
+varies, especially when both DKs are connected. PuTTY or Tera Term can also
+open the port on Windows.
 
-The ranging stream is **COBS-framed binary** — postcard-serialized structs
-wrapped in COBS, produced by the external
-[mars-bluetooth-hci](https://github.com/Metirionic/mars-bluetooth-hci)
-library. A raw terminal shows binary bytes, not readable text. A host
-decoder for this wire format is not yet shipped with this repo and will be
-covered separately; this guide covers capture only.
-
-> **nRF54L15 TAG is different.** The quickstart above assumes the DK, which
-> routes both UARTs to its onboard J-Link over the debug USB cable. The TAG has
-> **no onboard USB**, so reading the COBS ranging stream requires an external
-> UART-to-USB adapter (e.g. FT232R) wired to the COBS UART: `uart20`
-> **TX → P1.13**, **RX → P1.14** (`921600`, 8N1, no flow control) — the pin
-> assignment in the shared `boards/uart20_p1_13_p1_14.dtsi` (included by
-> `boards/nrf54l15tag_nrf54l15_cpuapp.overlay`). The TAG is
-> flashed through an nRF54L15 DK's `DEBUG OUT` header. See
-> [docs/hardware.md](hardware.md#nrf54l15-tag-wiring-notes) for the full TAG
-> wiring notes.
-
-> **Würth Ophelia-IV MiniEV is different too.** It has no onboard USB or
-> debugger: flash it via `nrfutil device program` against an external J-Link
-> (SWD through the bare CON2 solder pads, serial forced) **with the safe
-> options** —
-> `--options chip_erase_mode=ERASE_RANGES_TOUCHED_BY_FIRMWARE,reset=RESET_HARD`
-> (the tool defaults halt the chip, and `RESET_SYSTEM` does not reliably
-> reboot the MiniEV — the previous app keeps running through the reflash; this
-> erase mode also leaves a previous, longer image's tail in flash — harmless,
-> but mind it when diffing flash contents). Read the COBS ranging
-> stream from an external UART-to-USB adapter wired to CON4 — module
-> **TX → CON4 pin 9 (`P1.04`)**, `921600`, 8N1, no flow control. Its console
-> runs over Segger RTT but holds stale leftovers after a reflash — the
-> adapter stream is the only live window. See
-> [docs/hardware.md](hardware.md#würth-ophelia-iv-miniev-wiring-notes) for the
-> full MiniEV wiring notes.
+A terminal displays binary bytes, **not readable distances**. Use the evaluation
+application above to interpret the measurements. Custom host decoders must match
+the firmware's [mars-bluetooth-hci](https://github.com/Metirionic/mars-bluetooth-hci)
+wire-format version. Close the terminal before connecting the evaluation
+application to the same port.
 
 ## Troubleshooting
 
-- **Only see logs, no ranging bytes** — you opened Serial Port 0 (console)
-  instead of Serial Port 1 (ranging). Open the second of the two virtual COM
-  ports the DK enumerates.
-- **Serial Port 1 is silent (right port, nothing on it)** — only the
-  **initiator** emits the COBS ranging stream; the reflector emits console
-  logs (Serial Port 0) but never writes to the COBS UART. If the board you are
-  reading from is the reflector, flash the initiator hex to it. If you are
-  already on the initiator, see *Two boards but no stream* below.
-- **Garbage / wrong bytes** — confirm the baud is 921600, 8N1, and that you
-  opened Serial Port 1 (P1.04/P1.05), not Serial Port 0 (P0.00/P0.01, logs).
-  If your terminal refuses 921600 or shows only garbage, update the DK's
-  J-Link OB firmware via nRF Connect for Desktop (older OB firmware lists
-  921600 as unsupported on the virtual COM ports).
-- **Nothing happens** — Channel Sounding needs the initiator **and** the
-  reflector running. Power and flash both boards.
-- **Two boards but no stream** — confirm both boards are powered and within
-  BLE range; the initiator only emits while a CS procedure is running.
+| Symptom | Check |
+|---------|-------|
+| Readable logs instead of measurement bytes | Open Serial Port 1 on the initiator; Serial Port 0 carries logs. |
+| No measurement bytes | Confirm both boards are powered, within range, and flashed with opposite roles from the same mode and release. Check the initiator's console logs for setup errors. |
+| Unreadable characters | Binary output is expected. If a decoder rejects it, check the serial settings and wire-format compatibility. |
+| Serial connection cannot use 921600 baud | Update the DK's onboard J-Link firmware using Nordic's tools. |
 
-## Next steps
-
-- Build from source: see [docs/build-from-source.md](build-from-source.md).
-- All available presets (including third-party boards): see the
-  [preset table](hardware.md#presets).
-- Hardware reference (boards, UARTs, antenna-switch GPIOs, antenna/path preset
-  mapping): see [docs/hardware.md](hardware.md).
-- A host decoder for the COBS ranging stream is tracked as future work.
+For board-specific UART connections and programming requirements, see the
+[hardware reference](hardware.md).
