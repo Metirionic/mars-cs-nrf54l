@@ -2,6 +2,12 @@
 All notable changes to this project will be documented in this file. See [conventional commits](https://www.conventionalcommits.org/) for commit guidelines.
 
 - - -
+## [v1.19.0](https://github.com/Metirionic/mars-cs-nrf54l/releases/tag/v1.19.0) - 2026-11-17
+#### Features
+- add mode 1 handling - ([e49e994](https://github.com/Metirionic/mars-cs-nrf54l/commit/e49e994d2dcee394eb5a1cb8a1b92b3810057046)) - Tim Taubert
+
+- - -
+
 ## [v1.18.0](https://github.com/Metirionic/mars-cs-nrf54l/releases/tag/v1.18.0) - 2026-11-17
 #### Features
 - directly send every subevent over uart and enable mode 1 data - ([f90397b](https://github.com/Metirionic/mars-cs-nrf54l/commit/f90397bb228d35d4a256661232af7977880fa1cb)) - Tim Taubert
