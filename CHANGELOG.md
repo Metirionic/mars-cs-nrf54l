@@ -2,6 +2,12 @@
 All notable changes to this project will be documented in this file. See [conventional commits](https://www.conventionalcommits.org/) for commit guidelines.
 
 - - -
+## [v1.20.3](https://github.com/Metirionic/mars-cs-nrf54l/releases/tag/v1.20.3) - 2026-11-19
+#### Bug Fixes
+- propagate initiator setup failures and bound setup waits - ([d6b3758](https://github.com/Metirionic/mars-cs-nrf54l/commit/d6b37580f2aeb7f76783e1cf0ec58ad8e86cb84f)) - Tim Taubert
+
+- - -
+
 ## [v1.20.2](https://github.com/Metirionic/mars-cs-nrf54l/releases/tag/v1.20.2) - 2026-11-19
 #### Bug Fixes
 - run watchdog on a dedicated workqueue - ([ee5b41c](https://github.com/Metirionic/mars-cs-nrf54l/commit/ee5b41c0b5e685cae0226e8c721d9aa36cd3d252)) - Tim Taubert
