@@ -2,6 +2,12 @@
 All notable changes to this project will be documented in this file. See [conventional commits](https://www.conventionalcommits.org/) for commit guidelines.
 
 - - -
+## [v1.20.2](https://github.com/Metirionic/mars-cs-nrf54l/releases/tag/v1.20.2) - 2026-11-19
+#### Bug Fixes
+- run watchdog on a dedicated workqueue - ([ee5b41c](https://github.com/Metirionic/mars-cs-nrf54l/commit/ee5b41c0b5e685cae0226e8c721d9aa36cd3d252)) - Tim Taubert
+
+- - -
+
 ## [v1.20.1](https://github.com/Metirionic/mars-cs-nrf54l/releases/tag/v1.20.1) - 2026-11-19
 #### Bug Fixes
 - apply correct pct normalization - ([5387520](https://github.com/Metirionic/mars-cs-nrf54l/commit/53875200a17817a59eec38f828f3a6e993de7cdb)) - Tim Taubert
