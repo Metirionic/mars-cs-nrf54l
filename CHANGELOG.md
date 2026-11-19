@@ -2,6 +2,12 @@
 All notable changes to this project will be documented in this file. See [conventional commits](https://www.conventionalcommits.org/) for commit guidelines.
 
 - - -
+## [v1.20.1](https://github.com/Metirionic/mars-cs-nrf54l/releases/tag/v1.20.1) - 2026-11-19
+#### Bug Fixes
+- apply correct pct normalization - ([5387520](https://github.com/Metirionic/mars-cs-nrf54l/commit/53875200a17817a59eec38f828f3a6e993de7cdb)) - Tim Taubert
+
+- - -
+
 ## [v1.20.0](https://github.com/Metirionic/mars-cs-nrf54l/releases/tag/v1.20.0) - 2026-11-19
 #### Features
 - add mode 3 ras handling - ([77bc282](https://github.com/Metirionic/mars-cs-nrf54l/commit/77bc2825d9c601bf2f58417264705a96a41b604b)) - Tim Taubert
