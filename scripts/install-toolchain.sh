@@ -4,7 +4,7 @@
 # Install the native Debian/Ubuntu build environment: host packages, a Python
 # venv, the NCS workspace, and the ARM Zephyr SDK. Add --with-rust for initiators.
 # Requires internet access and root/sudo when system packages are missing.
-# SDK sources are placed beside the repository; tools and the venv default to HOME.
+# SDK sources are placed beside the repository; the Python venv lives in the repository.
 # Reruns reuse existing installations but still update workspace and Python dependencies.
 
 set -euo pipefail
@@ -13,7 +13,7 @@ SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 
 # --- defaults (overridable via environment) ---
 REPO_ROOT="${REPO_ROOT:-$(cd "${SCRIPT_DIR}/.." && pwd)}"
-VENV_DIR="${VENV_DIR:-${HOME}/.ncs-venv}"
+VENV_DIR="${VENV_DIR:-}"
 WITH_RUST=0
 
 usage() {
@@ -26,7 +26,7 @@ Requires internet access and root/sudo for missing system packages.
 Options:
   --with-rust        Install Rust and its ARM target if needed for the initiator.
   --repo-root PATH   Manifest repository (default: this script's repository).
-  --venv-dir PATH    Python environment (default: $HOME/.ncs-venv).
+  --venv-dir PATH    Python environment (default: <repo-root>/.venv).
   -h, --help         Show this help.
 
 Environment overrides: REPO_ROOT, VENV_DIR; command-line options take precedence.
@@ -45,6 +45,8 @@ while [[ $# -gt 0 ]]; do
     *) echo "Unknown option: $1" >&2; usage >&2; exit 1 ;;
   esac
 done
+
+VENV_DIR="${VENV_DIR:-${REPO_ROOT}/.venv}"
 
 [[ -d "${REPO_ROOT}" ]] || { echo "Error: repo root not found: ${REPO_ROOT}" >&2; exit 1; }
 [[ -f "${REPO_ROOT}/west.yml" ]] || { echo "Error: west.yml not found in ${REPO_ROOT}" >&2; exit 1; }

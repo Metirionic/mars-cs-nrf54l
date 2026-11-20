@@ -18,14 +18,14 @@ bash scripts/install-toolchain.sh --with-rust
 ```
 
 The [installer](../scripts/install-toolchain.sh) sets up the system packages,
-Python environment, pinned nRF Connect SDK, Zephyr toolchain, and Rust target.
+Python environment in `.venv/`, pinned nRF Connect SDK, Zephyr toolchain, and Rust target.
 It can be rerun if installation is interrupted. Rust is required for the
 initiator; omit `--with-rust` if you only build the reflector.
 
 Activate the build environment in each new terminal:
 
 ```bash
-source ~/.ncs-venv/bin/activate
+source .venv/bin/activate
 source ~/.cargo/env
 ```
 

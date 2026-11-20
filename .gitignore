@@ -12,7 +12,6 @@ target/
 
 # Firmware binaries
 *.hex
-!release/*.hex
 
 # IDE
 .idea/
@@ -26,6 +25,7 @@ target/
 .DS_Store
 
 # Python
+/.venv/
 __pycache__/
 *.pyc
 
@@ -42,8 +42,4 @@ docs/agents/
 skills-lock.json
 
 # Scratch
-/tmp/*
-# Preserved #190 investigation tree (branch research/190-uart-stream): its sources stay addable and searchable
-!/tmp/uart-stream/
-!/tmp/vcom1-diag/
-/.playwright-mcp/
+/tmp/
