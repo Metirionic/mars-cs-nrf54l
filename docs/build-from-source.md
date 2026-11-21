@@ -70,8 +70,8 @@ Connect the board through its debug USB port. With the J-Link tools installed,
 flash the corresponding build directory:
 
 ```bash
-west flash -d initiator/build_nrf54l15dk_cent_a1_4
-west flash -d reflector/build_nrf54l15dk_peri_a1_4
+west flash --runner jlink -d initiator/build_nrf54l15dk_cent_a1_4
+west flash --runner jlink -d reflector/build_nrf54l15dk_peri_a1_4
 ```
 
 Flash each role to a separate board. For IPT builds, use the directories ending
@@ -79,3 +79,19 @@ in `_ipt`. For boards without an onboard debugger, use an external debug probe.
 
 See the [flash quickstart](flash-quickstart.md) for flashing tools and
 [reading the ranging output](flash-quickstart.md#read-the-ranging-output).
+
+## Build and flash with just
+
+The [justfile](../justfile) provides recipes for the supported hardware,
+each with `initiator` and `reflector` roles. Add `-ipt` for IPT;
+otherwise the recipe uses RAS. Run `just` to list the recipes.
+
+```bash
+just build-nordic-dk-initiator
+just flash-nordic-dk-initiator
+just build-flash-nordic-dk-reflector-ipt
+```
+
+`build-` compiles firmware, `flash-` flashes an existing build, and
+`build-flash-` builds successfully before flashing. Connect the
+intended board before flashing.

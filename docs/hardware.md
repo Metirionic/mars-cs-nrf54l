@@ -224,15 +224,11 @@ maps to its board overlay and configuration in the application's
 Find the preset for each board and role independently. Both devices must use
 the same mode (RAS or IPT), but board types and antenna counts may differ.
 Rows group presets with matching settings; they do not define required
-measurement pairs. A “—” means no preset is provided for that role and
-configuration.
+measurement pairs.
 
 | Module or board | Mode | Antennas / path limit | Initiator preset | Reflector preset |
 |-----------------|------|----------------------|------------------|------------------|
-| nRF54L15 DK | RAS | A1 / 2 | `nrf54l15dk_cent_a1_2` | — |
 | nRF54L15 DK | RAS | A1 / 4 | `nrf54l15dk_cent_a1_4` | `nrf54l15dk_peri_a1_4` |
-| nRF54L15 DK | RAS | A2 / 2 | — | `nrf54l15dk_peri_a2_2` |
-| nRF54L15 DK | RAS | A4 / 4 | `nrf54l15dk_cent_a4_4` | `nrf54l15dk_peri_a4_4` |
 | nRF54L15 DK | IPT | A1 / 4 | `nrf54l15dk_cent_a1_4_ipt` | `nrf54l15dk_peri_a1_4_ipt` |
 | nRF54L15 TAG | RAS | A2 / 4 | `nrf54l15tag_cent_a2_4` | `nrf54l15tag_peri_a2_4` |
 | nRF54L15 TAG | IPT | A2 / 4 | `nrf54l15tag_cent_a2_4_ipt` | `nrf54l15tag_peri_a2_4_ipt` |

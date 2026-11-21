@@ -280,15 +280,11 @@ preset_names_from_doc() {
 }
 
 
-# Identify prototypes and DK antenna variants excluded from release archives.
+# Identify prototypes excluded from release archives.
 preset_unshipped() {
   local role="$1" p="$2"
   case "$p" in
     nrf54l15dm_*) return 0 ;;
-    nrf54l15dk_cent_a1_2|nrf54l15dk_cent_a4_4)
-      [[ "$role" == initiator ]] && return 0 ;;
-    nrf54l15dk_peri_a2_2|nrf54l15dk_peri_a4_4)
-      [[ "$role" == reflector ]] && return 0 ;;
   esac
   return 1
 }
