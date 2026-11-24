@@ -18,12 +18,12 @@
 #include <zephyr/bluetooth/uuid.h>
 #include <zephyr/kernel.h>
 #include <zephyr/logging/log.h>
-#include <zephyr/settings/settings.h>
 #include <zephyr/sys/byteorder.h>
 #include <zephyr/sys/reboot.h>
 
 #include "antenna.h"
 #include "cs_watchdog.h"
+#include "location.h"
 
 LOG_MODULE_REGISTER(app_main, LOG_LEVEL_INF);
 
@@ -335,9 +335,11 @@ int main(void)
      * with step data pets it, so the handshake never false-triggers it. */
     cs_watchdog_init(cs_watchdog_recovery_cb);
 
-    if (IS_ENABLED(CONFIG_BT_SETTINGS))
+    err = location_init();
+    if (err)
     {
-        settings_load();
+        LOG_ERR("Location storage init failed (err %d)", err);
+        return 0;
     }
 
     err = bt_le_adv_start(BT_LE_ADV_CONN_FAST_2, ad, ARRAY_SIZE(ad), NULL, 0);

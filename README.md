@@ -16,6 +16,9 @@ same ranging mode.
 To view live distances and export measurements, use the
 [Metirionic Channel Sounding Evaluation Application](https://github.com/Metirionic/mars-ranging-demo).
 
+You can [set a reflector's X/Y location](docs/reflector-location.md) from
+nRF Connect for Mobile and save it in the reflector's internal flash.
+
 ## Firmware variants
 
 | Role | Responsibility |
