@@ -2,6 +2,14 @@
 All notable changes to this project will be documented in this file. See [conventional commits](https://www.conventionalcommits.org/) for commit guidelines.
 
 - - -
+## [v1.21.0](https://github.com/Metirionic/mars-cs-nrf54l/releases/tag/v1.21.0) - 2026-11-24
+#### Features
+- use simplified serialization interface - ([73b6c4d](https://github.com/Metirionic/mars-cs-nrf54l/commit/73b6c4d8883eeda39b32ad822a1d1818bf998a8e)) - Tim Taubert
+#### Documentation
+- clean-up documentation - ([fc7f67d](https://github.com/Metirionic/mars-cs-nrf54l/commit/fc7f67da239c82deed2bbe624e6d6e54334f5057)) - Tim Taubert
+
+- - -
+
 ## [v1.20.3](https://github.com/Metirionic/mars-cs-nrf54l/releases/tag/v1.20.3) - 2026-11-19
 #### Bug Fixes
 - propagate initiator setup failures and bound setup waits - ([d6b3758](https://github.com/Metirionic/mars-cs-nrf54l/commit/d6b37580f2aeb7f76783e1cf0ec58ad8e86cb84f)) - Tim Taubert
