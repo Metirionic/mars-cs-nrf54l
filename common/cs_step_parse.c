@@ -22,17 +22,17 @@
 #endif
 
 /**
- * @brief Guard the derived tone count against the external Mode2_t idx[] size.
+ * @brief Guard the derived tone count against the external Mode2Data_t idx[] size.
  *
- * Mode2_t's quality_indicators/extension_slots/phase_correction_terms idx[]
+ * Mode2Data_t's quality_indicators/extension_slots/phase_correction_terms idx[]
  * arrays are a literal [5] baked into the fetched mars-bluetooth-hci C bindings
  * (not parameterised by any Kconfig). If CONFIG_BT_CTLR_SDC_CS_MAX_ANTENNA_PATHS
  * ever widens past 4, MARS_CS_MAX_TONE_COUNT (n_ap + 1) would exceed that
  * capacity — fail the build here rather than silently overflow / drop tones.
  */
-BUILD_ASSERT(MARS_CS_MAX_TONE_COUNT * sizeof(((Mode2_t *)0)->quality_indicators.idx[0]) <=
-                 sizeof(((Mode2_t *)0)->quality_indicators.idx),
-             "MARS_CS_MAX_TONE_COUNT (n_ap + 1) exceeds Mode2_t idx[] capacity");
+BUILD_ASSERT(MARS_CS_MAX_TONE_COUNT * sizeof(((Mode2Data_t *)0)->quality_indicators.idx[0]) <=
+                 sizeof(((Mode2Data_t *)0)->quality_indicators.idx),
+             "MARS_CS_MAX_TONE_COUNT (n_ap + 1) exceeds Mode2Data_t idx[] capacity");
 
 LOG_MODULE_DECLARE(app_main, LOG_LEVEL_INF);
 
@@ -151,11 +151,11 @@ static bool fill_mode2_step(struct cs_step_parse_context *  p_context,
         Step_t *                p_step       = &p_event->steps.idx[p_context->step_index];
 
         memset(p_step, 0, sizeof(*p_step));
-        p_step->mode      = p_local_step->mode;
-        p_step->channel   = p_local_step->channel;
-        p_step->info.kind = MODE_ROLE_SPECIFIC_INFO_KIND_MODE2;
+        p_step->mode     = STEP_MODE_MODE2;
+        p_step->channel  = p_local_step->channel;
+        p_step->has_data = true;
 
-        Mode2_t * p_mode2 = &p_step->info.mode2;
+        Mode2Data_t * p_mode2 = &p_step->data.mode2;
         memset(p_mode2, 0, sizeof(*p_mode2));
         p_mode2->antenna_permutation_index = local_step_data->antenna_permutation_index;
 
@@ -217,7 +217,7 @@ static bool fill_mode2_step(struct cs_step_parse_context *  p_context,
  * subevent's ranging steps. The controller reports Mode-0 step data in one of
  * two HCI formats selected by role, distinguished by data_len: the 5-byte
  * initiator format (adds the measured frequency offset) or the 3-byte
- * reflector format. Each event's kind is derived from the data_len of its own
+ * reflector format. Each event's payload is derived from the data_len of its own
  * step data, so the function is role-agnostic on the RAS path (local
  * initiator format, peer reflector format when the local role is initiator).
  *
@@ -265,17 +265,17 @@ static bool fill_mode0_step(struct cs_step_parse_context *  p_context,
         Step_t *                              p_step     = &p_event->steps.idx[p_context->step_index];
 
         memset(p_step, 0, sizeof(*p_step));
-        p_step->mode    = p_local_step->mode;
-        p_step->channel = p_local_step->channel;
+        p_step->mode     = STEP_MODE_MODE0;
+        p_step->has_data = true;
+        p_step->channel  = p_local_step->channel;
 
-        Mode0Data_t * p_mode0 = &p_step->info.mode0;
+        Mode0Data_t * p_mode0 = &p_step->data.mode0;
         memset(p_mode0, 0, sizeof(*p_mode0));
 
         if (p_src_step != NULL && p_src_step->data_len == sizeof(struct bt_hci_le_cs_step_data_mode_0_initiator))
         {
             /* Real initiator-format step data (RAS path: the local event, or
              * the peer event when the local role is reflector). */
-            p_step->info.kind = MODE_ROLE_SPECIFIC_INFO_KIND_MODE0_INITIATOR;
 
             const struct bt_hci_le_cs_step_data_mode_0_initiator * step_data =
                 (const struct bt_hci_le_cs_step_data_mode_0_initiator *)p_src_step->data;
@@ -292,7 +292,7 @@ static bool fill_mode0_step(struct cs_step_parse_context *  p_context,
         {
             /* Real reflector-format step data (RAS path: the peer event when
              * the local role is initiator). No frequency offset on the wire. */
-            p_step->info.kind = MODE_ROLE_SPECIFIC_INFO_KIND_MODE0_REFLECTOR;
+
 
             const struct bt_hci_le_cs_step_data_mode_0_reflector * step_data =
                 (const struct bt_hci_le_cs_step_data_mode_0_reflector *)p_src_step->data;
@@ -301,11 +301,6 @@ static bool fill_mode0_step(struct cs_step_parse_context *  p_context,
             p_mode0->packet_quality.payload_bit_error_count     = step_data->packet_quality_bit_errors;
             p_mode0->packet_received_signal_strength_indicator  = (int8_t)step_data->packet_rssi;
             p_mode0->packet_antenna                             = step_data->packet_antenna;
-        }
-        else
-        {
-            /* IPT: synthesize a zeroed reflector step (no peer packet data). */
-            p_step->info.kind = MODE_ROLE_SPECIFIC_INFO_KIND_MODE0_REFLECTOR;
         }
     }
 
@@ -354,14 +349,11 @@ static bool fill_mode1_step(struct cs_step_parse_context *  p_context,
         const bool has_pct = p_src != NULL && p_src->data_len == sizeof(struct bt_hci_le_cs_step_data_mode_1_ss_rtt);
         Step_t *   p_step  = &p_event->steps.idx[p_context->step_index];
         memset(p_step, 0, sizeof(*p_step));
-        p_step->mode      = p_local_step->mode;
-        p_step->channel   = p_local_step->channel;
-        p_step->info.kind = initiator ? (has_pct ? MODE_ROLE_SPECIFIC_INFO_KIND_MODE1_INITIATOR_PBR_RTT
-                                                 : MODE_ROLE_SPECIFIC_INFO_KIND_MODE1_INITIATOR)
-                                      : (has_pct ? MODE_ROLE_SPECIFIC_INFO_KIND_MODE1_REFLECTOR_PBR_RTT
-                                                 : MODE_ROLE_SPECIFIC_INFO_KIND_MODE1_REFLECTOR);
+        p_step->mode     = STEP_MODE_MODE1;
+        p_step->channel  = p_local_step->channel;
+        p_step->has_data = true;
 
-        Mode1Data_t * p_mode1 = &p_step->info.mode1;
+        Mode1Data_t * p_mode1 = &p_step->data.mode1;
         p_mode1->timing.kind = initiator ? ROUND_TRIP_TIME_ROLE_TIMING_KIND_TIME_OF_ARRIVAL_TIME_OF_DEPARTURE_INITIATOR
                                          : ROUND_TRIP_TIME_ROLE_TIMING_KIND_TIME_OF_DEPARTURE_TIME_OF_ARRIVAL_REFLECTOR;
         if (p_src == NULL)
@@ -453,26 +445,22 @@ static bool fill_mode3_step(struct cs_step_parse_context *  p_context,
 
     const uint8_t index = p_context->step_index;
     (void)fill_mode1_step(p_context, &packets[0], p_peer_step != NULL ? &packets[1] : NULL);
-    Mode1Data_t packet_data[]                 = {p_context->p_local_event->steps.idx[index].info.mode1,
-                                                 p_context->p_peer_event->steps.idx[index].info.mode1};
+    Mode1Data_t packet_data[]                 = {p_context->p_local_event->steps.idx[index].data.mode1,
+                                                 p_context->p_peer_event->steps.idx[index].data.mode1};
     p_context->step_index                     = index;
     struct cs_step_parse_context tone_context = *p_context;
     tone_context.n_ap++;
     (void)fill_mode2_step(&tone_context, &tones[0], p_peer_step != NULL ? &tones[1] : NULL);
     for (size_t i = 0; i < ARRAY_SIZE(sources); i++)
     {
-        SubeventResultEvent_t * p_event   = i == 0u ? p_context->p_local_event : p_context->p_peer_event;
-        Step_t *                p_step    = &p_event->steps.idx[index];
-        const bool              initiator = p_event->origin == ORIGIN_INITIATOR;
-        const bool              has_pct   = packet_data[i].has_packet_phase_correction_terms;
-        p_step->info.mode1                = packet_data[i];
-        p_step->info.kind                 = initiator ? (has_pct ? MODE_ROLE_SPECIFIC_INFO_KIND_MODE3_INITIATOR_PBR_RTT
-                                                                 : MODE_ROLE_SPECIFIC_INFO_KIND_MODE3_INITIATOR)
-                                                      : (has_pct ? MODE_ROLE_SPECIFIC_INFO_KIND_MODE3_REFLECTOR_PBR_RTT
-                                                                 : MODE_ROLE_SPECIFIC_INFO_KIND_MODE3_REFLECTOR);
+        SubeventResultEvent_t * p_event = i == 0u ? p_context->p_local_event : p_context->p_peer_event;
+        Step_t *                p_step  = &p_event->steps.idx[index];
+        p_step->data.mode1              = packet_data[i];
+        p_step->mode                    = STEP_MODE_MODE3;
+        p_step->has_data                = true;
         if (sources[i] != NULL)
         {
-            p_step->info.mode2.antenna_permutation_index = tones[i].data[0];
+            p_step->data.mode2.antenna_permutation_index = tones[i].data[0];
         }
     }
     p_context->step_index++;

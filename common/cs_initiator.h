@@ -50,7 +50,7 @@
  *
  * This is both the IPT local step buffer tone count (see @ref
  * MARS_CS_IPT_MODE_2_MAX_LEN) and the cap on the mode-2 parse loop in
- * cs_step_parse.c, which indexes Mode2_t's idx[] arrays. Kept unsigned to match
+ * cs_step_parse.c, which indexes Mode2Data_t's idx[] arrays. Kept unsigned to match
  * the former literal `5u` and avoid -Wsign-compare in MIN/MAX/loop usage.
  */
 #define MARS_CS_MAX_TONE_COUNT ((unsigned int)(MARS_CS_MAX_ANTENNA_PATHS + 1))
